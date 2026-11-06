@@ -2009,9 +2009,9 @@ public class MainActivity extends FragmentActivity {
             return "";
         }
 
-        Matcher add = Pattern.compile("(?i)^(?:add|create|new) task\\\\s*:?\\\\s*(.+)$")
+        Matcher add = Pattern.compile("(?i)^(?:add|create|new) task\\s*:?\\s*(.+)$")
                 .matcher(raw);
-        if (!add.matches()) add = Pattern.compile("(?i)^todo\\\\s*:\\\\s*(.+)$").matcher(raw);
+        if (!add.matches()) add = Pattern.compile("(?i)^todo\\s*:\\s*(.+)$").matcher(raw);
         if (add.matches()) {
             String title = add.group(1).trim();
             try {
@@ -2023,9 +2023,9 @@ public class MainActivity extends FragmentActivity {
             }
         }
 
-        Matcher complete = Pattern.compile("(?i)^(?:complete|finish|done) task\\\\s+(.+)$").matcher(raw);
+        Matcher complete = Pattern.compile("(?i)^(?:complete|finish|done) task\\s+(.+)$").matcher(raw);
         if (!complete.matches()) {
-            complete = Pattern.compile("(?i)^mark task\\\\s+(.+?)\\\\s+(?:done|complete)$").matcher(raw);
+            complete = Pattern.compile("(?i)^mark task\\s+(.+?)\\s+(?:done|complete)$").matcher(raw);
         }
         if (complete.matches()) {
             String query = complete.group(1).trim();
@@ -2040,7 +2040,7 @@ public class MainActivity extends FragmentActivity {
             }
         }
 
-        Matcher delete = Pattern.compile("(?i)^delete task\\\\s+(.+)$").matcher(raw);
+        Matcher delete = Pattern.compile("(?i)^delete task\\s+(.+)$").matcher(raw);
         if (delete.matches()) {
             String query = delete.group(1).trim();
             int id = JarvisTodoStore.findPending(this, query);
