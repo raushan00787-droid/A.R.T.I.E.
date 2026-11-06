@@ -32,18 +32,18 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="J.A.R.V.I.S. 1.11"
+        android:label="J.A.R.V.I.S. 1.12"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
 
         <service
-            android:name=".JarvisLiveService"
+            android:name="com.raushan.jarvis.JarvisLiveService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
         <service
-            android:name=".JarvisVoiceInteractionService"
+            android:name="com.raushan.jarvis.JarvisVoiceInteractionService"
             android:label="J.A.R.V.I.S."
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true">
@@ -56,11 +56,13 @@
         </service>
 
         <service
-            android:name=".JarvisVoiceInteractionSessionService"
+            android:name="com.raushan.jarvis.JarvisVoiceInteractionSessionService"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true" />
 
-        <receiver android:name=".JarvisNotificationReceiver" android:exported="false">
+        <receiver
+            android:name="com.raushan.jarvis.JarvisNotificationReceiver"
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BATTERY_LOW" />
                 <action android:name="com.raushan.jarvis.notification.REMINDER" />
