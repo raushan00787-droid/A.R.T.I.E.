@@ -27,6 +27,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.WindowInsets;
+import android.os.Build;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
@@ -121,6 +123,12 @@ public class MainActivity extends Activity {
             if (tts != null && result == TextToSpeech.SUCCESS) {
                 tts.setLanguage(new Locale("en", "IN"));
                 tts.setSpeechRate(1.0f);
+                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
+                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); }); }
+                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); }); }
+                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); }); }
+                });
             }
         });
 
@@ -220,6 +228,19 @@ public class MainActivity extends Activity {
         root.setPadding(dp(22), dp(22), dp(22), dp(24));
         page.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        page.setOnApplyWindowInsetsListener((view, insets) -> {
+            int top = 0, bottom = 0;
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                top = bars.top;
+                bottom = bars.bottom;
+            } else {
+                top = insets.getSystemWindowInsetTop();
+                bottom = insets.getSystemWindowInsetBottom();
+            }
+            root.setPadding(dp(22), dp(22) + top, dp(22), dp(24) + bottom);
+            return insets;
+        });
         setContentView(page);
 
         buildTopBar();
@@ -650,7 +671,7 @@ public class MainActivity extends Activity {
         if (value.equals("stop") || value.equals("bas") || value.equals("chup") ||
                 value.contains("stop speech") || value.contains("jarvis stop")) {
             stopSpeech();
-            return "Speech stopped.";
+            return "";
         }
 
         if (value.contains("flashlight") || value.contains("torch") || value.contains("टॉर्च")) {
@@ -834,7 +855,7 @@ public class MainActivity extends Activity {
         if (battery == null) return -1;
         int level = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
         int scale = battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
-        return level >= 0 && scale > 0 ? Math.round(level * 100f / scale) : -1;
+        return level >= 0 && scale > 0 ? Math.max(0, Math.min(100, Math.round(level * 100f / scale))) : -1;
     }
 
     private void openSettings(String action, String label) {
