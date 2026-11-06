@@ -2,10 +2,12 @@
 
 Native Android companion app for Raushan's J.A.R.V.I.S. project.
 
-## Native build 1.5
+## Native build 1.6
 
 - Refined cockpit-style native interface with animated reactor, compact R-01 signature, live status readouts, message bubbles, and a hidden local system panel.
 - Cloudflare Worker AI chat integration with bounded conversation history restored from local app storage after restart.
+- JARVIS persona update: a female executive aide who addresses Raushan respectfully as "Sir" when natural, uses feminine Hindi/Hinglish phrasing, stays composed and observant, offers restrained dry humour, anticipates relevant next steps, and candidly flags risks without pretending to have unsupported device access.
+- TTS now prioritises clearly female-labelled voice profiles when the installed Android speech engine exposes them, while preserving a saved voice that already matches the persona. The voice picker remains available; Android engines do not expose consistent gender metadata, so the exact voice depends on installed speech services.
 - Explicit on-device memory: save notes with "remember that ...", view them with "show memories", and remove them with "forget ...". JARVIS does not silently extract personal facts from chat. Relevant saved notes are added to future AI requests so the connected assistant can use them. Passwords, PINs, OTPs and access keys are blocked from memory.
 - Speech recognition modes: AUTO, EN-IN and HI-IN. AUTO lets the installed recognition service choose its default language; reliable code-mixed Hinglish support is not guaranteed by Android's standard recognizer.
 - Android TTS voice picker, saved voice selection, speech cleanup and adjustable speech speed.
