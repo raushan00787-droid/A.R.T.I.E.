@@ -915,6 +915,18 @@ public class MainActivity extends FragmentActivity {
         chatScroll.post(() -> chatScroll.fullScroll(View.FOCUS_DOWN));
     }
 
+    private void confirmClearTaskHistory() {
+        new AlertDialog.Builder(this)
+                .setTitle("CLEAR TASK HISTORY")
+                .setMessage("Remove the saved local task history from this device?")
+                .setPositiveButton("CLEAR", (dialog, which) -> {
+                    JarvisTaskHistory.clear(this);
+                    reply("Task history cleared.");
+                })
+                .setNegativeButton("CANCEL", null)
+                .show();
+    }
+
     private void clearConversation() {
         if (chatList != null) {
             chatList.removeAllViews();
@@ -954,6 +966,12 @@ public class MainActivity extends FragmentActivity {
 
         String local = (showUserBubble || allowWebFetch) ? handleLocalCommand(message) : null;
         if (local != null) {
+            if (!"clear task history".equalsIgnoreCase(message)) {
+                String detail = local.isEmpty()
+                        ? "Command was handed to a supported Android capability; verify the resulting app/device state."
+                        : local;
+                JarvisTaskHistory.record(this, message, "HANDLED", detail);
+            }
             if (!local.isEmpty()) reply(local);
             else { scheduleListeningRestart(650); resumeLiveModeAfterSpeech(); }
             return;
@@ -1053,6 +1071,8 @@ public class MainActivity extends FragmentActivity {
             network.execute(() -> {
                 try {
                     WebPageReader.Page page = WebPageReader.read(url);
+                    JarvisTaskHistory.record(this, "Read webpage: " + page.url, "SOURCE_EXTRACTED",
+                            "Title: " + page.title + ". Extracted bounded page text for AI analysis.");
                     JSONObject source = new JSONObject();
                     source.put("url", page.url);
                     source.put("title", page.title);
@@ -1075,6 +1095,7 @@ public class MainActivity extends FragmentActivity {
                         sendMessage(aiInput, false, false);
                     });
                 } catch (Exception error) {
+                    JarvisTaskHistory.record(this, "Read webpage: " + url, "FAILED", safeMessage(error));
                     runOnUiThread(() -> {
                         if (isFinishing() || isDestroyed()) return;
                         busy = false;
@@ -1226,6 +1247,20 @@ public class MainActivity extends FragmentActivity {
 
         String messageCommand = handleMessageCommand(input);
         if (messageCommand != null) return messageCommand;
+
+        if (value.equals("system diagnostics") || value.equals("run diagnostics")
+                || value.equals("device health") || value.equals("system health")
+                || value.equals("check jarvis status")) {
+            return JarvisDiagnostics.buildReport(this, tts != null, recognizer != null,
+                    liveModeEnabled, liveModePaused, floatingOrbEnabled, clapWakeEnabled, torchOn);
+        }
+        if (value.equals("task history") || value.equals("recent tasks") || value.equals("show task history")) {
+            return JarvisTaskHistory.recentSummary(this);
+        }
+        if (value.equals("clear task history")) {
+            confirmClearTaskHistory();
+            return "";
+        }
 
         // Conversational replacements for every action that used to live in the Local System Panel.
         if (value.equals("clear chat") || value.equals("clear conversation") || value.equals("clear chat history")) {
