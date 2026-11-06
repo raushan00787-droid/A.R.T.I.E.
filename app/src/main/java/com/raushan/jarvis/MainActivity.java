@@ -2,10 +2,12 @@ package com.raushan.jarvis;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
@@ -13,6 +15,9 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.os.BatteryManager;
@@ -21,6 +26,7 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.Voice;
 import android.speech.tts.UtteranceProgressListener;
 import android.view.Gravity;
 import android.view.View;
@@ -49,6 +55,8 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Collections;
+import java.util.Set;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -57,6 +65,7 @@ public class MainActivity extends Activity {
     private static final String WORKER_URL = "https://quiet-scribe-ai.thequietscribe.workers.dev";
     private static final int PERMISSION_AUDIO = 10;
     private static final int PERMISSION_CAMERA = 11;
+    private static final int PERMISSION_CLAP = 12;
 
     private static final int BG = Color.rgb(5, 11, 19);
     private static final int PANEL = Color.rgb(9, 22, 35);
@@ -85,7 +94,13 @@ public class MainActivity extends Activity {
     private TextView voiceButton;
     private TextView languageButton;
     private ReactorView reactorView;
-    private MaskView maskView;
+    private SignatureView signatureView;
+    private TextView voiceSelectButton;
+    private final ArrayList<Voice> availableVoices = new ArrayList<>();
+    private String selectedVoiceName;
+    private volatile boolean clapWakeEnabled = false;
+    private AudioRecord clapRecorder;
+    private Thread clapThread;
 
     private TextToSpeech tts;
     private SpeechRecognizer recognizer;
@@ -121,13 +136,13 @@ public class MainActivity extends Activity {
 
         tts = new TextToSpeech(this, result -> {
             if (tts != null && result == TextToSpeech.SUCCESS) {
-                tts.setLanguage(new Locale("en", "IN"));
+                initializeVoiceSelection();
                 tts.setSpeechRate(1.0f);
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
-                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); }); }
-                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); }); }
-                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); }); }
+                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); resumeClapWake(); }); }
+                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); resumeClapWake(); }); }
+                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); resumeClapWake(); }); }
                 });
             }
         });
@@ -253,14 +268,14 @@ public class MainActivity extends Activity {
         addGap(root, 10);
         buildDeviceControls();
         addGap(root, 12);
-        TextView footer = text("J.A.R.V.I.S.  •  PERSONAL SYSTEM  •  BUILD 1.2", 9, MUTED);
+        TextView footer = text("J.A.R.V.I.S.  •  PERSONAL SYSTEM  •  BUILD 1.3", 9, MUTED);
         footer.setGravity(Gravity.CENTER);
         root.addView(footer);
     }
 
     private void buildTopBar() {
         LinearLayout bar = row();
-        TextView brand = text("◉  J.A.R.V.I.S.  /  PERSONAL SYSTEM", 11, CYAN);
+        TextView brand = text("R  J.A.R.V.I.S.  /  PERSONAL SYSTEM", 11, CYAN);
         brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         brand.setLetterSpacing(0.08f);
         bar.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
@@ -313,16 +328,16 @@ public class MainActivity extends Activity {
         hint.setPadding(0, dp(5), 0, 0);
         left.addView(hint);
 
-        TextView rightCaption = text("PERSONAL SIGNATURE  /  R-01", 9, MUTED);
+        TextView rightCaption = text("RAUSHAN SIGNATURE  /  R-01", 9, MUTED);
         rightCaption.setGravity(Gravity.CENTER);
         rightCaption.setLetterSpacing(0.16f);
         right.addView(rightCaption);
 
-        maskView = new MaskView(this);
-        LinearLayout.LayoutParams maskLp = new LinearLayout.LayoutParams(dp(wide ? 220 : 185), dp(wide ? 220 : 185));
-        maskLp.gravity = Gravity.CENTER_HORIZONTAL;
-        maskLp.topMargin = dp(10);
-        right.addView(maskView, maskLp);
+        signatureView = new SignatureView(this);
+        LinearLayout.LayoutParams signatureLp = new LinearLayout.LayoutParams(dp(wide ? 220 : 185), dp(wide ? 220 : 185));
+        signatureLp.gravity = Gravity.CENTER_HORIZONTAL;
+        signatureLp.topMargin = dp(10);
+        right.addView(signatureView, signatureLp);
 
         TextView ownerTitle = text("RAUSHAN", 12, GOLD);
         ownerTitle.setGravity(Gravity.CENTER);
@@ -489,6 +504,19 @@ public class MainActivity extends Activity {
         addControl(rowThree, "HELP", () -> sendMessage("Show me the available JARVIS commands."));
         addControl(rowThree, "CLEAR CHAT", () -> clearConversation());
         root.addView(rowThree);
+
+        LinearLayout rowFour = row();
+        voiceSelectButton = text("VOICE: SYSTEM DEFAULT", 9, CYAN);
+        voiceSelectButton.setGravity(Gravity.CENTER);
+        voiceSelectButton.setPadding(dp(3), dp(12), dp(3), dp(12));
+        voiceSelectButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
+        voiceSelectButton.setOnClickListener(v -> showVoicePicker());
+        LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1);
+        voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
+        rowFour.addView(voiceSelectButton, voiceLp);
+        addControl(rowFour, "CLAP WAKE", () -> toggleClapWake());
+        addControl(rowFour, "TEST VOICE", () -> speak("Hello Raushan. This is your selected JARVIS voice."));
+        root.addView(rowFour);
     }
 
     private void addControl(LinearLayout parent, String label, Runnable action) {
@@ -724,9 +752,10 @@ public class MainActivity extends Activity {
 
     private void speak(String message) {
         if (!spokenReplies || tts == null || message == null || message.trim().isEmpty()) return;
-        boolean hindiText = message.matches("(?s).*[\\u0900-\\u097F].*");
-        tts.setLanguage(hindiText ? new Locale("hi", "IN") : new Locale("en", "IN"));
-        tts.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis-" + System.currentTimeMillis());
+        String speechText = cleanSpeechText(message);
+        if (speechText.isEmpty()) { resumeClapWake(); return; }
+        // Keep the explicitly selected Android TTS voice. Do not reset the voice per reply.
+        tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, "jarvis-" + System.currentTimeMillis());
         setStatus("SPEAKING");
     }
 
@@ -737,6 +766,252 @@ public class MainActivity extends Activity {
             listening = false;
         }
         setStatus("SPEECH INTERRUPTED");
+        resumeClapWake();
+    }
+
+
+    private void initializeVoiceSelection() {
+        availableVoices.clear();
+        if (tts == null) return;
+
+        Set<Voice> voices = tts.getVoices();
+        if (voices != null) {
+            availableVoices.addAll(voices);
+            Collections.sort(availableVoices, (a, b) ->
+                    (a.getLocale().toLanguageTag() + " " + a.getName())
+                            .compareToIgnoreCase(b.getLocale().toLanguageTag() + " " + b.getName()));
+        }
+
+        SharedPreferences preferences = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+        String savedName = preferences.getString("tts_voice_name", "");
+        Voice selected = null;
+
+        if (!savedName.isEmpty()) {
+            for (Voice voice : availableVoices) {
+                if (savedName.equals(voice.getName())) {
+                    selected = voice;
+                    break;
+                }
+            }
+        }
+
+        if (selected == null && savedName.isEmpty()) {
+            for (Voice voice : availableVoices) {
+                if (voice.getName().toLowerCase(Locale.ROOT).contains("heart")) {
+                    selected = voice;
+                    break;
+                }
+            }
+        }
+
+        if (selected != null && tts.setVoice(selected) == TextToSpeech.SUCCESS) {
+            selectedVoiceName = selected.getName();
+            preferences.edit().putString("tts_voice_name", selectedVoiceName).apply();
+        } else {
+            Voice systemVoice = tts.getVoice();
+            if (systemVoice == null) {
+                tts.setLanguage(new Locale("en", "IN"));
+                systemVoice = tts.getVoice();
+            }
+            selectedVoiceName = systemVoice == null ? "SYSTEM DEFAULT" : systemVoice.getName();
+        }
+        updateVoiceSelectButton();
+    }
+
+    private String voiceDisplayName() {
+        if (selectedVoiceName == null || selectedVoiceName.trim().isEmpty()) return "SYSTEM DEFAULT";
+        String name = selectedVoiceName;
+        int hash = name.indexOf('#');
+        if (hash > 0) name = name.substring(0, hash);
+        name = name.replace('_', ' ').replace('-', ' ').trim();
+        return name.length() > 24 ? name.substring(0, 24) : name;
+    }
+
+    private void updateVoiceSelectButton() {
+        if (voiceSelectButton != null) {
+            voiceSelectButton.setText("VOICE: " + voiceDisplayName().toUpperCase(Locale.ROOT));
+        }
+    }
+
+    private void showVoicePicker() {
+        if (tts == null || availableVoices.isEmpty()) {
+            reply("No selectable Android text-to-speech voices are available. Check your device's text-to-speech settings.");
+            return;
+        }
+        String[] labels = new String[availableVoices.size()];
+        int selectedIndex = -1;
+        for (int i = 0; i < availableVoices.size(); i++) {
+            Voice voice = availableVoices.get(i);
+            labels[i] = voice.getName() + "  ·  " + voice.getLocale().toLanguageTag()
+                    + (voice.isNetworkConnectionRequired() ? "  ·  ONLINE" : "  ·  DEVICE");
+            if (voice.getName().equals(selectedVoiceName)) selectedIndex = i;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("SELECT JARVIS VOICE")
+                .setSingleChoiceItems(labels, selectedIndex, (dialog, which) -> {
+                    Voice voice = availableVoices.get(which);
+                    if (tts.setVoice(voice) == TextToSpeech.SUCCESS) {
+                        selectedVoiceName = voice.getName();
+                        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                                .putString("tts_voice_name", selectedVoiceName).apply();
+                        updateVoiceSelectButton();
+                        dialog.dismiss();
+                        speak("Voice profile selected. This is how I will speak from now on.");
+                    } else {
+                        reply("That voice could not be selected by the Android speech engine.");
+                    }
+                })
+                .setNegativeButton("CANCEL", null)
+                .show();
+    }
+
+    private String cleanSpeechText(String source) {
+        String value = source == null ? "" : source;
+        value = value.replaceAll("\\x60\\x60\\x60[\\s\\S]*?\\x60\\x60\\x60", " ");
+        value = value.replaceAll("\\x60([^\\x60]+)\\x60", "$1");
+        value = value.replaceAll("\\[([^\\]]+)\\]\\([^)]+\\)", "$1");
+        value = value.replaceAll("https?://\\S+", " ");
+        value = value.replaceAll("(?m)^\\s{0,3}#{1,6}\\s*", "");
+        value = value.replaceAll("(?m)^\\s*(?:[-*•▪◦]|\\d+[.)])\\s+", "");
+        value = value.replaceAll("\\*\\*(.*?)\\*\\*", "$1");
+        value = value.replaceAll("__(.*?)__", "$1");
+        value = value.replaceAll("~~(.*?)~~", "$1");
+        value = value.replaceAll("(?s)<[^>]*>", " ");
+
+        StringBuilder spoken = new StringBuilder(value.length());
+        for (int offset = 0; offset < value.length();) {
+            int cp = value.codePointAt(offset);
+            offset += Character.charCount(cp);
+            if (isEmojiOrDecorativeSymbol(cp)) spoken.append(' ');
+            else spoken.appendCodePoint(cp);
+        }
+        return spoken.toString()
+                .replaceAll("[ \\t]{2,}", " ")
+                .replaceAll("\\s+([,.;:!?।])", "$1")
+                .replaceAll("([,;:])(?=\\S)", "$1 ")
+                .replaceAll("\\n+", " ")
+                .trim();
+    }
+
+    private boolean isEmojiOrDecorativeSymbol(int cp) {
+        return (cp >= 0x1F000 && cp <= 0x1FAFF)
+                || (cp >= 0x2600 && cp <= 0x27BF)
+                || (cp >= 0x1F1E6 && cp <= 0x1F1FF)
+                || cp == 0x00A9 || cp == 0x00AE || cp == 0x200D
+                || cp == 0xFE0E || cp == 0xFE0F || cp == 0x20E3
+                || cp == 0x2022 || cp == 0x25AA || cp == 0x25CF
+                || cp == 0x00B7 || cp == 0x2192 || cp == 0x21D2
+                || cp == 0x27A4 || cp == 0x200B;
+    }
+
+    private void toggleClapWake() {
+        if (clapWakeEnabled) {
+            clapWakeEnabled = false;
+            stopClapRecorder();
+            setStatus("CLAP WAKE OFF");
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_CLAP);
+            return;
+        }
+        clapWakeEnabled = true;
+        startClapMonitor();
+    }
+
+    private void startClapMonitor() {
+        if (!clapWakeEnabled || clapRecorder != null) return;
+        final int sampleRate = 16000;
+        int minimum = AudioRecord.getMinBufferSize(sampleRate,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        if (minimum <= 0) {
+            clapWakeEnabled = false;
+            setStatus("CLAP WAKE UNAVAILABLE");
+            return;
+        }
+        final AudioRecord recorder = new AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION, sampleRate,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                Math.max(minimum, 8192));
+        if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+            recorder.release();
+            clapWakeEnabled = false;
+            setStatus("CLAP WAKE COULD NOT START");
+            return;
+        }
+        clapRecorder = recorder;
+        setStatus("CLAP WAKE ACTIVE  •  CLAP ONCE TO SPEAK");
+
+        clapThread = new Thread(() -> {
+            boolean triggered = false;
+            try {
+                recorder.startRecording();
+                short[] samples = new short[1024];
+                while (clapWakeEnabled && !Thread.currentThread().isInterrupted()) {
+                    int count = recorder.read(samples, 0, samples.length);
+                    if (count <= 0) continue;
+                    int peak = 0;
+                    long sumSquares = 0;
+                    for (int i = 0; i < count; i++) {
+                        int amplitude = Math.abs((int) samples[i]);
+                        if (amplitude > peak) peak = amplitude;
+                        sumSquares += (long) amplitude * amplitude;
+                    }
+                    double rms = Math.sqrt(sumSquares / (double) count);
+                    if (peak > 23000 && rms > 5200) {
+                        triggered = true;
+                        releaseClapRecorder(recorder);
+                        clapThread = null;
+                        runOnUiThread(() -> {
+                            if (clapWakeEnabled) {
+                                setStatus("CLAP DETECTED  •  SPEAK NOW");
+                                startListening();
+                            }
+                        });
+                        return;
+                    }
+                }
+            } catch (Exception error) {
+                if (clapWakeEnabled) {
+                    clapWakeEnabled = false;
+                    runOnUiThread(() -> setStatus("CLAP WAKE ERROR"));
+                }
+            } finally {
+                if (!triggered && clapRecorder == recorder) releaseClapRecorder(recorder);
+                if (clapThread == Thread.currentThread()) clapThread = null;
+            }
+        }, "JARVIS-Clap-Wake");
+        clapThread.start();
+    }
+
+    private void releaseClapRecorder(AudioRecord recorder) {
+        try {
+            if (recorder.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) recorder.stop();
+        } catch (Exception ignored) { }
+        try { recorder.release(); } catch (Exception ignored) { }
+        if (clapRecorder == recorder) clapRecorder = null;
+    }
+
+    private void stopClapRecorder() {
+        Thread worker = clapThread;
+        if (worker != null) worker.interrupt();
+        AudioRecord recorder = clapRecorder;
+        if (recorder != null) releaseClapRecorder(recorder);
+        clapThread = null;
+    }
+
+    private void resumeClapWake() {
+        if (!clapWakeEnabled || handlerClock.handler == null) return;
+        handlerClock.handler.postDelayed(() -> {
+            if (clapWakeEnabled && !busy && !listening && !isFinishing()) startClapMonitor();
+        }, 850);
+    }
+
+    private void pauseClapWakeForManualMic() {
+        if (clapWakeEnabled && clapRecorder != null) {
+            clapWakeEnabled = false;
+            stopClapRecorder();
+        }
     }
 
     private void toggleVoice() {
@@ -785,6 +1060,7 @@ public class MainActivity extends Activity {
     }
 
     private void startListening() {
+        pauseClapWakeForManualMic();
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_AUDIO);
             return;
@@ -881,6 +1157,14 @@ public class MainActivity extends Activity {
             } else {
                 reply("Camera permission granted. Tap the flashlight control again.");
             }
+        } else if (requestCode == PERMISSION_CLAP) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                clapWakeEnabled = true;
+                startClapMonitor();
+            } else {
+                clapWakeEnabled = false;
+                setStatus("MICROPHONE PERMISSION REQUIRED FOR CLAP WAKE");
+            }
         }
     }
 
@@ -965,126 +1249,137 @@ public class MainActivity extends Activity {
         return value * context.getResources().getDisplayMetrics().density;
     }
 
-    private static class MaskView extends View {
+
+    private static class SignatureView extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        MaskView(Context context) { super(context); setLayerType(View.LAYER_TYPE_SOFTWARE, null); }
+        private final long started = System.currentTimeMillis();
+
+        SignatureView(Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        }
 
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float w = getWidth(), h = getHeight();
-            float s = Math.min(w, h) / 220f;
+            float scale = Math.min(w, h) / 220f;
             canvas.save();
-            canvas.translate((w - 220*s)/2f, (h - 220*s)/2f);
-            canvas.scale(s, s);
+            canvas.translate((w - 220 * scale) / 2f, (h - 220 * scale) / 2f);
+            canvas.scale(scale, scale);
+
+            float pulse = (float) (1.0 + 0.018 * Math.sin(
+                    (System.currentTimeMillis() - started) / 430.0));
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.rgb(5, 16, 28));
+            p.setShadowLayer(18, 0, 0, Color.argb(100, 44, 190, 236));
+            canvas.drawCircle(110, 110, 101, p);
+            p.clearShadowLayer();
 
             p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(1.2f);
-            p.setColor(Color.argb(95, 112, 229, 255));
+            p.setStrokeWidth(1.5f);
+            p.setColor(Color.argb(145, 112, 229, 255));
             canvas.drawCircle(110, 110, 101, p);
+            p.setStrokeWidth(1.0f);
+            p.setColor(Color.argb(135, Color.red(GOLD_STATIC), Color.green(GOLD_STATIC), Color.blue(GOLD_STATIC)));
             p.setPathEffect(new android.graphics.DashPathEffect(new float[]{3, 7}, 0));
-            canvas.drawCircle(110, 110, 92, p);
+            canvas.drawCircle(110, 110, 91, p);
             p.setPathEffect(null);
 
-            Path helmet = new Path();
-            helmet.moveTo(110, 23);
-            helmet.cubicTo(55, 25, 35, 66, 38, 112);
-            helmet.lineTo(48, 164);
-            helmet.lineTo(77, 194);
-            helmet.lineTo(110, 207);
-            helmet.lineTo(143, 194);
-            helmet.lineTo(172, 164);
-            helmet.lineTo(182, 112);
-            helmet.cubicTo(185, 66, 165, 25, 110, 23);
-            helmet.close();
+            canvas.save();
+            canvas.rotate((System.currentTimeMillis() - started) / 90f % 360f, 110, 110);
+            p.setStrokeWidth(2.0f);
+            p.setColor(Color.argb(155, 112, 229, 255));
+            canvas.drawArc(new RectF(16, 16, 204, 204), 18, 58, false, p);
+            canvas.drawArc(new RectF(16, 16, 204, 204), 198, 58, false, p);
+            canvas.restore();
+
+            Path outer = new Path();
+            outer.moveTo(110, 25); outer.lineTo(128, 54); outer.lineTo(160, 43);
+            outer.lineTo(153, 76); outer.lineTo(185, 93); outer.lineTo(158, 111);
+            outer.lineTo(172, 147); outer.lineTo(137, 145); outer.lineTo(110, 183);
+            outer.lineTo(83, 145); outer.lineTo(48, 147); outer.lineTo(62, 111);
+            outer.lineTo(35, 93); outer.lineTo(67, 76); outer.lineTo(60, 43);
+            outer.lineTo(92, 54); outer.close();
 
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(92, 27, 37));
-            p.setShadowLayer(14, 0, 0, Color.argb(80, 55, 194, 233));
-            canvas.drawPath(helmet, p);
+            p.setColor(Color.rgb(94, 27, 37));
+            p.setShadowLayer(11, 0, 0, Color.argb(105, 38, 178, 228));
+            canvas.drawPath(outer, p);
             p.clearShadowLayer();
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(4);
+            p.setColor(GOLD_STATIC);
+            canvas.drawPath(outer, p);
+
+            Path inner = new Path();
+            inner.moveTo(110, 62); inner.lineTo(133, 86); inner.lineTo(153, 82);
+            inner.lineTo(143, 106); inner.lineTo(151, 128); inner.lineTo(124, 126);
+            inner.lineTo(110, 150); inner.lineTo(96, 126); inner.lineTo(69, 128);
+            inner.lineTo(77, 106); inner.lineTo(67, 82); inner.lineTo(87, 86);
+            inner.close();
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.rgb(13, 29, 42));
+            canvas.drawPath(inner, p);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(2.5f);
+            p.setColor(Color.rgb(232, 184, 104));
+            canvas.drawPath(inner, p);
+
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.argb(45, 112, 229, 255));
+            canvas.drawCircle(110, 108, 42 * pulse, p);
+            p.setColor(Color.rgb(5, 20, 32));
+            canvas.drawCircle(110, 108, 29, p);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(3);
-            p.setColor(GOLD_STATIC);
-            canvas.drawPath(helmet, p);
-
-            Path face = new Path();
-            face.moveTo(110, 45);
-            face.lineTo(151, 61);
-            face.lineTo(161, 112);
-            face.lineTo(146, 160);
-            face.lineTo(110, 190);
-            face.lineTo(74, 160);
-            face.lineTo(59, 112);
-            face.lineTo(69, 61);
-            face.close();
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(139, 43, 47));
-            canvas.drawPath(face, p);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(1.8f);
-            p.setColor(Color.rgb(232, 184, 104));
-            canvas.drawPath(face, p);
-
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(208, 155, 78));
-            Path brow = new Path();
-            brow.moveTo(68, 76); brow.lineTo(105, 88); brow.lineTo(110, 99);
-            brow.lineTo(115, 88); brow.lineTo(152, 76); brow.lineTo(143, 57);
-            brow.lineTo(110, 48); brow.lineTo(77, 57); brow.close();
-            canvas.drawPath(brow, p);
-
-            Path leftEye = new Path();
-            leftEye.moveTo(66, 103); leftEye.lineTo(104, 110); leftEye.lineTo(98, 122); leftEye.lineTo(70, 119); leftEye.close();
-            Path rightEye = new Path();
-            rightEye.moveTo(154, 103); rightEye.lineTo(116, 110); rightEye.lineTo(122, 122); rightEye.lineTo(150, 119); rightEye.close();
-            p.setColor(Color.rgb(4, 20, 31));
-            canvas.drawPath(leftEye, p); canvas.drawPath(rightEye, p);
             p.setColor(Color.rgb(112, 229, 255));
-            p.setShadowLayer(9, 0, 0, Color.rgb(60, 207, 255));
-            Path leftGlow = new Path();
-            leftGlow.moveTo(72, 108); leftGlow.lineTo(98, 113); leftGlow.lineTo(95, 116); leftGlow.lineTo(74, 114); leftGlow.close();
-            Path rightGlow = new Path();
-            rightGlow.moveTo(148, 108); rightGlow.lineTo(122, 113); rightGlow.lineTo(125, 116); rightGlow.lineTo(146, 114); rightGlow.close();
-            canvas.drawPath(leftGlow, p); canvas.drawPath(rightGlow, p);
-            p.clearShadowLayer();
+            canvas.drawCircle(110, 108, 25, p);
+            p.setStrokeWidth(1);
+            p.setColor(Color.argb(185, 181, 245, 255));
+            canvas.drawCircle(110, 108, 19, p);
 
-            Path nose = new Path();
-            nose.moveTo(110, 102); nose.lineTo(124, 143); nose.lineTo(110, 151); nose.lineTo(96, 143); nose.close();
-            p.setColor(Color.rgb(69, 29, 37));
-            canvas.drawPath(nose, p);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(1.4f);
-            p.setColor(Color.rgb(236, 188, 109));
-            canvas.drawPath(nose, p);
-
+            p.setTextAlign(Paint.Align.CENTER);
+            p.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+            p.setTextSize(92);
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(17, 28, 39));
-            Path jaw = new Path();
-            jaw.moveTo(76, 151); jaw.lineTo(110, 165); jaw.lineTo(144, 151);
-            jaw.lineTo(136, 178); jaw.lineTo(110, 192); jaw.lineTo(84, 178); jaw.close();
-            canvas.drawPath(jaw, p);
+            p.setColor(GOLD_STATIC);
+            p.setShadowLayer(7, 0, 0, Color.argb(165, 30, 182, 236));
+            canvas.drawText("R", 110, 142, p);
+            p.clearShadowLayer();
+            p.setTextSize(90);
+            p.setColor(Color.rgb(255, 222, 155));
+            canvas.drawText("R", 109, 141, p);
+
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(2);
-            p.setColor(Color.rgb(226, 177, 95));
-            canvas.drawPath(jaw, p);
-            p.setStrokeWidth(2.3f);
             p.setColor(Color.rgb(112, 229, 255));
-            canvas.drawLine(91, 174, 129, 174, p);
-            canvas.drawLine(96, 180, 124, 180, p);
-            p.setStyle(Paint.Style.FILL);
-
-            p.setColor(Color.argb(150, 112, 229, 255));
-            canvas.drawCircle(110, 34, 3, p);
-            canvas.drawCircle(49, 111, 2, p);
-            canvas.drawCircle(171, 111, 2, p);
+            canvas.drawLine(110, 9, 110, 21, p);
+            canvas.drawLine(110, 199, 110, 211, p);
+            canvas.drawLine(9, 110, 21, 110, p);
+            canvas.drawLine(199, 110, 211, 110, p);
             canvas.restore();
+            postInvalidateDelayed(55);
         }
     }
 
     private static final int GOLD_STATIC = Color.rgb(216, 169, 77);
 
     @Override
+    protected void onPause() {
+        stopClapRecorder();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        resumeClapWake();
+    }
+
+    @Override
     protected void onDestroy() {
+        clapWakeEnabled = false;
+        stopClapRecorder();
         if (handlerClock.runnable != null) handlerClock.handler.removeCallbacks(handlerClock.runnable);
         if (recognizer != null) {
             try { recognizer.destroy(); } catch (Exception ignored) { }
