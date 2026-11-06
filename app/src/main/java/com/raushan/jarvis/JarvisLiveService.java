@@ -126,16 +126,16 @@ public class JarvisLiveService extends Service {
             updateNotification("Speech recognition is unavailable on this device.", false);
             return;
         }
-        if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
-            try {
-                recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
-            } catch (Exception unavailable) {
+        try {
+            if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+                try {
+                    recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
+                } catch (Exception unavailable) {
+                    recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                }
+            } else {
                 recognizer = SpeechRecognizer.createSpeechRecognizer(this);
             }
-        } else {
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this);
-        }
-        try {
             recognizer.setRecognitionListener(new RecognitionListener() {
                 @Override public void onReadyForSpeech(android.os.Bundle params) {
                     listening = true;
