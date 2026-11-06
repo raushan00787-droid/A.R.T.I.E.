@@ -86,8 +86,10 @@ final class JarvisBackupManager {
     static String preview(JSONObject root) throws Exception {
         validate(root);
         JSONObject settings = root.getJSONObject("settings");
+        String conversationRaw = settings.optString("conversation_history", "[]");
+        if (conversationRaw == null || conversationRaw.trim().isEmpty()) conversationRaw = "[]";
         int memories = new JSONArray(settings.optString("saved_memories", "[]")).length();
-        int chat = new JSONArray(settings.optString("conversation_history", "[]")).length();
+        int chat = new JSONArray(conversationRaw).length();
         int tasks = new JSONArray(settings.optString("task_history", "[]")).length();
         return "Backup format: JARVIS Native v" + VERSION
                 + "\nSaved notes: " + memories
