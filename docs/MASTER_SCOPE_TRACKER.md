@@ -36,7 +36,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 - [x] URL pasted into chat starts the webpage-reading path — IMPLEMENTED / BUILD PASS; DEVICE TEST REQUIRED.
 - [x] Android Share receives `ACTION_SEND text/plain` — IMPLEMENTED / BUILD PASS; DEVICE TEST REQUIRED.
 - [x] Android `ACTION_VIEW` receives HTTP and HTTPS links — IMPLEMENTED / BUILD PASS; DEVICE TEST REQUIRED.
-- [ ] Multi-file and image share intake.
+- [x] Android single-file and multi-file share intake (up to 10 user-granted URIs) into selected-document actions — IMPLEMENTED / BUILD PASS (#111); DEVICE TEST REQUIRED. Shared images can be handed to compatible apps but are not analysed by JARVIS yet.
 - [ ] PDF text extraction and analysis.
 - [ ] Image understanding.
 - [ ] Live camera visual understanding.
@@ -248,6 +248,8 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 | 2026-11-06 | `ddb84a5` / `ad49dc0` / `f794af3` | Diagnostics report and task history | Builds #62–#65 successful | Pending |
 | 2026-11-06 | `9cd1aac` / `d1f335c` / `57ee047` | Routine engine, backup integration, and chat command routing (initial attempts) | Builds #99–#101 failed on an unhandled JSON exception; fixed in #102 | Pending |
 | 2026-11-06 | `c3f6a56` / `579ce69` | Routine state recovery, resume logic, and ID collision protection | Builds #102/#103 successful | Pending |
+| 2026-11-06 | `ed7fdd6` / `e981e95` | Bounded filename search in user-selected SAF folders and revoked-access recovery | Builds #107/#108 successful | Pending |
+| 2026-11-06 | `1679728` / `8cce5d4` | Receive single-file and multi-file Android shares in JARVIS | Builds #110/#111 successful | Pending |
 
 ## Release acceptance rule
 
