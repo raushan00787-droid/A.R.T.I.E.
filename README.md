@@ -6,7 +6,7 @@ Native Android companion app for Raushan's J.A.R.V.I.S. project.
 
 - Native Java interface with the cyan/gold HUD, animated reactor and Raushan's R signature emblem.
 - Cloudflare Worker AI chat integration with bounded conversation history restored from local app storage after restart.
-- Explicit on-device memory: save notes with "remember that ...", view them with "show memories", and remove them with "forget ...". JARVIS does not silently extract personal facts from chat. Relevant saved notes are added to future AI requests so the connected assistant can use them.
+- Explicit on-device memory: save notes with "remember that ...", view them with "show memories", and remove them with "forget ...". JARVIS does not silently extract personal facts from chat. Relevant saved notes are added to future AI requests so the connected assistant can use them. Passwords, PINs, OTPs and access keys are blocked from memory.
 - Speech recognition modes: AUTO, EN-IN and HI-IN. AUTO lets the installed recognition service choose its default language; reliable code-mixed Hinglish support is not guaranteed by Android's standard recognizer.
 - Android TTS voice picker, saved voice selection, speech cleanup and adjustable speech speed.
 - Media-volume up/down controls using Android's standard volume UI.
