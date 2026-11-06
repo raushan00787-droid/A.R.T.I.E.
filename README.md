@@ -2,16 +2,19 @@
 
 Native Android companion app for Raushan's J.A.R.V.I.S. project.
 
-## Native build 1.3
+## Native build 1.4
 
-- Native Java interface with a cyan/gold HUD, animated reactor and Raushan's custom R signature emblem. The Iron Man mask illustration has been removed.
-- Conversation panel, text composer, quick prompts, clear-chat control and Cloudflare Worker AI connection.
-- EN-IN / HI-IN speech-recognition selector.
-- Spoken-reply toggle and speech interruption control.
-- Android TTS voice picker: lists voices exposed by the installed Android speech engine, remembers the selected voice, and keeps using it for replies instead of switching voice whenever the reply language changes. An installed voice named Heart is preferred on first launch when available.
-- Speech cleanup before TTS: removes emoji, decorative symbols, Markdown formatting, code blocks, list markers and URLs so the assistant reads the sentence rather than the markup.
-- Foreground clap-to-wake mode using the microphone. A clap starts speech recognition; the listener resumes after the response. Leaving the app pauses microphone capture.
+- Native Java interface with the cyan/gold HUD, animated reactor and Raushan's R signature emblem.
+- Cloudflare Worker AI chat integration with bounded conversation history restored from local app storage after restart.
+- Explicit on-device memory: save notes with "remember that ...", view them with "show memories", and remove them with "forget ...". JARVIS does not silently extract personal facts from chat.
+- Speech recognition modes: AUTO, EN-IN and HI-IN. AUTO leaves the language open to the installed recognition service; code-mixed Hinglish quality still depends on that service.
+- Android TTS voice picker, saved voice selection, speech cleanup and adjustable speech speed.
+- Media-volume up/down controls using Android's standard volume UI.
+- Voice/text app-launch commands for WhatsApp, YouTube, Chrome, Maps, Gmail, Spotify and Instagram when installed.
+- Alarm requests open the Android Clock alarm screen with a parsed time selected. The user must confirm and save the alarm in Clock; date selection, including tomorrow, must be checked there.
+- Foreground clap-to-wake mode using the microphone. Leaving the app pauses microphone capture.
 - Local commands for battery, flashlight, time/date and Wi-Fi, Bluetooth, display and system settings.
+- Improved AI request failure handling and clearer fallback messages.
 - Runtime microphone and camera permission handling.
 - Android 8.0+ (min SDK 26); compile/target SDK 35.
 
