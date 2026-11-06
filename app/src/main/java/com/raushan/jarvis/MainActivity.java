@@ -1774,6 +1774,10 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void speak(String message) {
+        if (liveModeEnabled && !liveModePaused) {
+            try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_HOLD)); }
+            catch (Exception ignored) { }
+        }
         if (!spokenReplies || tts == null || message == null || message.trim().isEmpty()) {
             scheduleListeningRestart(500);
             resumeLiveModeAfterSpeech();
@@ -2084,7 +2088,12 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void toggleContinuousListening() {
-        if (liveModeEnabled) {
+        if (liveModeEnabled && liveModePaused) {
+            liveModePaused = false;
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit().putBoolean("live_mode_paused", false).apply();
+            try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
+            catch (Exception error) { setStatus("LIVE MODE RESUME FAILED"); }
+        } else if (liveModeEnabled) {
             stopLiveMode();
         } else {
             startLiveMode();
