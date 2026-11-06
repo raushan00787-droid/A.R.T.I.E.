@@ -11,7 +11,7 @@ import java.util.Locale;
 /** Reads only bounded, text-based user-selected documents. */
 final class JarvisDocumentReader {
     private static final int MAX_BYTES = 256 * 1024;
-    private static final int MAX_CHARS = 16000;
+    private static final int MAX_CHARS = 12000;
 
     static final class Document {
         final String name;
@@ -31,7 +31,7 @@ final class JarvisDocumentReader {
         if (uri == null) throw new Exception("No document was selected.");
         String mime = resolver.getType(uri);
         if (mime == null) mime = "application/octet-stream";
-        if (!isSupportedText(name, mime)) {
+        if (!canRead(name, mime)) {
             throw new Exception("JARVIS can currently analyse plain text, Markdown, CSV, JSON, XML, and log files. PDF and image analysis are separate modules still being added.");
         }
 
@@ -51,7 +51,7 @@ final class JarvisDocumentReader {
         return new Document(name == null ? "Selected document" : name, mime, value);
     }
 
-    private static boolean isSupportedText(String name, String mime) {
+    static boolean canRead(String name, String mime) {
         String type = mime.toLowerCase(Locale.ROOT);
         if (type.startsWith("text/") || type.equals("application/json")
                 || type.equals("application/xml") || type.endsWith("+json")
