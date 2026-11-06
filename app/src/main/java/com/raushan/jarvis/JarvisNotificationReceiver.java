@@ -50,7 +50,11 @@ public class JarvisNotificationReceiver extends BroadcastReceiver {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) manager.notify((int) (System.currentTimeMillis() & 0x7fffffff), notification);
         if (ACTION_REMINDER.equals(action)) {
-            JarvisReminderScheduler.onDelivered(context, intent.getIntExtra(EXTRA_ID, -1));
+            int reminderId = intent.getIntExtra(EXTRA_ID, -1);
+            String reminderText = JarvisReminderScheduler.findTextById(context, reminderId);
+            JarvisTaskHistory.record(context, "Reminder notification: " + reminderText, "DELIVERED",
+                    "Android reminder receiver posted the notification.");
+            JarvisReminderScheduler.onDelivered(context, reminderId);
         }
     }
 
