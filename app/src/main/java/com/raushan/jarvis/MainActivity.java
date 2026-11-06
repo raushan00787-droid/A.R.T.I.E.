@@ -917,6 +917,13 @@ public class MainActivity extends Activity {
             String note = raw.substring(rememberPrefix.length()).trim();
             if (note.isEmpty()) return "Tell me what you'd like me to remember.";
             if (note.length() > 240) return "Please keep a saved note under 240 characters.";
+            String lowerNote = note.toLowerCase(Locale.ROOT);
+            String[] secretTerms = new String[]{"password", "passcode", "pin code", "otp", "api key", "secret key", "access token"};
+            for (String term : secretTerms) {
+                if (lowerNote.contains(term)) {
+                    return "I won't save passwords, PINs, OTPs or access keys. Use a trusted password manager for those.";
+                }
+            }
             JSONArray notes = getSavedMemories();
             for (int i = 0; i < notes.length(); i++) {
                 if (note.equalsIgnoreCase(notes.optString(i, ""))) {
