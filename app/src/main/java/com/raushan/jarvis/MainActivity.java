@@ -134,6 +134,11 @@ public class MainActivity extends Activity {
     private TextToSpeech tts;
     private SpeechRecognizer recognizer;
     private CameraManager camera;
+    private final android.os.Handler voiceHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private Runnable voiceRestartRunnable;
+    private boolean continuousListeningEnabled = true;
+    private boolean activityVisible = false;
+    private boolean micPermissionRequested = false;
     private String cameraId;
     private boolean torchOn = false;
     private boolean spokenReplies = true;
@@ -177,9 +182,9 @@ public class MainActivity extends Activity {
                 tts.setSpeechRate(speechRate);
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
-                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); resumeClapWake(); }); }
-                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); resumeClapWake(); }); }
-                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); resumeClapWake(); }); }
+                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
+                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); }); }
+                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
                 });
             }
         });
@@ -374,6 +379,7 @@ public class MainActivity extends Activity {
             return insets;
         });
         setContentView(page);
+        applyImmersiveMode();
 
         buildTopBar();
         addGap(root, 12);
@@ -382,17 +388,27 @@ public class MainActivity extends Activity {
         buildConversation();
         addGap(root, 9);
         buildComposer();
-        addGap(root, 8);
-        buildDeviceControls();
-
-        TextView footer = text("J.A.R.V.I.S.  /  R-01  •  NATIVE CORE 1.6", 8, MUTED);
-        footer.setGravity(Gravity.CENTER);
-        footer.setLetterSpacing(0.12f);
-        LinearLayout.LayoutParams footerLp = new LinearLayout.LayoutParams(-1, -2);
-        footerLp.topMargin = dp(10);
-        root.addView(footer, footerLp);
     }
 
+
+    private void applyImmersiveMode() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            android.view.WindowInsetsController controller = getWindow().getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                controller.setSystemBarsBehavior(
+                        android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN);
+        }
+    }
 
     private void buildTopBar() {
         LinearLayout bar = row();
@@ -421,11 +437,6 @@ public class MainActivity extends Activity {
         ownerBlock.addView(access);
 
         bar.addView(ownerBlock);
-        TextView systemButton = smallControl("⚙", () -> toggleSystemPanel());
-        LinearLayout.LayoutParams gearLp = new LinearLayout.LayoutParams(dp(40), dp(40));
-        gearLp.leftMargin = dp(10);
-        systemButton.setLayoutParams(gearLp);
-        bar.addView(systemButton);
         root.addView(bar, new LinearLayout.LayoutParams(-1, dp(46)));
     }
 
@@ -487,7 +498,7 @@ public class MainActivity extends Activity {
         readouts.addView(connectionView, new LinearLayout.LayoutParams(0, -2, 1));
         hero.addView(readouts);
 
-        TextView scrollHint = text("⌄   SCROLL TO EXPLORE FEATURES   ⌄", 8, MUTED);
+        TextView scrollHint = text("VOICE CHANNEL READY  •  SPEAK ANYTIME", 8, MUTED);
         scrollHint.setGravity(Gravity.CENTER);
         scrollHint.setLetterSpacing(0.12f);
         scrollHint.setPadding(0, dp(18), 0, dp(2));
@@ -563,7 +574,8 @@ public class MainActivity extends Activity {
         });
         composer.addView(prompt, new LinearLayout.LayoutParams(0, dp(46), 1));
 
-        micButton = smallControl("⌁", () -> startListening());
+        micButton = smallControl("●", () -> toggleContinuousListening());
+        micButton.setTextColor(GOLD);
         composer.addView(micButton);
         voiceButton = smallControl("◖", () -> toggleVoice());
         voiceButton.setTextColor(CYAN);
@@ -666,18 +678,8 @@ public class MainActivity extends Activity {
     }
 
     private void toggleSystemPanel() {
-        if (systemPanel == null) return;
-        boolean show = systemPanel.getVisibility() != View.VISIBLE;
-        systemPanel.setVisibility(show ? View.VISIBLE : View.GONE);
-        if (show) {
-            setStatus("LOCAL SYSTEM PANEL");
-            systemPanel.post(() -> {
-                View parent = (View) systemPanel.getParent();
-                if (parent instanceof ScrollView) ((ScrollView) parent).smoothScrollTo(0, systemPanel.getBottom());
-            });
-        } else {
-            setStatus("SYSTEM STANDBY");
-        }
+        // The control drawer is intentionally removed from the JARVIS interface.
+        // Device actions remain available through supported voice commands.
     }
 
     private void addControl(LinearLayout parent, String label, Runnable action) {
@@ -777,6 +779,7 @@ public class MainActivity extends Activity {
         String local = handleLocalCommand(message);
         if (local != null) {
             if (!local.isEmpty()) reply(local);
+            else scheduleListeningRestart(650);
             return;
         }
 
@@ -1376,14 +1379,18 @@ public class MainActivity extends Activity {
     }
 
     private void speak(String message) {
-        if (!spokenReplies || tts == null || message == null || message.trim().isEmpty()) return;
+        if (!spokenReplies || tts == null || message == null || message.trim().isEmpty()) {
+            scheduleListeningRestart(500);
+            return;
+        }
         String speechText = cleanSpeechText(message);
-        if (speechText.isEmpty()) { resumeClapWake(); return; }
+        if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); return; }
         boolean hindi = languageMode == 2 || (languageMode == 0 && containsDevanagari(speechText));
         String requestedLocale = hindi ? "hi-IN" : "en-IN";
-        Voice voice = findFemaleVoiceForLanguage(requestedLocale);
+        Voice voice = findInstalledVoiceForLanguage(requestedLocale);
         if (voice == null) {
-            setStatus(hindi ? "HINDI FEMALE VOICE NOT INSTALLED" : "ENGLISH FEMALE VOICE NOT INSTALLED");
+            setStatus(hindi ? "HINDI VOICE NOT INSTALLED" : "ENGLISH VOICE NOT INSTALLED");
+            scheduleListeningRestart(700);
             return;
         }
         try {
@@ -1397,9 +1404,14 @@ public class MainActivity extends Activity {
             updateVoiceSelectButton();
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "jarvis-" + System.currentTimeMillis());
-            if (result == TextToSpeech.ERROR) setStatus("VOICE OUTPUT ERROR");
-            else setStatus("SPEAKING");
-        } catch (Exception error) { setStatus("VOICE OUTPUT UNAVAILABLE"); }
+            if (result == TextToSpeech.ERROR) {
+                setStatus("VOICE OUTPUT ERROR");
+                scheduleListeningRestart(700);
+            } else setStatus("SPEAKING");
+        } catch (Exception error) {
+            setStatus("VOICE OUTPUT UNAVAILABLE");
+            scheduleListeningRestart(700);
+        }
     }
 
     private boolean containsDevanagari(String value) {
@@ -1423,34 +1435,24 @@ public class MainActivity extends Activity {
     }
 
 
-    private int femaleVoicePriority(Voice voice) {
-        if (voice == null) return 0;
-        String name = voice.getName().toLowerCase(Locale.ROOT);
-        if (name.contains("female") || name.contains("woman") || name.contains("feminine")) return 120;
-        String[] knownFemaleNames = {
-                "samantha", "zira", "jenny", "aria", "susan", "karen", "victoria",
-                "serena", "salli", "joanna", "ivy", "kendra", "kimberly", "tessa",
-                "moira", "fiona", "heera", "priya", "aditi", "veena", "neerja",
-                "lekha", "meera", "riya", "nisha", "ananya", "kavya", "sangeeta",
-                "sara", "sonia"
-        };
-        for (String marker : knownFemaleNames) if (name.contains(marker)) return 100;
-        return 0;
+    private int voicePriority(Voice voice, String requestedLanguage) {
+        if (voice == null || voice.getLocale() == null) return -1;
+        Locale locale = voice.getLocale();
+        if (!requestedLanguage.equalsIgnoreCase(locale.getLanguage())) return -1;
+        int score = 10;
+        if ("IN".equalsIgnoreCase(locale.getCountry())) score += 20;
+        if (!voice.isNetworkConnectionRequired()) score += 5;
+        if (voice.getName().equals(selectedVoiceName)) score += 3;
+        return score;
     }
 
-    private Voice findFemaleVoiceForLanguage(String requestedLocale) {
+    private Voice findInstalledVoiceForLanguage(String requestedLocale) {
         if (requestedLocale == null || availableVoices.isEmpty()) return null;
         String language = requestedLocale.toLowerCase(Locale.ROOT).startsWith("hi") ? "hi" : "en";
         Voice best = null;
         int bestScore = -1;
         for (Voice voice : availableVoices) {
-            if (femaleVoicePriority(voice) == 0) continue;
-            Locale locale = voice.getLocale();
-            if (locale == null || !language.equalsIgnoreCase(locale.getLanguage())) continue;
-            int score = femaleVoicePriority(voice);
-            if ("IN".equalsIgnoreCase(locale.getCountry())) score += 20;
-            if (!voice.isNetworkConnectionRequired()) score += 2;
-            if (voice.getName().equals(selectedVoiceName)) score += 1;
+            int score = voicePriority(voice, language);
             if (score > bestScore) { best = voice; bestScore = score; }
         }
         return best;
@@ -1461,26 +1463,34 @@ public class MainActivity extends Activity {
         if (tts == null) return;
         Set<Voice> voices = tts.getVoices();
         if (voices != null) {
-            for (Voice voice : voices) if (femaleVoicePriority(voice) > 0) availableVoices.add(voice);
-            Collections.sort(availableVoices, (a, b) ->
-                    (a.getLocale().toLanguageTag() + " " + a.getName())
-                            .compareToIgnoreCase(b.getLocale().toLanguageTag() + " " + b.getName()));
+            for (Voice voice : voices) {
+                Locale locale = voice.getLocale();
+                if (locale != null && ("en".equalsIgnoreCase(locale.getLanguage())
+                        || "hi".equalsIgnoreCase(locale.getLanguage()))) availableVoices.add(voice);
+            }
+            Collections.sort(availableVoices, (a, b) -> {
+                Locale al = a.getLocale(), bl = b.getLocale();
+                String at = (al == null ? "" : al.toLanguageTag()) + " " + a.getName();
+                String bt = (bl == null ? "" : bl.toLanguageTag()) + " " + b.getName();
+                return at.compareToIgnoreCase(bt);
+            });
         }
         SharedPreferences preferences = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
         String savedName = preferences.getString("tts_voice_name", "");
         Voice savedVoice = null;
-        for (Voice voice : availableVoices) if (savedName.equals(voice.getName())) { savedVoice = voice; break; }
-        Voice english = findFemaleVoiceForLanguage("en-IN");
-        Voice hindi = findFemaleVoiceForLanguage("hi-IN");
-        Voice selected = savedVoice != null ? savedVoice : (english != null ? english : hindi);
+        for (Voice voice : availableVoices) {
+            if (savedName.equals(voice.getName())) { savedVoice = voice; break; }
+        }
+        Voice selected = savedVoice != null ? savedVoice : findInstalledVoiceForLanguage("en-IN");
+        if (selected == null) selected = findInstalledVoiceForLanguage("hi-IN");
         if (selected != null && tts.setVoice(selected) == TextToSpeech.SUCCESS) {
             selectedVoiceName = selected.getName();
             preferences.edit().putString("tts_voice_name", selectedVoiceName).apply();
+            spokenReplies = true;
         } else {
             selectedVoiceName = "";
             spokenReplies = false;
         }
-        if (availableVoices.isEmpty()) spokenReplies = false;
         if (voiceButton != null) {
             voiceButton.setText(spokenReplies ? "◖" : "◗");
             voiceButton.setTextColor(spokenReplies ? CYAN : MUTED);
@@ -1499,12 +1509,12 @@ public class MainActivity extends Activity {
 
     private void updateVoiceSelectButton() {
         if (voiceSelectButton != null)
-            voiceSelectButton.setText("FEMALE ONLY: " + voiceDisplayName().toUpperCase(Locale.ROOT));
+            voiceSelectButton.setText("SYSTEM VOICE: " + voiceDisplayName().toUpperCase(Locale.ROOT));
     }
 
     private void showVoicePicker() {
         if (tts == null || availableVoices.isEmpty()) {
-            reply("No identifiable female text-to-speech voice is installed. I will keep spoken replies off rather than use a male or unidentified voice. Install female English and Hindi voice data in your Android text-to-speech engine, then reopen JARVIS.");
+            reply("No compatible English or Hindi text-to-speech voice is installed. Spoken replies will remain off until a language voice is available.");
             return;
         }
         String[] labels = new String[availableVoices.size()];
@@ -1515,7 +1525,7 @@ public class MainActivity extends Activity {
                     + (voice.isNetworkConnectionRequired() ? "  ·  ONLINE" : "  ·  DEVICE");
             if (voice.getName().equals(selectedVoiceName)) selectedIndex = i;
         }
-        new AlertDialog.Builder(this).setTitle("FEMALE VOICES ONLY")
+        new AlertDialog.Builder(this).setTitle("INSTALLED VOICES")
                 .setSingleChoiceItems(labels, selectedIndex, (dialog, which) -> {
                     Voice voice = availableVoices.get(which);
                     if (tts.setVoice(voice) == TextToSpeech.SUCCESS) {
@@ -1525,7 +1535,7 @@ public class MainActivity extends Activity {
                         updateVoiceSelectButton();
                         dialog.dismiss();
                         speak("Voice profile selected. This is how I will speak from now on.");
-                    } else reply("That female voice could not be selected by the Android speech engine.");
+                    } else reply("That installed voice could not be selected by the Android speech engine.");
                 }).setNegativeButton("CANCEL", null).show();
     }
 
@@ -1701,7 +1711,8 @@ public class MainActivity extends Activity {
             return;
         }
         if (availableVoices.isEmpty()) {
-            reply("Female voice profiles are not available on this device. I will not switch to a male voice. Install female English and Hindi voice data in Android text-to-speech settings.");
+            reply("No English or Hindi speech voice is installed on this device yet.");
+            scheduleListeningRestart(700);
             return;
         }
         spokenReplies = true;
@@ -1725,26 +1736,31 @@ public class MainActivity extends Activity {
             @Override public void onReadyForSpeech(Bundle params) {
                 listening = true;
                 setStatus("LISTENING");
-                if (micButton != null) micButton.setTextColor(GOLD);
+                if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
             }
-            @Override public void onBeginningOfSpeech() { }
+            @Override public void onBeginningOfSpeech() { setStatus("LISTENING"); }
             @Override public void onRmsChanged(float rmsdB) { }
             @Override public void onBufferReceived(byte[] buffer) { }
             @Override public void onEndOfSpeech() { setStatus("PROCESSING VOICE"); }
             @Override public void onError(int error) {
                 listening = false;
-                if (micButton != null) micButton.setTextColor(CYAN);
-                setStatus(error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS
-                        ? "MICROPHONE PERMISSION REQUIRED" : "VOICE INPUT READY");
+                if (micButton != null) { micButton.setText("●"); micButton.setTextColor(continuousListeningEnabled ? GOLD : MUTED); }
+                if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                    continuousListeningEnabled = false;
+                    setStatus("MICROPHONE PERMISSION REQUIRED");
+                } else {
+                    setStatus(continuousListeningEnabled ? "RECONNECTING VOICE" : "MICROPHONE PAUSED");
+                    scheduleListeningRestart(error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1400 : 1000);
+                }
                 resumeClapWake();
             }
             @Override public void onResults(Bundle results) {
                 listening = false;
-                if (micButton != null) micButton.setTextColor(CYAN);
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) sendMessage(matches.get(0));
                 else {
-                    setStatus("NO SPEECH DETECTED");
+                    setStatus("WAITING FOR COMMAND");
+                    scheduleListeningRestart(550);
                     resumeClapWake();
                 }
             }
@@ -1753,14 +1769,51 @@ public class MainActivity extends Activity {
         };
     }
 
-    private void startListening() {
-        pauseClapWakeForManualMic();
+    private void toggleContinuousListening() {
+        continuousListeningEnabled = !continuousListeningEnabled;
+        if (!continuousListeningEnabled) {
+            if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
+            if (recognizer != null) {
+                try { recognizer.cancel(); } catch (Exception ignored) { }
+            }
+            listening = false;
+            if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
+            setStatus("MICROPHONE PAUSED");
+            return;
+        }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_AUDIO);
+            micPermissionRequested = false;
+        }
+        if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
+        scheduleListeningRestart(250);
+    }
+
+    private void scheduleListeningRestart(long delayMs) {
+        if (!continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
+        if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
+        voiceRestartRunnable = () -> {
+            voiceRestartRunnable = null;
+            startListening();
+        };
+        voiceHandler.postDelayed(voiceRestartRunnable, Math.max(250, delayMs));
+    }
+
+    private void startListening() {
+        if (!continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
+        if (busy || (tts != null && tts.isSpeaking())) return;
+        if (listening) return;
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            if (!micPermissionRequested) {
+                micPermissionRequested = true;
+                requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_AUDIO);
+            } else {
+                setStatus("MICROPHONE PERMISSION REQUIRED");
+            }
             return;
         }
         if (recognizer == null) {
-            reply("Speech recognition is not available on this device.");
+            setStatus("VOICE INPUT UNAVAILABLE");
+            scheduleListeningRestart(3000);
             return;
         }
         try {
@@ -1774,10 +1827,14 @@ public class MainActivity extends Activity {
                 intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "hi-IN");
             }
             intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800);
+            intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1000);
             recognizer.startListening(intent);
             setStatus("LISTENING");
         } catch (Exception error) {
-            setStatus("VOICE INPUT UNAVAILABLE");
+            listening = false;
+            setStatus("VOICE INPUT RECONNECTING");
+            scheduleListeningRestart(1200);
         }
     }
 
@@ -2045,9 +2102,12 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_AUDIO) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                continuousListeningEnabled = true;
                 startListening();
             } else {
-                reply("Microphone permission was not granted.");
+                continuousListeningEnabled = false;
+                if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
+                reply("Microphone permission was not granted. Voice listening is paused.");
             }
         } else if (requestCode == PERMISSION_CAMERA) {
             if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
@@ -2281,6 +2341,12 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        activityVisible = false;
+        if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
+        if (recognizer != null) {
+            try { recognizer.cancel(); } catch (Exception ignored) { }
+        }
+        listening = false;
         stopClapRecorder();
         super.onPause();
     }
@@ -2288,12 +2354,18 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        activityVisible = true;
+        applyImmersiveMode();
+        if (continuousListeningEnabled) scheduleListeningRestart(350);
         resumeClapWake();
     }
 
     @Override
     protected void onDestroy() {
         clapWakeEnabled = false;
+        continuousListeningEnabled = false;
+        activityVisible = false;
+        if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
         stopClapRecorder();
         if (handlerClock.runnable != null) handlerClock.handler.removeCallbacks(handlerClock.runnable);
         if (recognizer != null) {
