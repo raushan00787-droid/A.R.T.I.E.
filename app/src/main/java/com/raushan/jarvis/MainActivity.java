@@ -604,7 +604,9 @@ public class MainActivity extends FragmentActivity {
         buildTopBar();
         addGap(root, 12);
         buildMainArea();
-        addGap(root, 12);
+        addGap(root, 10);
+        buildQuickActions();
+        addGap(root, 14);
         buildConversation();
         addGap(root, 9);
         buildComposer();
@@ -714,14 +716,19 @@ public class MainActivity extends FragmentActivity {
         background.setStroke(dp(1), Color.rgb(39, 103, 130));
         hero.setBackground(background);
 
-        TextView eyebrow = text("ARC REACTOR  //  CORE 01", 9, MUTED);
+        TextView eyebrow = text("ARC REACTOR  //  CORE 01", 11, MUTED);
         eyebrow.setLetterSpacing(0.22f);
         eyebrow.setGravity(Gravity.CENTER);
         hero.addView(eyebrow);
 
         int screenWidthDp = (int) (getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        int reactorSize = screenWidthDp >= 700 ? 340 : screenWidthDp >= 520 ? 316 : 286;
+        int screenHeightDp = (int) (getResources().getDisplayMetrics().heightPixels /
+                getResources().getDisplayMetrics().density);
+        int reactorSize = screenWidthDp >= 900 ? 420
+                : screenWidthDp >= 700 ? 390
+                : screenWidthDp >= 520 ? 340
+                : screenHeightDp >= 760 ? 310 : 270;
         reactorView = new ReactorView(this);
         LinearLayout.LayoutParams reactorLp = new LinearLayout.LayoutParams(dp(reactorSize), dp(reactorSize));
         reactorLp.gravity = Gravity.CENTER;
@@ -733,13 +740,13 @@ public class MainActivity extends FragmentActivity {
         reactorView.setOnClickListener(v -> showVoiceOrb("READY"));
         hero.addView(reactorView, reactorLp);
 
-        TextView title = text("J.A.R.V.I.S.", 22, WHITE);
+        TextView title = text("J.A.R.V.I.S.", 28, WHITE);
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         title.setLetterSpacing(0.24f);
         title.setGravity(Gravity.CENTER);
         hero.addView(title);
 
-        TextView sub = text("PERSONAL AI  /  EXECUTIVE ASSISTANT", 8, CYAN);
+        TextView sub = text("PERSONAL AI  /  EXECUTIVE ASSISTANT", 10, CYAN);
         sub.setLetterSpacing(0.16f);
         sub.setGravity(Gravity.CENTER);
         sub.setPadding(0, dp(3), 0, dp(13));
@@ -753,18 +760,18 @@ public class MainActivity extends FragmentActivity {
 
         LinearLayout readouts = row();
         readouts.setGravity(Gravity.CENTER);
-        statusView = text("SYSTEM STANDBY", 8, CYAN);
+        statusView = text("SYSTEM STANDBY", 10, CYAN);
         statusView.setLetterSpacing(0.1f);
         readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1));
-        clockView = text("--:--", 9, WHITE);
+        clockView = text("--:--", 11, WHITE);
         clockView.setGravity(Gravity.CENTER);
         readouts.addView(clockView, new LinearLayout.LayoutParams(0, -2, 0.7f));
-        connectionView = text("AI LINK READY", 7, MUTED);
+        connectionView = text("AI LINK READY", 9, MUTED);
         connectionView.setGravity(Gravity.RIGHT);
         readouts.addView(connectionView, new LinearLayout.LayoutParams(0, -2, 1));
         hero.addView(readouts);
 
-        TextView scrollHint = text("VOICE CHANNEL READY  •  SPEAK ANYTIME", 8, MUTED);
+        TextView scrollHint = text("VOICE CHANNEL READY  •  SPEAK ANYTIME", 10, MUTED);
         scrollHint.setGravity(Gravity.CENTER);
         scrollHint.setLetterSpacing(0.12f);
         scrollHint.setPadding(0, dp(18), 0, dp(2));
@@ -777,17 +784,53 @@ public class MainActivity extends FragmentActivity {
     }
 
 
+    private void buildQuickActions() {
+        LinearLayout actions = row();
+        actions.setGravity(Gravity.CENTER);
+        actions.setPadding(0, dp(2), 0, dp(2));
+
+        TextView reminders = chip("◷  REMINDERS", this::showReminders);
+        reminders.setTextSize(11);
+        reminders.setPadding(dp(18), dp(14), dp(18), dp(14));
+        actions.addView(reminders, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        View gap = new View(this);
+        actions.addView(gap, new LinearLayout.LayoutParams(dp(10), 1));
+
+        TextView tasks = chip("✓  TASKS", () ->
+                new AlertDialog.Builder(this)
+                        .setTitle("JARVIS TASKS")
+                        .setMessage(JarvisTodoStore.summary(this, true))
+                        .setPositiveButton("CLOSE", null)
+                        .show());
+        tasks.setTextSize(11);
+        tasks.setPadding(dp(18), dp(14), dp(18), dp(14));
+        actions.addView(tasks, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        root.addView(actions, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void showReminders() {
+        String summary = JarvisReminderScheduler.summary(this);
+        new AlertDialog.Builder(this)
+                .setTitle("J.A.R.V.I.S.  /  REMINDERS")
+                .setMessage(summary)
+                .setPositiveButton("CLOSE", null)
+                .setNeutralButton("REFRESH", (dialog, which) -> showReminders())
+                .show();
+    }
+
     private void buildConversation() {
         LinearLayout card = column();
         card.setPadding(dp(13), dp(11), dp(13), dp(10));
         card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 6));
 
         LinearLayout header = row();
-        TextView title = text("LIVE CONVERSATION", 8, CYAN);
+        TextView title = text("LIVE CONVERSATION", 11, CYAN);
         title.setLetterSpacing(0.16f);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
 
-        TextView clear = text("CLEAR", 8, GOLD);
+        TextView clear = text("CLEAR", 10, GOLD);
         clear.setPadding(dp(8), dp(5), dp(3), dp(5));
         clear.setOnClickListener(v -> clearConversation());
         header.addView(clear);
@@ -798,7 +841,7 @@ public class MainActivity extends FragmentActivity {
         chatList = column();
         chatList.setPadding(0, dp(6), 0, dp(2));
         chatScroll.addView(chatList);
-        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(158));
+        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(250));
         chatLp.topMargin = dp(4);
         card.addView(chatScroll, chatLp);
 
@@ -906,7 +949,9 @@ public class MainActivity extends FragmentActivity {
 
         TextView content = text(message, 11,
                 error ? Color.rgb(242, 150, 150) : Color.rgb(195, 222, 233));
-        content.setMaxWidth(dp(286));
+        int availableWidthDp = (int) (getResources().getDisplayMetrics().widthPixels /
+                getResources().getDisplayMetrics().density);
+        content.setMaxWidth(dp(Math.max(260, Math.min(availableWidthDp - 100, 720))));
         content.setPadding(0, dp(3), 0, 0);
         content.setLineSpacing(dp(2), 1.0f);
         bubble.addView(content);
