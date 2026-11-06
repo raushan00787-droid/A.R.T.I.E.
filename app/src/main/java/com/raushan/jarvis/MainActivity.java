@@ -85,13 +85,25 @@ public class MainActivity extends Activity {
     private static final int WHITE = Color.rgb(232, 247, 255);
     private static final int GOLD = Color.rgb(216, 169, 77);
     private static final String SYSTEM_PROMPT =
-            "You are JARVIS, Raushan's personal AI assistant. Address him as Raushan, " +
-            "or occasionally Raushi, naturally and not in every reply. Be intelligent, " +
-            "calm, concise, warm, and lightly witty when appropriate. He is a student, " +
-            "so explain difficult topics clearly without talking down to him. Never " +
-            "claim you can control the Android device, access files, or perform actions " +
-            "unless the connected tools actually support it. Reply in the language and " +
-            "style the user uses, including natural Hinglish when appropriate.";
+            "You are J.A.R.V.I.S., Raushan's female personal AI assistant and executive aide. " +
+            "Your persona is feminine; use natural feminine grammatical forms for yourself in Hindi/Hinglish " +
+            "(such as 'kar sakti hoon') when appropriate, without announcing your gender unnecessarily. " +
+            "Treat Raushan as your principal and trusted collaborator, with the composed, exceptionally " +
+            "competent, attentive manner of a sophisticated executive AI. In English, address him as 'Sir' " +
+            "naturally, but not in every sentence. In Hindi/Hinglish, use 'Sir' or 'Raushan' naturally, " +
+            "and 'Raushi' only occasionally when the tone is relaxed. Never call him Tony or pretend he is " +
+            "Tony Stark; this is Raushan's own JARVIS. Be calm under pressure, observant, discreet, decisive, " +
+            "and quietly witty, with occasional dry humour. Anticipate useful next steps, surface relevant " +
+            "risks, and notice context without nagging or taking control away from him. Be candid and " +
+            "respectfully challenge weak assumptions. Avoid exaggerated flattery, robotic formality, " +
+            "servility, repetitive catchphrases, and overexplaining routine answers. Match the language and " +
+            "register Raushan uses, including natural Hinglish. Maintain continuity using only the current " +
+            "conversation and user-approved memories available in the app; never invent memories or claim " +
+            "to know something you cannot access. Explain difficult topics clearly without talking down to " +
+            "him. Be protective of privacy and safety without being patronising. Never claim you can control " +
+            "the Android device, access files, or perform actions unless the connected app features actually " +
+            "support it; clearly distinguish an action completed by the app from one that still needs Sir's " +
+            "confirmation. Keep the relationship professional, trusted, and non-romantic.";
 
     private LinearLayout root;
     private LinearLayout chatList;
@@ -366,7 +378,7 @@ public class MainActivity extends Activity {
         addGap(root, 8);
         buildDeviceControls();
 
-        TextView footer = text("J.A.R.V.I.S.  /  R-01  •  NATIVE CORE 1.5", 8, MUTED);
+        TextView footer = text("J.A.R.V.I.S.  /  R-01  •  NATIVE CORE 1.6", 8, MUTED);
         footer.setGravity(Gravity.CENTER);
         footer.setLetterSpacing(0.12f);
         LinearLayout.LayoutParams footerLp = new LinearLayout.LayoutParams(-1, -2);
@@ -384,7 +396,7 @@ public class MainActivity extends Activity {
         brand.setLetterSpacing(0.12f);
         identity.addView(brand);
 
-        TextView sub = text("PERSONAL AI  /  NATIVE SYSTEM", 8, MUTED);
+        TextView sub = text("FEMALE AI  /  EXECUTIVE ASSISTANT", 8, MUTED);
         sub.setLetterSpacing(0.14f);
         identity.addView(sub);
 
@@ -450,7 +462,7 @@ public class MainActivity extends Activity {
         heading.setLetterSpacing(0.01f);
         detail.addView(heading);
 
-        TextView subtitle = text("Your personal system.", 9, MUTED);
+        TextView subtitle = text("Your executive assistant.", 9, MUTED);
         subtitle.setPadding(0, dp(3), 0, dp(8));
         detail.addView(subtitle);
 
@@ -635,7 +647,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
         voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
         rowFour.addView(voiceSelectButton, voiceLp);
-        addControl(rowFour, "TEST VOICE", () -> speak("Hello Raushan. This is your selected JARVIS voice."));
+        addControl(rowFour, "TEST VOICE", () -> speak("Good evening, Sir. JARVIS is online and ready."));
         systemPanel.addView(rowFour);
 
         LinearLayout rowFive = row();
@@ -1371,6 +1383,46 @@ public class MainActivity extends Activity {
     }
 
 
+    private int femaleVoicePriority(Voice voice) {
+        if (voice == null) return 0;
+        String name = voice.getName().toLowerCase(Locale.ROOT);
+        int score = 0;
+        if (name.contains("female") || name.contains("woman") || name.contains("feminine")) {
+            score = 100;
+        } else {
+            String[] knownFemaleNames = {
+                    "samantha", "zira", "jenny", "aria", "susan", "karen", "victoria",
+                    "serena", "salli", "joanna", "ivy", "kendra", "kimberly",
+                    "tessa", "moira", "fiona", "heera", "priya"
+            };
+            for (String marker : knownFemaleNames) {
+                if (name.contains(marker)) {
+                    score = 80;
+                    break;
+                }
+            }
+        }
+        if (score > 0) {
+            String locale = voice.getLocale().toLanguageTag().toLowerCase(Locale.ROOT);
+            if (locale.startsWith("en-in")) score += 12;
+            else if (locale.startsWith("hi-in")) score += 10;
+        }
+        return score;
+    }
+
+    private Voice findPreferredFemaleVoice() {
+        Voice best = null;
+        int bestScore = 0;
+        for (Voice voice : availableVoices) {
+            int score = femaleVoicePriority(voice);
+            if (score > bestScore) {
+                best = voice;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
     private void initializeVoiceSelection() {
         availableVoices.clear();
         if (tts == null) return;
@@ -1378,31 +1430,32 @@ public class MainActivity extends Activity {
         Set<Voice> voices = tts.getVoices();
         if (voices != null) {
             availableVoices.addAll(voices);
-            Collections.sort(availableVoices, (a, b) ->
-                    (a.getLocale().toLanguageTag() + " " + a.getName())
-                            .compareToIgnoreCase(b.getLocale().toLanguageTag() + " " + b.getName()));
+            Collections.sort(availableVoices, (a, b) -> {
+                int byPersona = Integer.compare(femaleVoicePriority(b), femaleVoicePriority(a));
+                if (byPersona != 0) return byPersona;
+                return (a.getLocale().toLanguageTag() + " " + a.getName())
+                        .compareToIgnoreCase(b.getLocale().toLanguageTag() + " " + b.getName());
+            });
         }
 
         SharedPreferences preferences = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
         String savedName = preferences.getString("tts_voice_name", "");
-        Voice selected = null;
-
-        if (!savedName.isEmpty()) {
-            for (Voice voice : availableVoices) {
-                if (savedName.equals(voice.getName())) {
-                    selected = voice;
-                    break;
-                }
+        Voice savedVoice = null;
+        for (Voice voice : availableVoices) {
+            if (savedName.equals(voice.getName())) {
+                savedVoice = voice;
+                break;
             }
         }
 
-        if (selected == null && savedName.isEmpty()) {
-            for (Voice voice : availableVoices) {
-                if (voice.getName().toLowerCase(Locale.ROOT).contains("heart")) {
-                    selected = voice;
-                    break;
-                }
-            }
+        Voice preferredFemale = findPreferredFemaleVoice();
+        Voice selected = savedVoice;
+
+        // Honour a saved voice when it already matches the requested persona.
+        // Otherwise prefer an explicitly female-labelled voice when the TTS engine exposes one.
+        if (preferredFemale != null
+                && (savedVoice == null || femaleVoicePriority(savedVoice) == 0)) {
+            selected = preferredFemale;
         }
 
         if (selected != null && tts.setVoice(selected) == TextToSpeech.SUCCESS) {
