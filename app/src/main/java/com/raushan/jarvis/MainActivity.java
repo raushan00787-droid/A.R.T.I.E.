@@ -1376,6 +1376,62 @@ public class MainActivity extends FragmentActivity {
     }
 
 
+    private String setScreenBrightness(int percent) {
+        if (percent < 1 || percent > 100) {
+            return "Choose a brightness from 1 to 100 percent.";
+        }
+        if (Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.System.canWrite(this)) {
+            try {
+                Intent permission = new Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                        Uri.parse("package:" + getPackageName()));
+                startActivity(permission);
+                return "Android needs you to enable 'Modify system settings' for JARVIS. "
+                        + "Grant it on the page that opened, return here, then repeat 'brightness "
+                        + percent + "'.";
+            } catch (Exception error) {
+                return "Android could not open the system-settings permission page.";
+            }
+        }
+        try {
+            int level = Math.max(1, Math.min(255, Math.round(percent * 2.55f)));
+            boolean manual = android.provider.Settings.System.putInt(getContentResolver(),
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE,
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+            boolean saved = android.provider.Settings.System.putInt(getContentResolver(),
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS, level);
+            if (!manual || !saved) return "Android did not accept the brightness change.";
+            JarvisTaskHistory.record(this, "Set screen brightness", "APPLIED",
+                    percent + " percent (manual brightness mode).");
+            return "Screen brightness set to " + percent + " percent. Auto-brightness is now off.";
+        } catch (SecurityException error) {
+            return "Android denied the brightness change. Check JARVIS's Modify system settings access.";
+        } catch (Exception error) {
+            return "I couldn't change screen brightness. " + safeMessage(error);
+        }
+    }
+
+    private String setAutomaticBrightness() {
+        if (Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.System.canWrite(this)) {
+            try {
+                Intent permission = new Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,
+                        Uri.parse("package:" + getPackageName()));
+                startActivity(permission);
+                return "Enable 'Modify system settings' for JARVIS, return here, then say 'auto brightness' again.";
+            } catch (Exception error) {
+                return "Android could not open the system-settings permission page.";
+            }
+        }
+        try {
+            boolean saved = android.provider.Settings.System.putInt(getContentResolver(),
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE,
+                    android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
+            return saved ? "Automatic screen brightness enabled."
+                    : "Android did not accept the automatic-brightness setting.";
+        } catch (SecurityException error) {
+            return "Android denied the setting change. Check JARVIS's Modify system settings access.";
+        }
+    }
+
     private String handleLocalCommand(String input) {
         String value = input.toLowerCase(Locale.ROOT).trim();
 
@@ -1519,6 +1575,20 @@ public class MainActivity extends FragmentActivity {
                 || value.contains("decrease volume") || value.contains("lower volume") || value.contains("volume kam")) {
             adjustMediaVolume(false);
             return "";
+        }
+
+        Matcher brightnessCommand = Pattern.compile(
+                "(?i)^(?:set )?(?:screen )?brightness(?: to)?\\s+(\\d{1,3})%?$")
+                .matcher(input == null ? "" : input.trim());
+        if (brightnessCommand.matches()) {
+            try {
+                return setScreenBrightness(Integer.parseInt(brightnessCommand.group(1)));
+            } catch (NumberFormatException error) {
+                return "Please choose a brightness between 1 and 100 percent.";
+            }
+        }
+        if (value.equals("auto brightness") || value.equals("enable auto brightness")) {
+            return setAutomaticBrightness();
         }
         if (value.contains("speech speed") || value.contains("speaking speed")
                 || value.equals("speed") || value.equals("change speech rate") || value.equals("cycle speech rate")) {
