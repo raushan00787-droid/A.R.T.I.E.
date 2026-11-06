@@ -3009,6 +3009,16 @@ public class MainActivity extends FragmentActivity {
     }
 
     private String searchSavedFolder(String query) {
+        try {
+            return searchSavedFolderInternal(query);
+        } catch (SecurityException error) {
+            return "Android no longer grants access to that folder. Choose it again, then repeat the search.";
+        } catch (Exception error) {
+            return "The selected folder provider could not complete the search. " + safeMessage(error);
+        }
+    }
+
+    private String searchSavedFolderInternal(String query) {
         String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         if (term.isEmpty() || term.length() > 80) {
             return "Please provide a filename search between 1 and 80 characters.";
