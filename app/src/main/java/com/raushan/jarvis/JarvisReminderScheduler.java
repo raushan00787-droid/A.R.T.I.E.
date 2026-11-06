@@ -92,6 +92,15 @@ final class JarvisReminderScheduler {
         return load(context);
     }
 
+    static synchronized String findTextById(Context context, int id) {
+        JSONArray items = load(context);
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.optJSONObject(i);
+            if (item != null && item.optInt("id", -1) == id) return item.optString("text", "Reminder");
+        }
+        return "Reminder";
+    }
+
     static synchronized int findByText(Context context, String query) {
         String key = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
         if (key.isEmpty()) return -1;
@@ -146,6 +155,12 @@ final class JarvisReminderScheduler {
             if (item != null) cancelAlarm(context, item.optInt("id", -1));
         }
         JSONArray safe = restored == null ? new JSONArray() : restored;
+        int maxId = 10000;
+        for (int i = 0; i < safe.length(); i++) {
+            JSONObject item = safe.optJSONObject(i);
+            if (item != null) maxId = Math.max(maxId, item.optInt("id", 10000));
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(NEXT_ID, maxId).apply();
         save(context, safe);
         rescheduleAll(context);
     }
