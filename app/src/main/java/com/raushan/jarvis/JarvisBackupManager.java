@@ -67,6 +67,7 @@ final class JarvisBackupManager {
         String history = settings.optString("task_history", "[]");
         String reminders = settings.optString("scheduled_reminders", "[]");
         String todoTasks = settings.optString("todo_tasks", "[]");
+        String workflows = settings.optString("automation_workflows", "[]");
 
         int languageMode = settings.optInt("speech_language_mode", 0);
         if (languageMode < 0 || languageMode > 2) languageMode = 0;
@@ -79,6 +80,7 @@ final class JarvisBackupManager {
                 .putString("task_history", history)
                 .putString("scheduled_reminders", reminders)
                 .putString("todo_tasks", todoTasks)
+                .putString("automation_workflows", workflows)
                 .putInt("speech_language_mode", languageMode)
                 .putFloat("speech_rate", speechRate)
                 .putBoolean("spoken_replies", settings.optBoolean("spoken_replies", true))
@@ -99,12 +101,14 @@ final class JarvisBackupManager {
         int tasks = new JSONArray(settings.optString("task_history", "[]")).length();
         int reminders = new JSONArray(settings.optString("scheduled_reminders", "[]")).length();
         int todoTasks = new JSONArray(settings.optString("todo_tasks", "[]")).length();
+        int workflows = new JSONArray(settings.optString("automation_workflows", "[]")).length();
         return "Backup format: JARVIS Native v" + VERSION
                 + "\nSaved notes: " + memories
                 + "\nConversation entries: " + chat
                 + "\nTask history entries: " + tasks
                 + "\nSaved reminders: " + reminders
                 + "\nTo-do tasks: " + todoTasks
+                + "\nSaved routines: " + workflows
                 + "\nSpeech language and speed preferences are included."
                 + "\n\nRestore replaces these local records. Android permissions, folder grants, account access, microphone mode, and Floating Orb state are not restored.";
     }
@@ -126,11 +130,13 @@ final class JarvisBackupManager {
         JSONArray tasks = new JSONArray(settings.optString("task_history", "[]"));
         JSONArray reminders = new JSONArray(settings.optString("scheduled_reminders", "[]"));
         JSONArray todoTasks = new JSONArray(settings.optString("todo_tasks", "[]"));
+        JSONArray workflows = new JSONArray(settings.optString("automation_workflows", "[]"));
         if (memories.length() > 20) throw new Exception("The backup contains too many saved notes.");
         if (conversation.length() > 21) throw new Exception("The backup contains too many conversation entries.");
         if (tasks.length() > 100) throw new Exception("The backup contains too many task-history entries.");
         if (reminders.length() > 100) throw new Exception("The backup contains too many reminders.");
         if (todoTasks.length() > 100) throw new Exception("The backup contains too many to-do tasks.");
+        if (workflows.length() > 25) throw new Exception("The backup contains too many routines.");
         for (int i = 0; i < todoTasks.length(); i++) {
             JSONObject task = todoTasks.optJSONObject(i);
             if (task == null || task.optInt("id", -1) <= 0
@@ -151,6 +157,36 @@ final class JarvisBackupManager {
             long interval = reminder.optLong("interval_ms", 0L);
             if (interval != 0L && (interval < 60000L || interval > 30L * 24L * 60L * 60L * 1000L)) {
                 throw new Exception("The backup contains an unsupported reminder interval.");
+            }
+        }
+
+        for (int i = 0; i < workflows.length(); i++) {
+            JSONObject routine = workflows.optJSONObject(i);
+            JSONArray steps = routine == null ? null : routine.optJSONArray("steps");
+            String name = routine == null ? "" : routine.optString("name", "").trim();
+            if (routine == null || routine.optInt("id", -1) <= 0 || name.isEmpty()
+                    || name.length() > 48 || steps == null || steps.length() < 1 || steps.length() > 12) {
+                throw new Exception("The backup contains an invalid routine.");
+            }
+            for (int j = 0; j < steps.length(); j++) {
+                JSONObject step = steps.optJSONObject(j);
+                String type = step == null ? "" : step.optString("type", "");
+                if ("ADD_TASK".equals(type)) {
+                    String title = step.optString("title", "").trim();
+                    if (title.isEmpty() || title.length() > 240) throw new Exception("A routine task step is invalid.");
+                } else if ("REMINDER".equals(type)) {
+                    String title = step.optString("title", "").trim();
+                    long delay = step.optLong("delay_ms", 0L);
+                    if (title.isEmpty() || title.length() > 300 || delay < 60000L
+                            || delay > 365L * 24L * 60L * 60L * 1000L) {
+                        throw new Exception("A routine reminder step is invalid.");
+                    }
+                } else if ("STUDY".equals(type)) {
+                    int minutes = step.optInt("minutes", 0);
+                    if (minutes < 5 || minutes > 240) throw new Exception("A routine study step is invalid.");
+                } else {
+                    throw new Exception("The backup contains an unsupported routine action.");
+                }
             }
         }
 
