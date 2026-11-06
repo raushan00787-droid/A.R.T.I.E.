@@ -699,10 +699,6 @@ public class MainActivity extends Activity {
         reactorView.setFocusable(true);
         reactorView.setContentDescription("Open JARVIS voice orb");
         reactorView.setOnClickListener(v -> showVoiceOrb("READY"));
-        reactorView.setClickable(true);
-        reactorView.setFocusable(true);
-        reactorView.setContentDescription("Open JARVIS voice orb");
-        reactorView.setOnClickListener(v -> showVoiceOrb("READY"));
         hero.addView(reactorView, reactorLp);
 
         TextView title = text("J.A.R.V.I.S.", 22, WHITE);
