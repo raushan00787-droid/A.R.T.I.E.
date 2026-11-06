@@ -508,9 +508,20 @@ public class MainActivity extends Activity {
         chatLp.topMargin = dp(5);
         card.addView(chatScroll, chatLp);
 
-        TextView welcome = text("Good day, Raushan. JARVIS is online. What shall we work on?", 12, Color.rgb(184, 210, 222));
-        welcome.setPadding(dp(2), dp(6), dp(2), dp(6));
-        chatList.addView(welcome);
+        if (conversation.length() <= 1) {
+            TextView welcome = text("Good day, Raushan. JARVIS is online. What shall we work on?", 12, Color.rgb(184, 210, 222));
+            welcome.setPadding(dp(2), dp(6), dp(2), dp(6));
+            chatList.addView(welcome);
+        } else {
+            for (int i = 1; i < conversation.length(); i++) {
+                JSONObject item = conversation.optJSONObject(i);
+                if (item == null) continue;
+                String role = item.optString("role", "");
+                String content = item.optString("content", "");
+                if ("user".equals(role)) addMessage("YOU", content, false);
+                else if ("assistant".equals(role)) addMessage("JARVIS", content, false);
+            }
+        }
         root.addView(card, new LinearLayout.LayoutParams(-1, -2));
     }
 
@@ -916,6 +927,7 @@ public class MainActivity extends Activity {
 
         if (value.startsWith("forget ") || value.startsWith("bhool jao ")) {
             String target = value.startsWith("forget ") ? raw.substring(7).trim() : raw.substring(10).trim();
+            if (target.isEmpty()) return "Tell me which saved note you want removed, or say 'forget all memories'.";
             JSONArray notes = getSavedMemories();
             JSONArray kept = new JSONArray();
             boolean removed = false;
@@ -966,6 +978,15 @@ public class MainActivity extends Activity {
         Matcher matcher = Pattern.compile("(?<!\\d)(\\d{1,2})(?::([0-5]\\d))?\\s*(a\\.?m\\.?|p\\.?m\\.?|am|pm)?(?!\\d)",
                 Pattern.CASE_INSENSITIVE).matcher(input == null ? "" : input);
         if (!matcher.find()) return null;
+        String matchedTime = matcher.group(0).trim();
+        String lowerInput = input == null ? "" : input.toLowerCase(Locale.ROOT);
+        boolean hasMinuteOrSuffix = matcher.group(2) != null || matcher.group(3) != null;
+        boolean hasTimeWord = lowerInput.contains(" at ") || lowerInput.contains(" for ")
+                || lowerInput.contains(" baje") || lowerInput.contains("subah")
+                || lowerInput.contains("savere") || lowerInput.contains("shaam")
+                || lowerInput.contains("raat") || lowerInput.contains("morning")
+                || lowerInput.contains("evening") || lowerInput.contains("night");
+        if (!hasMinuteOrSuffix && !hasTimeWord) return null;
 
         int hour;
         int minute = 0;
