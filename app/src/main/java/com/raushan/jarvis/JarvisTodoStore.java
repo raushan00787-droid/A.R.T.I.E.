@@ -54,7 +54,7 @@ final class JarvisTodoStore {
         return -1;
     }
 
-    static synchronized boolean complete(Context context, int id) {
+    static synchronized boolean complete(Context context, int id) throws Exception {
         JSONArray tasks = load(context);
         boolean found = false;
         for (int i = 0; i < tasks.length(); i++) {
