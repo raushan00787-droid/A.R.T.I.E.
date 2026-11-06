@@ -92,7 +92,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 - [x] Android document picker and selected-file URI permissions — EXISTING / UNVERIFIED.
 - [x] User-selected folder browsing — EXISTING / UNVERIFIED.
 - [x] Open selected files with compatible apps/WPS handoff — EXISTING / UNVERIFIED.
-- [ ] Read supported text formats inside JARVIS.
+- [x] Read bounded UTF-8 text, Markdown, CSV, JSON, XML, YAML, INI, properties, and log files from user-selected documents — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED.
 - [ ] PDF text extraction and document Q&A.
 - [ ] Search across accessible user-selected files.
 - [ ] Compare multiple documents.
