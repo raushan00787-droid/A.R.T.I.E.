@@ -164,6 +164,7 @@ public class MainActivity extends FragmentActivity {
     private String pendingMessageContact;
     private String pendingMessageBody;
     private String pendingShareText;
+    private boolean pendingSharedDocuments = false;
     private boolean ownerAuthenticated = false;
     private boolean welcomePending = false;
     private boolean lockPromptStarted = false;
@@ -360,6 +361,7 @@ public class MainActivity extends FragmentActivity {
         }
         consumePendingLiveCommand();
         processPendingShare();
+        processPendingSharedDocuments();
     }
 
     private void lockAppNow() {
@@ -1207,22 +1209,56 @@ public class MainActivity extends FragmentActivity {
         if (intent == null) return;
         String incoming = null;
         String action = intent.getAction();
-        if (Intent.ACTION_SEND.equals(action)) {
+
+        if (Intent.ACTION_SEND.equals(action) || Intent.ACTION_SEND_MULTIPLE.equals(action)) {
             CharSequence shared = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
             if (shared != null) incoming = shared.toString();
+
+            ArrayList<Uri> sharedUris = new ArrayList<>();
+            ClipData clip = intent.getClipData();
+            if (clip != null) {
+                for (int i = 0; i < clip.getItemCount() && sharedUris.size() < 10; i++) {
+                    Uri uri = clip.getItemAt(i).getUri();
+                    if (uri != null && !sharedUris.contains(uri)) sharedUris.add(uri);
+                }
+            }
+            if (sharedUris.isEmpty() && Intent.ACTION_SEND.equals(action)) {
+                Object stream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (stream instanceof Uri) sharedUris.add((Uri) stream);
+            } else if (sharedUris.isEmpty() && Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+                ArrayList<Uri> streams = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+                if (streams != null) {
+                    for (Uri uri : streams) {
+                        if (uri != null && !sharedUris.contains(uri) && sharedUris.size() < 10) {
+                            sharedUris.add(uri);
+                        }
+                    }
+                }
+            }
+
+            if (!sharedUris.isEmpty()) {
+                selectedDocumentUris.clear();
+                for (Uri uri : sharedUris) {
+                    persistReadPermission(uri, intent.getFlags());
+                    selectedDocumentUris.add(uri);
+                }
+                pendingSharedDocuments = true;
+            }
         } else if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null) {
             incoming = intent.getData().toString();
         }
-        if (incoming == null) return;
-        incoming = incoming.trim();
-        if (incoming.isEmpty()) return;
-        if (incoming.length() > 16000) {
-            pendingShareText = null;
-            if (ownerAuthenticated) reply("The shared content is too large. Please share a shorter excerpt or a direct webpage link.");
-            return;
+
+        if (incoming != null) {
+            incoming = incoming.trim();
+            if (incoming.length() > 16000) {
+                pendingShareText = null;
+                if (ownerAuthenticated) reply("The shared text is too large. Please share a shorter excerpt or a direct webpage link.");
+            } else if (!incoming.isEmpty()) {
+                pendingShareText = incoming;
+            }
         }
-        pendingShareText = incoming;
         processPendingShare();
+        processPendingSharedDocuments();
     }
 
     private void processPendingShare() {
@@ -1230,6 +1266,14 @@ public class MainActivity extends FragmentActivity {
         String shared = pendingShareText;
         pendingShareText = null;
         sendMessage("Please analyse this content shared with JARVIS:\n" + shared);
+    }
+
+    private void processPendingSharedDocuments() {
+        if (!ownerAuthenticated || !pendingSharedDocuments || selectedDocumentUris.isEmpty()) return;
+        pendingSharedDocuments = false;
+        reply("Received " + selectedDocumentUris.size()
+                + " shared file(s). Choose one to analyse or open with a compatible app.");
+        showSelectedDocuments();
     }
 
     @Override
