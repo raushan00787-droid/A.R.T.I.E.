@@ -963,8 +963,13 @@ public class MainActivity extends FragmentActivity {
                         try {
                             stopLiveMode();
                             stopService(new Intent(this, JarvisOverlayService.class));
+                            JSONObject backupSettings = backup.optJSONObject("settings");
+                            JSONArray backupReminders = backupSettings == null ? null
+                                    : backupSettings.optJSONArray("scheduled_reminders");
+                            JarvisReminderScheduler.replaceAll(this, backupReminders);
                             JarvisBackupManager.restoreBackup(backup,
                                     getSharedPreferences("jarvis_settings", MODE_PRIVATE));
+                            JarvisReminderScheduler.rescheduleAll(this);
                             loadUserSettings();
                             loadConversation();
                             if (tts != null) tts.setSpeechRate(speechRate);
