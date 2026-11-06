@@ -686,7 +686,7 @@ public class MainActivity extends Activity {
 
     private void updateClock() {
         if (clockView != null) {
-            clockView.setText(new SimpleDateFormat("HH:mm:ss  •  dd MMM yyyy", Locale.getDefault()).format(new Date()));
+            clockView.setText(new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date()));
         }
     }
 
@@ -710,8 +710,6 @@ public class MainActivity extends Activity {
         bubble.setBackground(shape(
                 userMessage ? Color.rgb(13, 39, 54) : Color.rgb(10, 24, 36),
                 userMessage ? Color.rgb(44, 111, 137) : Color.rgb(35, 75, 93), 5));
-        bubble.setMaxWidth(dp(286));
-
         TextView label = text(userMessage ? "RAUSHAN" : "J.A.R.V.I.S.",
                 7, userMessage ? GOLD : CYAN);
         label.setLetterSpacing(0.14f);
@@ -719,6 +717,7 @@ public class MainActivity extends Activity {
 
         TextView content = text(message, 11,
                 error ? Color.rgb(242, 150, 150) : Color.rgb(195, 222, 233));
+        content.setMaxWidth(dp(286));
         content.setPadding(0, dp(3), 0, 0);
         content.setLineSpacing(dp(2), 1.0f);
         bubble.addView(content);
