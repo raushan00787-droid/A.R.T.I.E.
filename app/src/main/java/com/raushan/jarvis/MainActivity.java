@@ -1779,8 +1779,6 @@ public class MainActivity extends FragmentActivity {
 
     private String voiceDisplayName() { return selectedVoiceName == null ? "FEMALE VOICE UNAVAILABLE" : selectedVoiceName; }
     private void updateVoiceSelectButton() { }
-    private void showVoicePicker() { openSystemTtsSettings(); }
-
     private void showVoicePicker() {
         openSystemTtsSettings();
     }
