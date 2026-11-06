@@ -1605,23 +1605,37 @@ public class MainActivity extends FragmentActivity {
 
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putString("pending_notification_reminder", raw).apply();
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_NOTIFICATIONS);
-            return "Android notification permission is required. Allow notifications, then repeat the reminder command.";
+            return "Android notification permission is required. I have kept this reminder request pending.";
         }
 
         long unitMillis = (unit.startsWith("h") ? 3600000L
                 : (unit.startsWith("m") ? 60000L : 1000L));
         long delay = amount * unitMillis;
         int id = (int) (System.currentTimeMillis() & 0x7fffffff);
+        long triggerAt = System.currentTimeMillis() + delay;
         Intent alert = new Intent(this, JarvisNotificationReceiver.class)
                 .setAction(JarvisNotificationReceiver.ACTION_REMINDER);
+        alert.putExtra(JarvisNotificationReceiver.EXTRA_ID, id);
         alert.putExtra(JarvisNotificationReceiver.EXTRA_TITLE, "JARVIS reminder");
         alert.putExtra(JarvisNotificationReceiver.EXTRA_TEXT, task);
         PendingIntent pending = PendingIntent.getBroadcast(this, id, alert,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         AlarmManager alarms = (AlarmManager) getSystemService(ALARM_SERVICE);
         if (alarms == null) return "Android's reminder service is unavailable.";
-        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pending);
+        try {
+            JSONObject saved = new JSONObject();
+            saved.put("time", triggerAt);
+            saved.put("title", "JARVIS reminder");
+            saved.put("text", task);
+            getSharedPreferences("jarvis_reminders", MODE_PRIVATE).edit()
+                    .putString("reminder_" + id, saved.toString()).apply();
+        } catch (Exception error) {
+            return "I could not save this reminder on the device.";
+        }
+        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
         String unitLabel = unit.startsWith("h") ? "hour(s)" : unit.startsWith("m") ? "minute(s)" : "second(s)";
         return "Reminder scheduled in " + amount + " " + unitLabel + ": " + task
                 + ". Android may deliver it slightly late under battery restrictions.";
@@ -2524,6 +2538,17 @@ public class MainActivity extends FragmentActivity {
                     + ", camera " + (cameraGranted ? "granted" : "not granted")
                     + ", contacts " + (contactsGranted ? "granted" : "not granted")
                     + ". Document access is granted separately when you choose files or folders.");
+        } else if (requestCode == PERMISSION_NOTIFICATIONS) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            SharedPreferences settings = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+            String pendingReminder = settings.getString("pending_notification_reminder", "");
+            settings.edit().remove("pending_notification_reminder").apply();
+            if (granted && pendingReminder != null && !pendingReminder.isEmpty()) {
+                String result = handleReminderCommand(pendingReminder);
+                if (result != null) reply(result);
+            } else if (!granted) {
+                reply("Notifications remain disabled. No reminder was scheduled. Enable them in Android settings and repeat the command.");
+            }
         } else if (requestCode == PERMISSION_CONTACTS) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (pendingMessageContact != null) {
