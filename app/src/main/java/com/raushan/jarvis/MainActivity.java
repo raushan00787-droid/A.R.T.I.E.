@@ -1357,6 +1357,9 @@ public class MainActivity extends FragmentActivity {
         String memoryCommand = handleMemoryCommand(input);
         if (memoryCommand != null) return memoryCommand;
 
+        String todoCommand = handleTodoCommand(input);
+        if (todoCommand != null) return todoCommand;
+
         String reminderCommand = handleReminderCommand(input);
         if (reminderCommand != null) return reminderCommand;
 
@@ -1979,6 +1982,87 @@ public class MainActivity extends FragmentActivity {
         if (tts != null) tts.setSpeechRate(speechRate);
         if (speechRateButton != null) speechRateButton.setText("SPEED  " + speechRate + "x");
         reply("Speech speed set to " + speechRate + " times.");
+    }
+
+    private String handleTodoCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        String value = raw.toLowerCase(Locale.ROOT);
+
+        if (value.equals("tasks") || value.equals("my tasks") || value.equals("list tasks")
+                || value.equals("show tasks") || value.equals("todo") || value.equals("to do list")) {
+            return JarvisTodoStore.summary(this, true);
+        }
+        if (value.equals("pending tasks") || value.equals("list pending tasks")) {
+            return JarvisTodoStore.summary(this, false);
+        }
+        if (value.equals("clear tasks") || value.equals("delete all tasks")) {
+            new AlertDialog.Builder(this)
+                    .setTitle("CLEAR TASK LIST")
+                    .setMessage("Remove all saved to-do tasks from this device?")
+                    .setPositiveButton("CLEAR ALL", (dialog, which) -> {
+                        JarvisTodoStore.clear(this);
+                        JarvisTaskHistory.record(this, "Clear to-do list", "CLEARED", "");
+                        reply("The to-do list is now empty.");
+                    })
+                    .setNegativeButton("CANCEL", null)
+                    .show();
+            return "";
+        }
+
+        Matcher add = Pattern.compile("(?i)^(?:add|create|new) task\\\\s*:?\\\\s*(.+)$")
+                .matcher(raw);
+        if (!add.matches()) add = Pattern.compile("(?i)^todo\\\\s*:\\\\s*(.+)$").matcher(raw);
+        if (add.matches()) {
+            String title = add.group(1).trim();
+            try {
+                JarvisTodoStore.add(this, title);
+                JarvisTaskHistory.record(this, "Add to-do: " + title, "SAVED", "");
+                return "Added to your task list: " + title;
+            } catch (Exception error) {
+                return "I couldn't add that task. " + safeMessage(error);
+            }
+        }
+
+        Matcher complete = Pattern.compile("(?i)^(?:complete|finish|done) task\\\\s+(.+)$").matcher(raw);
+        if (!complete.matches()) {
+            complete = Pattern.compile("(?i)^mark task\\\\s+(.+?)\\\\s+(?:done|complete)$").matcher(raw);
+        }
+        if (complete.matches()) {
+            String query = complete.group(1).trim();
+            int id = JarvisTodoStore.findPending(this, query);
+            if (id < 0) return "I couldn't find a pending task matching " + query + ". Say 'list tasks' to review your list.";
+            try {
+                boolean changed = JarvisTodoStore.complete(this, id);
+                JarvisTaskHistory.record(this, "Complete to-do: " + query, changed ? "COMPLETED" : "UNCHANGED", "");
+                return changed ? "Marked as completed: " + query : "That task is already completed.";
+            } catch (Exception error) {
+                return "I couldn't update that task. " + safeMessage(error);
+            }
+        }
+
+        Matcher delete = Pattern.compile("(?i)^delete task\\\\s+(.+)$").matcher(raw);
+        if (delete.matches()) {
+            String query = delete.group(1).trim();
+            int id = JarvisTodoStore.findPending(this, query);
+            if (id < 0) return "I couldn't find a pending task matching " + query + ".";
+            confirmDeleteTodo(id, query);
+            return "";
+        }
+        return null;
+    }
+
+    private void confirmDeleteTodo(int id, String query) {
+        new AlertDialog.Builder(this)
+                .setTitle("DELETE TASK")
+                .setMessage("Delete this task from your local list: " + query + "?")
+                .setPositiveButton("DELETE", (dialog, which) -> {
+                    boolean removed = JarvisTodoStore.delete(this, id);
+                    JarvisTaskHistory.record(this, "Delete to-do: " + query,
+                            removed ? "DELETED" : "NOT FOUND", "");
+                    reply(removed ? "Task deleted." : "That task was already removed.");
+                })
+                .setNegativeButton("KEEP", null)
+                .show();
     }
 
     private String handleReminderCommand(String input) {
