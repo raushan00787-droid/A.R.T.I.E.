@@ -1,39 +1,52 @@
-# J.A.R.V.I.S. Native Android
+# J.A.R.V.I.S. Native Android · v1.11
 
-Native Android companion app for Raushan's J.A.R.V.I.S. project.
+A native Android assistant for Raushan. The interface is reactor-first; the Android app handles device actions locally and delegates conversational AI to the configured Cloudflare Worker.
 
-## Native build 1.7
+## v1.11 integrated update
 
-- Reactor-first landing screen: a large animated arc reactor is the main focus when the app opens; conversation and device/document features are reached by scrolling.
-- Scroll-revealed local control panel with call/dial, file picker, folder picker, folder browser, WPS Office launcher, permission center, flashlight, battery, Wi-Fi, Bluetooth, display, speech, clap wake, and volume controls.
-- Cloudflare Worker AI chat integration with bounded conversation history restored from local app storage after restart.
-- JARVIS persona: a female executive aide who addresses Raushan respectfully as "Sir" when natural, uses feminine Hindi/Hinglish phrasing, stays composed and observant, offers restrained dry humour, anticipates relevant next steps, and candidly flags risks without pretending to have unsupported device access.
-- Female-only speech output: JARVIS selects only recognized female voice profiles. If the installed Android TTS engine does not expose a recognized female voice for the language being spoken, JARVIS keeps that reply on screen and does not fall back to a male or unidentified system voice.
-- TTS voice picker shows only recognized female profiles; selected voice is saved. Android voice naming is inconsistent, so available profiles depend on the installed TTS engine and downloaded language data.
-- Speech recognition modes: AUTO, EN-IN and HI-IN. AUTO lets the installed recognition service choose its default language; reliable code-mixed Hinglish support is not guaranteed by Android's standard recognizer.
-- Media-volume up/down controls using Android's standard volume UI.
-- Voice/text app-launch commands for WhatsApp, YouTube, Chrome, Maps, Gmail, Spotify, Instagram and WPS Office when installed.
-- Contact command: say `call <contact>` or `call <number>`. Contact lookup requests Contacts permission only when needed and opens the Android dialer with the number prefilled. The user confirms the call in the dialer. The Call / Dial control opens the dial pad.
-- Document access: Open Files uses Android's system document picker and supports selecting one or multiple documents. Choose Folder asks Android for access to a user-selected folder; Browse Folder lists the files/subfolders that the selected document provider exposes. Selected documents can be handed to WPS Office or another compatible app using Android's read-only URI grant.
-- WPS Office can be launched from the local control panel or by voice/text command. WPS files are accessible only when they are exposed through Android's document picker/provider or a user-selected shared folder.
-- Permissions: the app can request microphone, camera (flashlight), and contacts permissions when relevant. Android file/folder access is granted separately by the user through the system picker. The permission center also opens Android's app settings page.
-- Privacy and platform limits: JARVIS does not request broad all-files access, read another app's private WPS data, bypass Android permission prompts, or place a call silently. Android presents the dialer so the user can review and confirm the call.
-- Alarm requests open the Android Clock alarm screen with a parsed time selected. The user must confirm and save the alarm in Clock. The standard alarm intent specifies a time, not a calendar date.
-- Foreground clap-to-wake mode using the microphone. Leaving the app pauses microphone capture.
-- Explicit on-device memory: save notes with "remember that ...", view them with "show memories", and remove them with "forget ...". JARVIS does not silently extract personal facts from chat. Passwords, PINs, OTPs and access keys are blocked from memory.
-- Android 8.0+ (min SDK 26); compile/target SDK 35.
+### Live voice mode
+- A user-started microphone foreground service keeps JARVIS Live Mode available after the Activity is minimized.
+- The service listens for the spoken wake phrase **“Hey JARVIS”**. After a wake phrase it accepts follow-up turns for a short conversation window, then returns to wake-phrase mode.
+- The persistent notification includes **Pause**, **Resume**, and **Stop** actions. The microphone session is started from the visible app after microphone permission is granted.
+- The service pauses recognition while JARVIS speaks so it does not mistake its own voice for a command.
+- Android speech recognition is used with the offline-recognition preference enabled. This is a preference, not a guarantee: the recognizer selected by the device may still use network services or may not provide reliable continuous recognition on every device.
+- This is a software wake-word loop, not a dedicated low-power hardware hotword/DSP. Screen-off behavior, battery use, vendor battery management and recognizer availability vary by device. It may need the user to reopen JARVIS after the OS or user force-stops the app.
+
+### Android system voice
+- JARVIS uses the voice and text-to-speech engine configured in Android's **Text-to-speech output** settings.
+- The app no longer forces a particular gender, voice profile or TTS vendor. The system voice settings shortcut opens Android's speech settings where available.
+- Spoken Hindi/English quality depends on the languages and voices installed in the active system TTS engine. The app does not silently switch to a different voice when one language is unavailable.
+
+### Default assistant role
+- JARVIS declares Android's VoiceInteractionService and session entry points and includes a control to request the Android **Default digital assistant app** role.
+- Android owns the role-selection prompt. Once selected, the system assistant gesture/button can launch JARVIS.
+- The Android assistant role and the custom “Hey JARVIS” Live Mode wake loop are separate features. Choosing JARVIS as the default assistant does not give third-party apps access to Google's hardware hotword system.
+
+### Messaging and proactive alerts
+- Voice/text commands such as `text +91XXXXXXXXXX: Hello` open the Android SMS composer with a prefilled draft. A contact-name target can be resolved after Contacts permission is granted.
+- Commands such as `whatsapp: Hello` open WhatsApp's share flow so the user can choose a recipient and send. JARVIS does **not** silently send SMS or WhatsApp messages.
+- Reminder syntax: `remind me in 10 minutes to take a break` or `remind me in 2 hours to check the download`. Reminders use Android's inexact while-idle alarm API and post a notification when due.
+- A battery-low receiver can post a JARVIS notification. Notification delivery requires Android notification permission and notifications enabled for the app.
+
+## Existing native features
+- Large animated Arc Reactor landing screen; conversation and controls remain reachable by scrolling.
+- Cloudflare Worker AI chat integration with locally persisted bounded conversation history.
+- Explicit on-device memory: `remember that ...`, `show memories`, `forget ...`. The app blocks passwords, PINs, OTPs and access keys from saved notes.
+- Local commands for flashlight, battery, Wi-Fi/Bluetooth/display settings, app launch, alarms and media controls.
+- Call commands resolve a contact (with Contacts permission) and open the Android dialer. The user confirms the call.
+- Android Storage Access Framework file and folder pickers, selected-document handoff to WPS Office or another compatible viewer, and user-selected folder browsing.
+- Floating Arc Reactor overlay with its own foreground notification.
+- Permission center for microphone, camera/flashlight, contacts and notifications.
+
+## Privacy and platform boundaries
+- JARVIS requests permissions when a feature needs them. File/folder access is granted through Android's system picker; it does not request unrestricted all-files access.
+- It cannot read WPS Office's private app database or other apps' private internal files.
+- Calls open the dialer for review. SMS opens a prefilled composer. WhatsApp opens a share/recipient selection flow. The user confirms sending.
+- The custom wake-word service requires microphone permission and displays an ongoing foreground-service notification while running. Stop it from the notification or the app.
+- The speech recognizer may use network resources depending on the Android recognition provider despite the offline preference. AI replies require internet access and the configured Worker to be available.
+- Device/OEM battery restrictions may stop background work. Users may need to allow JARVIS to run in the background in Android battery settings.
 
 ## Build
-
-GitHub Actions builds a debug APK on pushes to main and manual dispatch. Open the Actions tab and download the `JARVIS-native-debug-apk` artifact from a successful run.
-
-## Known limits
-
-- Female Hindi and English playback requires matching female profiles in the active Android text-to-speech engine. JARVIS will remain silent for a language without a recognized female profile rather than switch to a male voice. Android TTS voice names do not expose reliable gender metadata, so some female profiles may not be recognized until their engine/name is known.
-- The AI conversation requires internet access and the configured Cloudflare Worker to be online.
-- Clap wake works while the app is active in the foreground. It is not a screen-off or background wake-word service.
-- Flashlight support depends on the device exposing a rear flash and granting camera permission.
-- The document picker can access files shared by Android document providers, including compatible WPS/shared-storage sources. It cannot read WPS Office's private app database or private internal files.
-- Contact calls open the Android dialer for user confirmation. Music search opens compatible streaming-app results; a tap may still be needed to start a track.
-- Native device actions are limited to Android APIs and settings screens exposed by the OS; the app does not silently control protected system settings.
-- A successful hosted build does not replace on-device testing of the microphone, TTS voice, flashlight, document providers and network connection.
+- Android Gradle Plugin project, compile SDK 35, minimum SDK 26, target SDK 35.
+- GitHub Actions builds a debug APK on pushes to `main` and on manual workflow dispatch. Download the `JARVIS-native-debug-apk` artifact from a successful run.
+- A successful hosted build still needs on-device testing of the actual wake phrase, microphone behavior with the screen off, installed system TTS voices, notification permission, assistant-role eligibility, calls, messaging and document providers.

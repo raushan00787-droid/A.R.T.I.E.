@@ -3,7 +3,12 @@ package com.raushan.jarvis;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.app.role.RoleManager;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -84,10 +89,12 @@ public class MainActivity extends FragmentActivity {
     private static final int PERMISSION_CLAP = 12;
     private static final int PERMISSION_CONTACTS = 13;
     private static final int PERMISSION_CORE = 14;
+    private static final int PERMISSION_NOTIFICATIONS = 15;
     private static final int REQUEST_OPEN_DOCUMENTS = 31;
     private static final int REQUEST_OPEN_FOLDER = 32;
     private static final int REQUEST_OVERLAY_PERMISSION = 33;
     private static final int REQUEST_DEVICE_CREDENTIAL = 34;
+    private static final int REQUEST_ASSISTANT_ROLE = 35;
     private static final int MAX_HISTORY_MESSAGES = 20;
     private static final int MAX_SAVED_MEMORIES = 20;
 
@@ -149,6 +156,11 @@ public class MainActivity extends FragmentActivity {
     private final android.os.Handler voiceHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private Runnable voiceRestartRunnable;
     private boolean continuousListeningEnabled = false;
+    private boolean liveModeEnabled = false;
+    private boolean liveModePaused = false;
+    private boolean liveReceiverRegistered = false;
+    private String pendingMessageContact;
+    private String pendingMessageBody;
     private boolean ownerAuthenticated = false;
     private boolean welcomePending = false;
     private boolean lockPromptStarted = false;
@@ -173,6 +185,21 @@ public class MainActivity extends FragmentActivity {
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final HandlerClock handlerClock = new HandlerClock();
+    private final BroadcastReceiver liveReceiver = new BroadcastReceiver() {
+        @Override public void onReceive(Context context, Intent intent) {
+            if (intent != null && JarvisLiveService.ACTION_STATE.equals(intent.getAction())) {
+                liveModeEnabled = intent.getBooleanExtra(JarvisLiveService.EXTRA_ENABLED, false);
+                liveModePaused = intent.getBooleanExtra(JarvisLiveService.EXTRA_PAUSED, false);
+                if (micButton != null) {
+                    micButton.setText(liveModeEnabled ? (liveModePaused ? "Ⅱ" : "●") : "○");
+                    micButton.setTextColor(liveModeEnabled ? GOLD : MUTED);
+                }
+                setStatus(!liveModeEnabled ? "LIVE MODE OFF" : (liveModePaused ? "LIVE MODE PAUSED" : "LIVE MODE ACTIVE"));
+            } else {
+                consumePendingLiveCommand();
+            }
+        }
+    };
     private JSONArray conversation = new JSONArray();
 
     private static class HandlerClock {
@@ -193,6 +220,7 @@ public class MainActivity extends FragmentActivity {
         loadUserSettings();
         loadConversation();
         buildUI();
+        registerLiveReceiver();
 
         tts = new TextToSpeech(this, result -> {
             if (tts != null && result == TextToSpeech.SUCCESS) {
@@ -200,9 +228,9 @@ public class MainActivity extends FragmentActivity {
                 tts.setSpeechRate(speechRate);
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
-                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
-                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); }); }
-                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
+                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
+                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
+                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
                 });
                 if (welcomePending && ownerAuthenticated) {
                     welcomePending = false;
@@ -327,6 +355,7 @@ public class MainActivity extends FragmentActivity {
             welcomePending = false;
             speak("Hey Raushan, welcome again.");
         }
+        consumePendingLiveCommand();
     }
 
     private void lockAppNow() {
@@ -390,6 +419,8 @@ public class MainActivity extends FragmentActivity {
         speechRate = prefs.getFloat("speech_rate", 1.0f);
         if (speechRate < 0.7f || speechRate > 1.6f) speechRate = 1.0f;
         floatingOrbEnabled = prefs.getBoolean("floating_orb_enabled", false);
+        liveModeEnabled = prefs.getBoolean("live_mode_enabled", false);
+        liveModePaused = prefs.getBoolean("live_mode_paused", false);
     }
 
     private JSONArray getSavedMemories() {
@@ -598,7 +629,7 @@ public class MainActivity extends FragmentActivity {
         voiceOrbPanel.addView(orbStatus, statusLp);
         View bottomSpace = new View(this);
         voiceOrbPanel.addView(bottomSpace, new LinearLayout.LayoutParams(1, 0, 1));
-        TextView pause = text("Ⅱ   PAUSE MICROPHONE", 9, Color.rgb(173, 207, 222));
+        TextView pause = text("■   STOP LIVE MODE", 9, Color.rgb(173, 207, 222));
         pause.setGravity(Gravity.CENTER);
         pause.setPadding(dp(18), dp(14), dp(18), dp(14));
         pause.setBackground(shape(Color.rgb(8, 25, 39), Color.rgb(40, 108, 139), 24));
@@ -875,7 +906,7 @@ public class MainActivity extends FragmentActivity {
         voiceSelectButton.setGravity(Gravity.CENTER);
         voiceSelectButton.setPadding(dp(3), dp(10), dp(3), dp(10));
         voiceSelectButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        voiceSelectButton.setOnClickListener(v -> showVoicePicker());
+        voiceSelectButton.setOnClickListener(v -> openSystemTtsSettings());
         LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
         voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
         rowFour.addView(voiceSelectButton, voiceLp);
@@ -912,6 +943,12 @@ public class MainActivity extends FragmentActivity {
         addControl(rowEight, "LOCK JARVIS", () -> lockAppNow());
         addControl(rowEight, "FOLDER ACCESS", () -> openFolderPicker());
         systemPanel.addView(rowEight);
+
+        LinearLayout rowNine = row();
+        addControl(rowNine, "DEFAULT ASSISTANT", () -> requestAssistantRole());
+        addControl(rowNine, "SYSTEM VOICE", () -> openSystemTtsSettings());
+        addControl(rowNine, "LIVE MODE", () -> toggleContinuousListening());
+        systemPanel.addView(rowNine);
 
         LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(-1, -2);
         panelLp.topMargin = dp(4);
@@ -1026,7 +1063,7 @@ public class MainActivity extends FragmentActivity {
         String local = handleLocalCommand(message);
         if (local != null) {
             if (!local.isEmpty()) reply(local);
-            else scheduleListeningRestart(650);
+            else { scheduleListeningRestart(650); resumeLiveModeAfterSpeech(); }
             return;
         }
 
@@ -1176,6 +1213,25 @@ public class MainActivity extends FragmentActivity {
         }
         String memoryCommand = handleMemoryCommand(input);
         if (memoryCommand != null) return memoryCommand;
+
+        String reminderCommand = handleReminderCommand(input);
+        if (reminderCommand != null) return reminderCommand;
+
+        String messageCommand = handleMessageCommand(input);
+        if (messageCommand != null) return messageCommand;
+
+        if (value.equals("default assistant") || value.equals("make jarvis default assistant")) {
+            requestAssistantRole();
+            return "";
+        }
+        if (value.equals("system voice settings") || value.equals("change system voice")) {
+            openSystemTtsSettings();
+            return "Opening Android text-to-speech settings.";
+        }
+        if (value.equals("stop live mode") || value.equals("pause live mode")) {
+            stopLiveMode();
+            return "";
+        }
 
         String alarmCommand = handleAlarmCommand(input, value);
         if (alarmCommand != null) return alarmCommand;
@@ -1619,6 +1675,105 @@ public class MainActivity extends FragmentActivity {
         reply("Speech speed set to " + speechRate + " times.");
     }
 
+    private String handleReminderCommand(String input) {
+        Matcher matcher = Pattern.compile("(?i)^remind me in\\s+(\\d{1,4})\\s*(minutes?|mins?|hours?|hrs?)\\s+(?:to\\s+)?(.+)$").matcher(input == null ? "" : input.trim());
+        if (!matcher.matches()) return null;
+        int amount;
+        try { amount = Integer.parseInt(matcher.group(1)); } catch (Exception error) { return "I could not read that reminder time."; }
+        String unit = matcher.group(2).toLowerCase(Locale.ROOT);
+        String task = matcher.group(3).trim();
+        if (amount < 1 || amount > 1000 || task.isEmpty()) return "Please choose a reminder between 1 and 1000 minutes or hours, with a task.";
+        long delay = amount * (unit.startsWith("h") ? 60L : 1L) * 60L * 1000L;
+        int id = (int) (System.currentTimeMillis() & 0x7fffffff);
+        Intent alert = new Intent(this, JarvisNotificationReceiver.class).setAction(JarvisNotificationReceiver.ACTION_REMINDER);
+        alert.putExtra(JarvisNotificationReceiver.EXTRA_TITLE, "JARVIS reminder");
+        alert.putExtra(JarvisNotificationReceiver.EXTRA_TEXT, task);
+        PendingIntent pending = PendingIntent.getBroadcast(this, id, alert, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        AlarmManager alarms = (AlarmManager) getSystemService(ALARM_SERVICE);
+        if (alarms == null) return "Android's reminder service is unavailable.";
+        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pending);
+        return "Reminder set for " + amount + " " + unit + ": " + task + ". Android will notify you when it is due.";
+    }
+
+    private String handleMessageCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        Matcher sms = Pattern.compile("(?i)^(?:sms|text|message)\\s+(?:to\\s+)?(.+?)\\s*:\\s*(.+)$").matcher(raw);
+        if (!sms.matches()) {
+            sms = Pattern.compile("(?i)^(?:sms|text|message)\\s+(?:to\\s+)?(.+?)\\s+(?:saying|that)\\s+(.+)$").matcher(raw);
+        }
+        if (sms.matches()) {
+            String target = sms.group(1).trim();
+            String body = sms.group(2).trim();
+            if (target.equalsIgnoreCase("whatsapp") || target.equalsIgnoreCase("wa")) return openWhatsAppShare(body);
+            if (target.replaceAll("[^0-9]", "").length() >= 5) return openSmsComposer(target, body);
+            if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+                pendingMessageContact = target;
+                pendingMessageBody = body;
+                requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, PERMISSION_CONTACTS);
+                return "I need Contacts permission to find that recipient. Allow it and I will open the SMS draft for review.";
+            }
+            return openContactMessageComposer(target, body);
+        }
+        Matcher whatsapp = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)\\s*:\\s*(.+)$").matcher(raw);
+        if (whatsapp.matches()) return openWhatsAppShare(whatsapp.group(1).trim());
+        Matcher whatsappVoice = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)(?: message)?\\s+to\\s+(.+?)\\s+(?:saying|message)\\s+(.+)$").matcher(raw);
+        if (whatsappVoice.matches()) return openWhatsAppShare(whatsappVoice.group(2).trim());
+        Matcher whatsappSimple = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)\\s+(.+)$").matcher(raw);
+        if (whatsappSimple.matches()) return openWhatsAppShare(whatsappSimple.group(1).trim());
+        return null;
+    }
+
+    private String openContactMessageComposer(String query, String body) {
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> numbers = new ArrayList<>();
+        Cursor cursor = null;
+        try {
+            Uri lookup = Uri.withAppendedPath(ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI, Uri.encode(query));
+            cursor = getContentResolver().query(lookup,
+                    new String[]{ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER},
+                    null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
+            if (cursor != null) while (cursor.moveToNext() && names.size() < 12) {
+                String name = cursor.getString(0), number = cursor.getString(1);
+                if (name != null && number != null && !number.trim().isEmpty()) { names.add(name); numbers.add(number); }
+            }
+        } catch (Exception error) { return "I could not read that contact. Check Contacts permission and try again."; }
+        finally { if (cursor != null) cursor.close(); }
+        if (numbers.isEmpty()) return "I could not find a phone number for " + query + ".";
+        if (numbers.size() == 1) return openSmsComposer(numbers.get(0), body);
+        String[] labels = new String[numbers.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = names.get(i) + "  •  " + numbers.get(i);
+        new AlertDialog.Builder(this).setTitle("CHOOSE MESSAGE RECIPIENT").setItems(labels,
+                (dialog, which) -> reply(openSmsComposer(numbers.get(which), body)))
+                .setNegativeButton("CANCEL", null).show();
+        return "I found multiple matching numbers. Choose the correct recipient.";
+    }
+
+    private String openSmsComposer(String phone, String body) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)));
+            intent.putExtra("sms_body", body);
+            startActivity(intent);
+            return "Opening your SMS app with the message filled in. Review it and tap Send when ready.";
+        } catch (Exception error) { return "No SMS app could handle that message on this device."; }
+    }
+
+    private String openWhatsAppShare(String body) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_SEND);
+            intent.setType("text/plain");
+            intent.putExtra(Intent.EXTRA_TEXT, body);
+            intent.setPackage("com.whatsapp");
+            startActivity(intent);
+            return "Opening WhatsApp's share screen. Choose the recipient and send the message yourself.";
+        } catch (Exception error) {
+            try {
+                Intent intent = new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, body);
+                startActivity(Intent.createChooser(intent, "Share message"));
+                return "WhatsApp is unavailable, so Android opened the share sheet instead.";
+            } catch (Exception ignored) { return "No compatible app could share that message."; }
+        }
+    }
+
     private void reply(String message) {
         addMessage("JARVIS", message, false);
         setStatus("RESPONSE READY");
@@ -1626,38 +1781,30 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void speak(String message) {
+        if (liveModeEnabled && !liveModePaused) {
+            try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_HOLD)); }
+            catch (Exception ignored) { }
+        }
         if (!spokenReplies || tts == null || message == null || message.trim().isEmpty()) {
             scheduleListeningRestart(500);
+            resumeLiveModeAfterSpeech();
             return;
         }
         String speechText = cleanSpeechText(message);
-        if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); return; }
-        boolean hindi = languageMode == 2 || (languageMode == 0 && containsDevanagari(speechText));
-        String requestedLocale = hindi ? "hi-IN" : "en-IN";
-        Voice voice = findInstalledVoiceForLanguage(requestedLocale);
-        if (voice == null) {
-            setStatus(hindi ? "HINDI VOICE NOT INSTALLED" : "ENGLISH VOICE NOT INSTALLED");
-            scheduleListeningRestart(700);
-            return;
-        }
+        if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
         try {
-            if (tts.setVoice(voice) != TextToSpeech.SUCCESS) {
-                setStatus("FEMALE VOICE COULD NOT BE SELECTED");
-                return;
-            }
-            selectedVoiceName = voice.getName();
-            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
-                    .putString("tts_voice_name", selectedVoiceName).apply();
-            updateVoiceSelectButton();
+            // Use the Android system's current default TTS voice/engine without overriding it.
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "jarvis-" + System.currentTimeMillis());
             if (result == TextToSpeech.ERROR) {
-                setStatus("VOICE OUTPUT ERROR");
+                setStatus("SYSTEM VOICE OUTPUT ERROR");
                 scheduleListeningRestart(700);
+                resumeLiveModeAfterSpeech();
             } else setStatus("SPEAKING");
         } catch (Exception error) {
-            setStatus("VOICE OUTPUT UNAVAILABLE");
+            setStatus("SYSTEM VOICE OUTPUT UNAVAILABLE");
             scheduleListeningRestart(700);
+            resumeLiveModeAfterSpeech();
         }
     }
 
@@ -1706,84 +1853,24 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void initializeVoiceSelection() {
-        availableVoices.clear();
-        if (tts == null) return;
-        Set<Voice> voices = tts.getVoices();
-        if (voices != null) {
-            for (Voice voice : voices) {
-                Locale locale = voice.getLocale();
-                if (locale != null && ("en".equalsIgnoreCase(locale.getLanguage())
-                        || "hi".equalsIgnoreCase(locale.getLanguage()))) availableVoices.add(voice);
-            }
-            Collections.sort(availableVoices, (a, b) -> {
-                Locale al = a.getLocale(), bl = b.getLocale();
-                String at = (al == null ? "" : al.toLanguageTag()) + " " + a.getName();
-                String bt = (bl == null ? "" : bl.toLanguageTag()) + " " + b.getName();
-                return at.compareToIgnoreCase(bt);
-            });
-        }
-        SharedPreferences preferences = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
-        String savedName = preferences.getString("tts_voice_name", "");
-        Voice savedVoice = null;
-        for (Voice voice : availableVoices) {
-            if (savedName.equals(voice.getName())) { savedVoice = voice; break; }
-        }
-        Voice selected = savedVoice != null ? savedVoice : findInstalledVoiceForLanguage("en-IN");
-        if (selected == null) selected = findInstalledVoiceForLanguage("hi-IN");
-        if (selected != null && tts.setVoice(selected) == TextToSpeech.SUCCESS) {
-            selectedVoiceName = selected.getName();
-            preferences.edit().putString("tts_voice_name", selectedVoiceName).apply();
-            spokenReplies = true;
-        } else {
-            selectedVoiceName = "";
-            spokenReplies = false;
-        }
-        if (voiceButton != null) {
-            voiceButton.setText(spokenReplies ? "◖" : "◗");
-            voiceButton.setTextColor(spokenReplies ? CYAN : MUTED);
-        }
+        // Respect the voice and engine configured in Android's system Text-to-Speech settings.
+        // JARVIS deliberately does not force a gender, language profile or vendor-specific voice.
+        selectedVoiceName = "ANDROID SYSTEM DEFAULT";
+        spokenReplies = true;
         updateVoiceSelectButton();
+        if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(CYAN); }
     }
 
     private String voiceDisplayName() {
-        if (selectedVoiceName == null || selectedVoiceName.trim().isEmpty()) return "FEMALE VOICE MISSING";
-        String name = selectedVoiceName;
-        int hash = name.indexOf('#');
-        if (hash > 0) name = name.substring(0, hash);
-        name = name.replace('_', ' ').replace('-', ' ').trim();
-        return name.length() > 24 ? name.substring(0, 24) : name;
+        return "ANDROID SYSTEM DEFAULT";
     }
 
     private void updateVoiceSelectButton() {
-        if (voiceSelectButton != null)
-            voiceSelectButton.setText("SYSTEM VOICE: " + voiceDisplayName().toUpperCase(Locale.ROOT));
+        if (voiceSelectButton != null) voiceSelectButton.setText("SYSTEM DEFAULT VOICE  ⚙");
     }
 
     private void showVoicePicker() {
-        if (tts == null || availableVoices.isEmpty()) {
-            reply("No compatible English or Hindi text-to-speech voice is installed. Spoken replies will remain off until a language voice is available.");
-            return;
-        }
-        String[] labels = new String[availableVoices.size()];
-        int selectedIndex = -1;
-        for (int i = 0; i < availableVoices.size(); i++) {
-            Voice voice = availableVoices.get(i);
-            labels[i] = voice.getName() + "  ·  " + voice.getLocale().toLanguageTag()
-                    + (voice.isNetworkConnectionRequired() ? "  ·  ONLINE" : "  ·  DEVICE");
-            if (voice.getName().equals(selectedVoiceName)) selectedIndex = i;
-        }
-        new AlertDialog.Builder(this).setTitle("INSTALLED VOICES")
-                .setSingleChoiceItems(labels, selectedIndex, (dialog, which) -> {
-                    Voice voice = availableVoices.get(which);
-                    if (tts.setVoice(voice) == TextToSpeech.SUCCESS) {
-                        selectedVoiceName = voice.getName();
-                        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
-                                .putString("tts_voice_name", selectedVoiceName).apply();
-                        updateVoiceSelectButton();
-                        dialog.dismiss();
-                        speak("Voice profile selected. This is how I will speak from now on.");
-                    } else reply("That installed voice could not be selected by the Android speech engine.");
-                }).setNegativeButton("CANCEL", null).show();
+        openSystemTtsSettings();
     }
 
     private String cleanSpeechText(String source) {
@@ -1826,6 +1913,10 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void toggleClapWake() {
+        if (liveModeEnabled) {
+            setStatus("STOP LIVE MODE BEFORE USING CLAP WAKE");
+            return;
+        }
         if (clapWakeEnabled) {
             clapWakeEnabled = false;
             stopClapRecorder();
@@ -1950,21 +2041,11 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void toggleVoice() {
-        if (spokenReplies) {
-            spokenReplies = false;
-            if (tts != null) tts.stop();
-            if (voiceButton != null) { voiceButton.setText("◗"); voiceButton.setTextColor(MUTED); }
-            setStatus("SPOKEN REPLIES OFF");
-            return;
-        }
-        if (availableVoices.isEmpty()) {
-            reply("No English or Hindi speech voice is installed on this device yet.");
-            scheduleListeningRestart(700);
-            return;
-        }
-        spokenReplies = true;
-        if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(CYAN); }
-        reply("Female spoken replies enabled.");
+        spokenReplies = !spokenReplies;
+        if (!spokenReplies && tts != null) tts.stop();
+        if (voiceButton != null) { voiceButton.setText(spokenReplies ? "◖" : "◗"); voiceButton.setTextColor(spokenReplies ? CYAN : MUTED); }
+        if (spokenReplies) reply("System voice replies enabled.");
+        else { setStatus("SPOKEN REPLIES OFF"); resumeLiveModeAfterSpeech(); }
     }
 
     private void toggleLanguage() {
@@ -2018,27 +2099,113 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void toggleContinuousListening() {
-        continuousListeningEnabled = !continuousListeningEnabled;
-        if (!continuousListeningEnabled) {
-            hideVoiceOrb();
-            if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
-            if (recognizer != null) {
-                try { recognizer.cancel(); } catch (Exception ignored) { }
-            }
-            listening = false;
-            if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
-            setStatus("MICROPHONE PAUSED");
+        if (liveModeEnabled && liveModePaused) {
+            liveModePaused = false;
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit().putBoolean("live_mode_paused", false).apply();
+            try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
+            catch (Exception error) { setStatus("LIVE MODE RESUME FAILED"); }
+        } else if (liveModeEnabled) {
+            stopLiveMode();
+        } else {
+            startLiveMode();
+        }
+    }
+
+    private void startLiveMode() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_AUDIO);
             return;
         }
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            micPermissionRequested = false;
+        if (clapWakeEnabled) { clapWakeEnabled = false; stopClapRecorder(); }
+        liveModeEnabled = true;
+        liveModePaused = false;
+        continuousListeningEnabled = false;
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .putBoolean("live_mode_enabled", true).putBoolean("live_mode_paused", false).apply();
+        if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
+        if (recognizer != null) { try { recognizer.cancel(); } catch (Exception ignored) { } }
+        listening = false;
+        Intent service = new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_START);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
+            if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
+            setStatus("JARVIS LIVE  •  SAY HEY JARVIS");
+        } catch (Exception error) {
+            liveModeEnabled = false;
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit().putBoolean("live_mode_enabled", false).apply();
+            setStatus("LIVE MODE COULD NOT START");
+            reply("Android could not start the microphone service. Open JARVIS while it is visible and check microphone permission.");
         }
-        if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
-        scheduleListeningRestart(250);
+    }
+
+    private void stopLiveMode() {
+        liveModeEnabled = false;
+        liveModePaused = false;
+        continuousListeningEnabled = false;
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .putBoolean("live_mode_enabled", false).putBoolean("live_mode_paused", false).remove("pending_live_command").apply();
+        try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_STOP)); }
+        catch (Exception ignored) { stopService(new Intent(this, JarvisLiveService.class)); }
+        if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
+        setStatus("LIVE MODE OFF");
+    }
+
+    private void resumeLiveModeAfterSpeech() {
+        if (!liveModeEnabled || liveModePaused) return;
+        voiceHandler.postDelayed(() -> {
+            if (!liveModeEnabled || liveModePaused || isFinishing() || isDestroyed()) return;
+            try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
+            catch (Exception ignored) { }
+        }, 500);
+    }
+
+    private void registerLiveReceiver() {
+        if (liveReceiverRegistered) return;
+        IntentFilter filter = new IntentFilter(JarvisLiveService.ACTION_TRANSCRIPT);
+        filter.addAction(JarvisLiveService.ACTION_STATE);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(liveReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(liveReceiver, filter);
+        liveReceiverRegistered = true;
+    }
+
+    private void consumePendingLiveCommand() {
+        if (!ownerAuthenticated) return;
+        SharedPreferences prefs = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+        String command = prefs.getString("pending_live_command", "");
+        if (command == null || command.isEmpty()) return;
+        prefs.edit().remove("pending_live_command").apply();
+        if ("__JARVIS_WAKE__".equals(command)) reply("Yes, Sir?");
+        else sendMessage(command);
+    }
+
+    private void openSystemTtsSettings() {
+        try { startActivity(new Intent("com.android.settings.TTS_SETTINGS")); }
+        catch (Exception error) {
+            try { startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS)); }
+            catch (Exception ignored) { reply("Android could not open the system speech settings."); }
+        }
+    }
+
+    private void requestAssistantRole() {
+        if (Build.VERSION.SDK_INT < 29) {
+            reply("Android's default assistant role requires Android 10 or newer.");
+            return;
+        }
+        RoleManager roles = getSystemService(RoleManager.class);
+        if (roles == null || !roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
+            reply("This Android version does not expose the default assistant role to JARVIS.");
+            return;
+        }
+        if (roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
+            reply("JARVIS is already your default assistant, Sir.");
+            return;
+        }
+        try { startActivityForResult(roles.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT), REQUEST_ASSISTANT_ROLE); }
+        catch (Exception error) { reply("Android could not open the default assistant selection screen."); }
     }
 
     private void scheduleListeningRestart(long delayMs) {
-        if (!continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
+        if (liveModeEnabled || !continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
         if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
         voiceRestartRunnable = () -> {
             voiceRestartRunnable = null;
@@ -2048,7 +2215,7 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void startListening() {
-        if (!ownerAuthenticated || !continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
+        if (liveModeEnabled || !ownerAuthenticated || !continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
         if (busy || (tts != null && tts.isSpeaking())) return;
         if (listening) return;
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -2157,8 +2324,9 @@ public class MainActivity extends FragmentActivity {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.RECORD_AUDIO);
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.CAMERA);
         if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.READ_CONTACTS);
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.POST_NOTIFICATIONS);
         if (missing.isEmpty()) {
-            reply("Microphone, camera and contacts permissions are already granted. Documents and folders are accessed separately through Android's file picker.");
+            reply("Microphone, camera, contacts and notification permissions are already granted. Documents and folders are accessed separately through Android's file picker.");
             return;
         }
         requestPermissions(missing.toArray(new String[0]), PERMISSION_CORE);
@@ -2169,9 +2337,11 @@ public class MainActivity extends FragmentActivity {
         boolean cameraPermission = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
         boolean contacts = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
         String folder = getSharedPreferences("jarvis_settings", MODE_PRIVATE).getString("document_tree_uri", "");
+        boolean notifications = Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
         String message = "MICROPHONE: " + (microphone ? "GRANTED" : "NOT GRANTED")
                 + "\nCAMERA / FLASHLIGHT: " + (cameraPermission ? "GRANTED" : "NOT GRANTED")
                 + "\nCONTACTS: " + (contacts ? "GRANTED" : "NOT GRANTED")
+                + "\nNOTIFICATIONS: " + (notifications ? "GRANTED" : "NOT GRANTED")
                 + "\nDOCUMENTS: selected files only"
                 + "\nFOLDER ACCESS: " + (folder.isEmpty() ? "NOT SELECTED" : "USER-SELECTED FOLDER")
                 + "\n\nCalls open the dialer for your confirmation. Android does not allow JARVIS to silently grant protected permissions or read another app's private files.";
@@ -2331,6 +2501,12 @@ public class MainActivity extends FragmentActivity {
             else finish();
             return;
         }
+        if (requestCode == REQUEST_ASSISTANT_ROLE) {
+            RoleManager roles = Build.VERSION.SDK_INT >= 29 ? getSystemService(RoleManager.class) : null;
+            boolean held = roles != null && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
+            reply(held ? "JARVIS is now your Android default assistant, Sir." : "Android did not assign the default assistant role. You can try again from Controls.");
+            return;
+        }
         if (resultCode != RESULT_OK || data == null) return;
         if (requestCode == REQUEST_OPEN_DOCUMENTS) {
             selectedDocumentUris.clear();
@@ -2364,8 +2540,7 @@ public class MainActivity extends FragmentActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_AUDIO) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                continuousListeningEnabled = true;
-                startListening();
+                startLiveMode();
             } else {
                 continuousListeningEnabled = false;
                 if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
@@ -2394,13 +2569,19 @@ public class MainActivity extends FragmentActivity {
                     + ", contacts " + (contactsGranted ? "granted" : "not granted")
                     + ". Document access is granted separately when you choose files or folders.");
         } else if (requestCode == PERMISSION_CONTACTS) {
-            String requested = pendingCallContact;
-            pendingCallContact = null;
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
-                    && requested != null) {
-                reply(openContactDialer(requested));
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (pendingMessageContact != null) {
+                String target = pendingMessageContact;
+                String body = pendingMessageBody;
+                pendingMessageContact = null;
+                pendingMessageBody = null;
+                if (granted && body != null) reply(openContactMessageComposer(target, body));
+                else reply("Contacts permission was not granted. No message was opened.");
             } else {
-                reply("Contacts permission was not granted. You can still say 'dial' followed by a phone number.");
+                String requested = pendingCallContact;
+                pendingCallContact = null;
+                if (granted && requested != null) reply(openContactDialer(requested));
+                else reply("Contacts permission was not granted. You can still say 'dial' followed by a phone number.");
             }
         }
     }
@@ -2641,6 +2822,7 @@ public class MainActivity extends FragmentActivity {
     @Override
     protected void onPause() {
         activityVisible = false;
+        continuousListeningEnabled = false;
         if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
         if (recognizer != null) {
             try { recognizer.cancel(); } catch (Exception ignored) { }
@@ -2655,6 +2837,9 @@ public class MainActivity extends FragmentActivity {
     protected void onResume() {
         super.onResume();
         activityVisible = true;
+        SharedPreferences livePrefs = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+        liveModeEnabled = livePrefs.getBoolean("live_mode_enabled", false);
+        liveModePaused = livePrefs.getBoolean("live_mode_paused", false);
         applyImmersiveMode();
         if (floatingOrbEnabled) startOverlayService(JarvisOverlayService.ACTION_HIDE);
         if (securitySettingsOpened && !ownerAuthenticated) {
@@ -2662,8 +2847,14 @@ public class MainActivity extends FragmentActivity {
             lockPromptStarted = false;
             authenticateOwner();
         }
-        if (continuousListeningEnabled && ownerAuthenticated) scheduleListeningRestart(350);
+        if (liveModeEnabled && !liveModePaused && ownerAuthenticated) {
+            if (tts == null || !tts.isSpeaking()) {
+                try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
+                catch (Exception ignored) { }
+            }
+        } else if (continuousListeningEnabled && ownerAuthenticated) scheduleListeningRestart(350);
         resumeClapWake();
+        consumePendingLiveCommand();
     }
 
     @Override
@@ -2674,6 +2865,7 @@ public class MainActivity extends FragmentActivity {
         if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
         stopClapRecorder();
         if (handlerClock.runnable != null) handlerClock.handler.removeCallbacks(handlerClock.runnable);
+        if (liveReceiverRegistered) { try { unregisterReceiver(liveReceiver); } catch (Exception ignored) { } liveReceiverRegistered = false; }
         if (recognizer != null) {
             try { recognizer.destroy(); } catch (Exception ignored) { }
             recognizer = null;
