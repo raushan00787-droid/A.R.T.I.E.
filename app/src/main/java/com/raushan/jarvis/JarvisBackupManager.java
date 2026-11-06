@@ -33,6 +33,7 @@ final class JarvisBackupManager {
         settings.put("conversation_history", conversationHistory);
         settings.put("task_history", preferences.getString("task_history", "[]"));
         settings.put("scheduled_reminders", preferences.getString("scheduled_reminders", "[]"));
+        settings.put("todo_tasks", preferences.getString("todo_tasks", "[]"));
         settings.put("speech_language_mode", preferences.getInt("speech_language_mode", 0));
         settings.put("speech_rate", preferences.getFloat("speech_rate", 1.0f));
         settings.put("spoken_replies", preferences.getBoolean("spoken_replies", true));
@@ -65,6 +66,7 @@ final class JarvisBackupManager {
         String conversation = settings.optString("conversation_history", "");
         String history = settings.optString("task_history", "[]");
         String reminders = settings.optString("scheduled_reminders", "[]");
+        String todoTasks = settings.optString("todo_tasks", "[]");
 
         int languageMode = settings.optInt("speech_language_mode", 0);
         if (languageMode < 0 || languageMode > 2) languageMode = 0;
@@ -76,6 +78,7 @@ final class JarvisBackupManager {
                 .putString("conversation_history", conversation)
                 .putString("task_history", history)
                 .putString("scheduled_reminders", reminders)
+                .putString("todo_tasks", todoTasks)
                 .putInt("speech_language_mode", languageMode)
                 .putFloat("speech_rate", speechRate)
                 .putBoolean("spoken_replies", settings.optBoolean("spoken_replies", true))
@@ -95,11 +98,13 @@ final class JarvisBackupManager {
         int chat = new JSONArray(conversationRaw).length();
         int tasks = new JSONArray(settings.optString("task_history", "[]")).length();
         int reminders = new JSONArray(settings.optString("scheduled_reminders", "[]")).length();
+        int todoTasks = new JSONArray(settings.optString("todo_tasks", "[]")).length();
         return "Backup format: JARVIS Native v" + VERSION
                 + "\nSaved notes: " + memories
                 + "\nConversation entries: " + chat
                 + "\nTask history entries: " + tasks
                 + "\nSaved reminders: " + reminders
+                + "\nTo-do tasks: " + todoTasks
                 + "\nSpeech language and speed preferences are included."
                 + "\n\nRestore replaces these local records. Android permissions, folder grants, account access, microphone mode, and Floating Orb state are not restored.";
     }
@@ -120,10 +125,21 @@ final class JarvisBackupManager {
         JSONArray conversation = new JSONArray(conversationRaw);
         JSONArray tasks = new JSONArray(settings.optString("task_history", "[]"));
         JSONArray reminders = new JSONArray(settings.optString("scheduled_reminders", "[]"));
+        JSONArray todoTasks = new JSONArray(settings.optString("todo_tasks", "[]"));
         if (memories.length() > 20) throw new Exception("The backup contains too many saved notes.");
         if (conversation.length() > 21) throw new Exception("The backup contains too many conversation entries.");
         if (tasks.length() > 100) throw new Exception("The backup contains too many task-history entries.");
         if (reminders.length() > 100) throw new Exception("The backup contains too many reminders.");
+        if (todoTasks.length() > 100) throw new Exception("The backup contains too many to-do tasks.");
+        for (int i = 0; i < todoTasks.length(); i++) {
+            JSONObject task = todoTasks.optJSONObject(i);
+            if (task == null || task.optInt("id", -1) <= 0
+                    || task.optString("title", "").trim().isEmpty()
+                    || task.optString("title", "").length() > 240
+                    || task.optLong("created_at", 0L) <= 0L) {
+                throw new Exception("The backup contains an invalid to-do task.");
+            }
+        }
         for (int i = 0; i < reminders.length(); i++) {
             JSONObject reminder = reminders.optJSONObject(i);
             if (reminder == null || reminder.optInt("id", -1) <= 0
