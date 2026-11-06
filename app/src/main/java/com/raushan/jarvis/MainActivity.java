@@ -160,8 +160,13 @@ public class MainActivity extends Activity {
         });
 
         if (SpeechRecognizer.isRecognitionAvailable(this)) {
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this);
-            recognizer.setRecognitionListener(createRecognitionListener());
+            try {
+                recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                recognizer.setRecognitionListener(createRecognitionListener());
+            } catch (Exception error) {
+                recognizer = null;
+                setStatus("VOICE INPUT UNAVAILABLE");
+            }
         }
 
         updateClock();
@@ -1122,8 +1127,14 @@ public class MainActivity extends Activity {
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { resumeClapWake(); return; }
         // Keep the explicitly selected Android TTS voice. Do not reset the voice per reply.
-        tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, "jarvis-" + System.currentTimeMillis());
-        setStatus("SPEAKING");
+        try {
+            int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
+                    "jarvis-" + System.currentTimeMillis());
+            if (result == TextToSpeech.ERROR) setStatus("VOICE OUTPUT ERROR");
+            else setStatus("SPEAKING");
+        } catch (Exception error) {
+            setStatus("VOICE OUTPUT UNAVAILABLE");
+        }
     }
 
     private void stopSpeech() {
@@ -1289,17 +1300,31 @@ public class MainActivity extends Activity {
     private void startClapMonitor() {
         if (!clapWakeEnabled || clapRecorder != null) return;
         final int sampleRate = 16000;
-        int minimum = AudioRecord.getMinBufferSize(sampleRate,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        int minimum;
+        try {
+            minimum = AudioRecord.getMinBufferSize(sampleRate,
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+        } catch (Exception error) {
+            clapWakeEnabled = false;
+            setStatus("CLAP WAKE UNAVAILABLE");
+            return;
+        }
         if (minimum <= 0) {
             clapWakeEnabled = false;
             setStatus("CLAP WAKE UNAVAILABLE");
             return;
         }
-        final AudioRecord recorder = new AudioRecord(
-                MediaRecorder.AudioSource.VOICE_RECOGNITION, sampleRate,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
-                Math.max(minimum, 8192));
+        final AudioRecord recorder;
+        try {
+            recorder = new AudioRecord(
+                    MediaRecorder.AudioSource.VOICE_RECOGNITION, sampleRate,
+                    AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                    Math.max(minimum, 8192));
+        } catch (Exception error) {
+            clapWakeEnabled = false;
+            setStatus("CLAP WAKE COULD NOT START");
+            return;
+        }
         if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
             recorder.release();
             clapWakeEnabled = false;
