@@ -6,12 +6,12 @@ Native Android companion app for Raushan's J.A.R.V.I.S. project.
 
 - Native Java interface with the cyan/gold HUD, animated reactor and Raushan's R signature emblem.
 - Cloudflare Worker AI chat integration with bounded conversation history restored from local app storage after restart.
-- Explicit on-device memory: save notes with "remember that ...", view them with "show memories", and remove them with "forget ...". JARVIS does not silently extract personal facts from chat.
-- Speech recognition modes: AUTO, EN-IN and HI-IN. AUTO leaves the language open to the installed recognition service; code-mixed Hinglish quality still depends on that service.
+- Explicit on-device memory: save notes with "remember that ...", view them with "show memories", and remove them with "forget ...". JARVIS does not silently extract personal facts from chat. Relevant saved notes are added to future AI requests so the connected assistant can use them.
+- Speech recognition modes: AUTO, EN-IN and HI-IN. AUTO lets the installed recognition service choose its default language; reliable code-mixed Hinglish support is not guaranteed by Android's standard recognizer.
 - Android TTS voice picker, saved voice selection, speech cleanup and adjustable speech speed.
 - Media-volume up/down controls using Android's standard volume UI.
 - Voice/text app-launch commands for WhatsApp, YouTube, Chrome, Maps, Gmail, Spotify and Instagram when installed.
-- Alarm requests open the Android Clock alarm screen with a parsed time selected. The user must confirm and save the alarm in Clock; date selection, including tomorrow, must be checked there.
+- Alarm requests open the Android Clock alarm screen with a parsed time selected. The user must confirm and save the alarm in Clock. The standard alarm intent specifies a time, not a calendar date, so it cannot guarantee a date-specific alarm for tomorrow.
 - Foreground clap-to-wake mode using the microphone. Leaving the app pauses microphone capture.
 - Local commands for battery, flashlight, time/date and Wi-Fi, Bluetooth, display and system settings.
 - Improved AI request failure handling and clearer fallback messages.
