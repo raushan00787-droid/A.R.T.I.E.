@@ -422,6 +422,7 @@ public class MainActivity extends FragmentActivity {
         if (languageMode < 0 || languageMode > 2) languageMode = 0;
         speechRate = prefs.getFloat("speech_rate", 1.0f);
         if (speechRate < 0.7f || speechRate > 1.6f) speechRate = 1.0f;
+        spokenReplies = prefs.getBoolean("spoken_replies", true);
         floatingOrbEnabled = prefs.getBoolean("floating_orb_enabled", false);
         liveModeEnabled = prefs.getBoolean("live_mode_enabled", false);
         liveModePaused = prefs.getBoolean("live_mode_paused", false);
@@ -2267,6 +2268,8 @@ public class MainActivity extends FragmentActivity {
 
     private void toggleVoice() {
         spokenReplies = !spokenReplies;
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .putBoolean("spoken_replies", spokenReplies).apply();
         if (!spokenReplies && tts != null) tts.stop();
         if (voiceButton != null) { voiceButton.setText(spokenReplies ? "◖" : "◗"); voiceButton.setTextColor(spokenReplies ? CYAN : MUTED); }
         if (spokenReplies) reply("System voice replies enabled.");
