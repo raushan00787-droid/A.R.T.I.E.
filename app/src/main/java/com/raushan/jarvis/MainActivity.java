@@ -1963,7 +1963,7 @@ public class MainActivity extends FragmentActivity {
             return JarvisReminderScheduler.summary(this);
         }
 
-        Matcher cancel = Pattern.compile("(?i)^cancel reminder\\\\s+(.+)$").matcher(raw);
+        Matcher cancel = Pattern.compile("(?i)^cancel reminder\\s+(.+)$").matcher(raw);
         if (cancel.matches()) {
             String query = cancel.group(1).trim();
             int id = JarvisReminderScheduler.findByText(this, query);
@@ -1973,7 +1973,7 @@ public class MainActivity extends FragmentActivity {
         }
 
         Matcher recurring = Pattern.compile(
-                "(?i)^remind me every\\\\s+(?:(\\\\d{1,4})\\\\s*)?(minutes?|mins?|hours?|hrs?|days?|weeks?)\\\\s+(?:to\\\\s+)?(.+)$")
+                "(?i)^remind me every\\s+(?:(\\d{1,4})\\s*)?(minutes?|mins?|hours?|hrs?|days?|weeks?)\\s+(?:to\\s+)?(.+)$")
                 .matcher(raw);
         if (recurring.matches()) {
             int amount = recurring.group(1) == null ? 1 : Integer.parseInt(recurring.group(1));
@@ -1998,7 +1998,7 @@ public class MainActivity extends FragmentActivity {
         }
 
         Matcher oneTime = Pattern.compile(
-                "(?i)^remind me in\\\\s+(\\\\d{1,4})\\\\s*(minutes?|mins?|hours?|hrs?|days?|weeks?)\\\\s+(?:to\\\\s+)?(.+)$")
+                "(?i)^remind me in\\s+(\\d{1,4})\\s*(minutes?|mins?|hours?|hrs?|days?|weeks?)\\s+(?:to\\s+)?(.+)$")
                 .matcher(raw);
         if (!oneTime.matches()) return null;
         int amount;
