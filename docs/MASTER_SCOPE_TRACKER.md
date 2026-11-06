@@ -80,7 +80,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 - [x] Contact lookup and dialer handoff — EXISTING / UNVERIFIED.
 - [x] SMS composer handoff — EXISTING / UNVERIFIED.
 - [x] WhatsApp share handoff — EXISTING / UNVERIFIED.
-- [ ] Telegram and other messaging handoffs.
+- [x] Telegram text-share handoff to Telegram or Android share sheet — EXISTING / UNVERIFIED; user chooses recipient and sends. Other messaging integrations remain pending.
 - [ ] Notification-based supported replies.
 - [ ] Conversation/recipient disambiguation improvements.
 - [ ] Message status feedback.
@@ -94,7 +94,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 - [x] Open selected files with compatible apps/WPS handoff — EXISTING / UNVERIFIED.
 - [x] Read bounded UTF-8 text, Markdown, CSV, JSON, XML, YAML, INI, properties, and log files from user-selected documents — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED.
 - [ ] PDF text extraction and document Q&A.
-- [ ] Search across accessible user-selected files.
+- [x] Bounded filename search within a user-selected SAF folder (up to 200 folders / 2,000 entries / 30 results; depth 8) — IMPLEMENTED / BUILD PASS (#107); DEVICE TEST REQUIRED. Full-text search across file contents remains pending.
 - [ ] Compare multiple documents.
 - [ ] Create and export documents.
 - [ ] User-approved rename/move operations where providers support them.
@@ -121,7 +121,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 
 - [x] Basic relative-time reminders — EXISTING / UNVERIFIED.
 - [x] Alarm handoff — EXISTING / UNVERIFIED.
-- [ ] Calendar integration.
+- [x] Calendar event draft handoff to a compatible installed calendar app — EXISTING / UNVERIFIED; direct calendar reading/sync remains pending.
 - [ ] Daily schedule and task list.
 - [ ] Recurring reminders.
 - [ ] Missed-reminder recovery and delivery audit.
@@ -180,8 +180,8 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 - [x] Android intents for selected installed apps — EXISTING / UNVERIFIED.
 - [ ] Browser integration and richer browser handoff.
 - [ ] Calendar integration.
-- [ ] Email integration.
-- [ ] Maps/navigation handoff.
+- [x] Email draft handoff through Android SENDTO — EXISTING / UNVERIFIED; direct mailbox reading/sync remains pending.
+- [x] Geo/maps search handoff to a compatible installed maps app — EXISTING / UNVERIFIED; turn-by-turn control remains with that app.
 - [ ] Music app control.
 - [ ] Telegram/other messaging app integrations.
 - [ ] Cloud storage provider integrations.
