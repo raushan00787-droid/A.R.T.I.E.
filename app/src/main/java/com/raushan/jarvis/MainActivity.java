@@ -1198,7 +1198,7 @@ public class MainActivity extends FragmentActivity {
     private String handleLocalCommand(String input) {
         String value = input.toLowerCase(Locale.ROOT).trim();
 
-        if (value.equals("call") || value.equals("phone") || value.equals("dial")) {
+        if (value.equals("call") || value.equals("phone") || value.equals("dial") || value.equals("call / dial")) {
             openPhoneDialer();
             return "";
         }
@@ -1206,7 +1206,7 @@ public class MainActivity extends FragmentActivity {
             openDocumentPicker();
             return "";
         }
-        if (value.equals("choose folder") || value.equals("select folder")) {
+        if (value.equals("choose folder") || value.equals("select folder") || value.equals("folder access")) {
             openFolderPicker();
             return "";
         }
@@ -1244,23 +1244,24 @@ public class MainActivity extends FragmentActivity {
             if (!clapWakeEnabled) toggleClapWake();
             return "Clap wake request received. I will report if Android needs microphone permission.";
         }
-        if (value.contains("volume up") || value.contains("increase volume")
+        if (value.contains("volume up") || value.contains("volume +") || value.contains("increase volume")
                 || value.contains("raise volume") || value.contains("volume badhao")) {
             adjustMediaVolume(true);
             return "";
         }
-        if (value.contains("volume down") || value.contains("decrease volume")
-                || value.contains("lower volume") || value.contains("volume kam")) {
+        if (value.contains("volume down") || value.contains("volume -") || value.contains("volume minus")
+                || value.contains("decrease volume") || value.contains("lower volume") || value.contains("volume kam")) {
             adjustMediaVolume(false);
             return "";
         }
         if (value.contains("speech speed") || value.contains("speaking speed")
-                || value.equals("change speech rate") || value.equals("cycle speech rate")) {
+                || value.equals("speed") || value.equals("change speech rate") || value.equals("cycle speech rate")) {
             cycleSpeechRate();
             return "";
         }
         if (value.contains("voice settings") || value.contains("select voice")
-                || value.contains("choose voice") || value.contains("change voice")) {
+                || value.contains("choose voice") || value.contains("change voice")
+                || value.equals("system voice") || value.equals("voice: system default")) {
             openSystemTtsSettings();
             return "Opening Android text-to-speech settings.";
         }
@@ -1272,8 +1273,8 @@ public class MainActivity extends FragmentActivity {
                 if (floatingOrbEnabled) setFloatingOrbEnabled(false);
                 return "Floating Orb is off.";
             }
-            if ((value.contains("on") || value.contains("enable")) && !floatingOrbEnabled) {
-                toggleFloatingOrb();
+            if (value.contains("on") || value.contains("enable")) {
+                if (!floatingOrbEnabled) toggleFloatingOrb();
                 return "Floating Orb activation requested.";
             }
             toggleFloatingOrb();
@@ -1292,7 +1293,7 @@ public class MainActivity extends FragmentActivity {
             stopLiveMode();
             return "";
         }
-        if (value.equals("open settings") || value.equals("system settings")) {
+        if (value.equals("open settings") || value.equals("system settings") || value.equals("settings")) {
             openSettings(android.provider.Settings.ACTION_SETTINGS, "system");
             return "Opening Android Settings.";
         }
@@ -1305,11 +1306,6 @@ public class MainActivity extends FragmentActivity {
             openSystemTtsSettings();
             return "Opening Android text-to-speech settings.";
         }
-        if (value.equals("stop live mode") || value.equals("pause live mode")) {
-            stopLiveMode();
-            return "";
-        }
-
         String alarmCommand = handleAlarmCommand(input, value);
         if (alarmCommand != null) return alarmCommand;
 
@@ -1354,7 +1350,7 @@ public class MainActivity extends FragmentActivity {
             openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth");
             return "Opening Bluetooth settings.";
         }
-        if (value.contains("display settings") || value.contains("brightness settings")) {
+        if (value.equals("display") || value.contains("display settings") || value.contains("brightness settings")) {
             openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Display");
             return "Opening display settings.";
         }
