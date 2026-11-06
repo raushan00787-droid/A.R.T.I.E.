@@ -187,7 +187,17 @@ public class MainActivity extends FragmentActivity {
     private final HandlerClock handlerClock = new HandlerClock();
     private final BroadcastReceiver liveReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            consumePendingLiveCommand();
+            if (intent != null && JarvisLiveService.ACTION_STATE.equals(intent.getAction())) {
+                liveModeEnabled = intent.getBooleanExtra(JarvisLiveService.EXTRA_ENABLED, false);
+                liveModePaused = intent.getBooleanExtra(JarvisLiveService.EXTRA_PAUSED, false);
+                if (micButton != null) {
+                    micButton.setText(liveModeEnabled ? (liveModePaused ? "Ⅱ" : "●") : "○");
+                    micButton.setTextColor(liveModeEnabled ? GOLD : MUTED);
+                }
+                setStatus(!liveModeEnabled ? "LIVE MODE OFF" : (liveModePaused ? "LIVE MODE PAUSED" : "LIVE MODE ACTIVE"));
+            } else {
+                consumePendingLiveCommand();
+            }
         }
     };
     private JSONArray conversation = new JSONArray();
@@ -2131,6 +2141,7 @@ public class MainActivity extends FragmentActivity {
     private void registerLiveReceiver() {
         if (liveReceiverRegistered) return;
         IntentFilter filter = new IntentFilter(JarvisLiveService.ACTION_TRANSCRIPT);
+        filter.addAction(JarvisLiveService.ACTION_STATE);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(liveReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(liveReceiver, filter);
         liveReceiverRegistered = true;
@@ -2805,6 +2816,9 @@ public class MainActivity extends FragmentActivity {
     protected void onResume() {
         super.onResume();
         activityVisible = true;
+        SharedPreferences livePrefs = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+        liveModeEnabled = livePrefs.getBoolean("live_mode_enabled", false);
+        liveModePaused = livePrefs.getBoolean("live_mode_paused", false);
         applyImmersiveMode();
         if (floatingOrbEnabled) startOverlayService(JarvisOverlayService.ACTION_HIDE);
         if (securitySettingsOpened && !ownerAuthenticated) {
