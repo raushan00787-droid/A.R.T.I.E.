@@ -1128,6 +1128,9 @@ public class MainActivity extends FragmentActivity {
         String playCommand = handlePlayCommand(input);
         if (playCommand != null) return playCommand;
 
+        String urlCommand = handleUrlCommand(input);
+        if (urlCommand != null) return urlCommand;
+
         String appCommand = handleAppLaunch(value);
         if (appCommand != null) return appCommand;
 
@@ -1495,6 +1498,26 @@ public class MainActivity extends FragmentActivity {
             return "Opening your Clock app with " + time + " selected." + note;
         } catch (Exception error) {
             return "I couldn't open the Clock app to set that alarm. You can set it from your device's Clock app.";
+        }
+    }
+
+    private String handleUrlCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        Matcher matcher = Pattern.compile("(?i)^(?:open|visit|go to|browse)\\s+(https?://\\S+|www\\.\\S+)$").matcher(raw);
+        if (!matcher.matches()) return null;
+        String target = matcher.group(1).replaceAll("[.,!?;]+$", "");
+        if (target.startsWith("www.")) target = "https://" + target;
+        try {
+            Uri uri = Uri.parse(target);
+            if (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme())) {
+                return "For safety, JARVIS only opens standard web links.";
+            }
+            Intent browser = new Intent(Intent.ACTION_VIEW, uri);
+            if (browser.resolveActivity(getPackageManager()) == null) return "No browser is available to open this link.";
+            startActivity(browser);
+            return "Opening the link in your browser. You can also send me a link with 'explain this URL' and I will try to analyse its contents.";
+        } catch (Exception error) {
+            return "I couldn't open that link. Check that the URL is valid.";
         }
     }
 
