@@ -145,7 +145,8 @@ final class JarvisAutomationEngine {
             String last = routine.optString("last_status", "NEVER_RUN");
             if ("RUNNING".equals(last)) {
                 last = "INTERRUPTED (previous run stopped before completion)";
-                routine.put("last_status", "INTERRUPTED");
+                try { routine.put("last_status", "INTERRUPTED"); }
+                catch (Exception ignored) { }
             }
             output.append(i + 1).append(". ").append(routine.optString("name", "Unnamed"))
                     .append(" • ").append(status)
