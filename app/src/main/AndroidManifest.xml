@@ -45,6 +45,7 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Android binds to this service when JARVIS is selected as the assistant. -->
         <service
             android:name="com.raushan.jarvis.JarvisVoiceInteractionService"
             android:label="J.A.R.V.I.S."
@@ -55,11 +56,13 @@
             </intent-filter>
             <meta-data
                 android:name="android.voice_interaction"
-                android:resource="@xml/jarvis_voice_interaction" />
+                android:resource="@xml/voice_interaction_config" />
         </service>
 
+        <!-- The system creates a new session through this service per interaction. -->
         <service
             android:name="com.raushan.jarvis.JarvisVoiceInteractionSessionService"
+            android:label="J.A.R.V.I.S. session"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true" />
 
@@ -96,10 +99,18 @@
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:launchMode="singleTop"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Alternate qualification route for the Android ASSIST role resolver. -->
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
