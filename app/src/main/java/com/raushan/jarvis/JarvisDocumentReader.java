@@ -32,7 +32,7 @@ final class JarvisDocumentReader {
         String mime = resolver.getType(uri);
         if (mime == null) mime = "application/octet-stream";
         if (!canRead(name, mime)) {
-            throw new Exception("JARVIS can currently analyse plain text, Markdown, CSV, JSON, XML, and log files. PDF and image analysis are separate modules still being added.");
+            throw new Exception("JARVIS can currently analyse plain text, Markdown, CSV, JSON, XML, and log files. PDF and image analysis are not supported yet.");
         }
 
         byte[] bytes;
@@ -47,7 +47,7 @@ final class JarvisDocumentReader {
         value = value.replace("\r\n", "\n").replace('\r', '\n').trim();
         if (value.isEmpty()) throw new Exception("This document is empty.");
         if (value.length() > MAX_CHARS) value = value.substring(0, MAX_CHARS)
-                + "\n\n[Content truncated at the 16,000 character safety limit.]";
+                + "\n\n[Content truncated at the 12,000-character safety limit.]";
         return new Document(name == null ? "Selected document" : name, mime, value);
     }
 
