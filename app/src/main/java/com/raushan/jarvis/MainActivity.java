@@ -62,6 +62,7 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -1010,9 +1011,10 @@ public class MainActivity extends FragmentActivity {
             network.execute(() -> {
                 String answer;
                 try {
-                    answer = callWorker();
+                    answer = callWorkerWithRecovery();
                 } catch (Exception error) {
-                    answer = "I couldn't reach the AI service. " + safeMessage(error);
+                    answer = "I couldn't reach the AI service after a retry. " + safeMessage(error)
+                            + " Local commands such as flashlight, battery, supported settings, alarms, and saved reminders remain available offline.";
                 }
                 final String finalAnswer = answer;
                 runOnUiThread(() -> {
@@ -1147,6 +1149,32 @@ public class MainActivity extends FragmentActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         captureIncomingIntent(intent);
+    }
+
+    private String callWorkerWithRecovery() throws Exception {
+        Exception lastError = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                return callWorker();
+            } catch (Exception error) {
+                lastError = error;
+                String message = error.getMessage() == null ? "" : error.getMessage();
+                boolean retryable = error instanceof IOException
+                        || message.contains("HTTP 500") || message.contains("HTTP 502")
+                        || message.contains("HTTP 503") || message.contains("HTTP 504");
+                if (!retryable || attempt == 1) throw error;
+                runOnUiThread(() -> {
+                    if (!isFinishing() && !isDestroyed()) setStatus("RECONNECTING AI CORE");
+                });
+                try {
+                    Thread.sleep(700L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new Exception("AI retry was interrupted.");
+                }
+            }
+        }
+        throw lastError == null ? new Exception("AI service unavailable.") : lastError;
     }
 
     private String callWorker() throws Exception {
