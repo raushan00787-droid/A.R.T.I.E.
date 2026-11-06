@@ -1364,6 +1364,9 @@ public class MainActivity extends FragmentActivity {
         String reminderCommand = handleReminderCommand(input);
         if (reminderCommand != null) return reminderCommand;
 
+        String automationCommand = handleAutomationCommand(input);
+        if (automationCommand != null) return automationCommand;
+
         String messageCommand = handleMessageCommand(input);
         if (messageCommand != null) return messageCommand;
 
@@ -1983,6 +1986,48 @@ public class MainActivity extends FragmentActivity {
         if (tts != null) tts.setSpeechRate(speechRate);
         if (speechRateButton != null) speechRateButton.setText("SPEED  " + speechRate + "x");
         reply("Speech speed set to " + speechRate + " times.");
+    }
+
+    private String handleAutomationCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        String value = raw.toLowerCase(Locale.ROOT);
+
+        if (value.equals("routines") || value.equals("list routines")
+                || value.equals("show routines") || value.equals("my routines")) {
+            return JarvisAutomationEngine.listRoutines(this);
+        }
+
+        Matcher create = Pattern.compile("(?i)^(?:save|create) routine\\s+([^:]{1,48})\\s*:\\s*(.+)$")
+                .matcher(raw);
+        if (create.matches()) {
+            try {
+                JarvisAutomationEngine.createRoutine(this, create.group(1), create.group(2));
+                return "Routine saved: " + create.group(1).trim()
+                        + ". Say 'run routine " + create.group(1).trim() + "' when you are ready.";
+            } catch (Exception error) {
+                return "I couldn't save that routine. " + safeMessage(error);
+            }
+        }
+
+        Matcher run = Pattern.compile("(?i)^(?:run|start) routine\\s+(.+)$").matcher(raw);
+        if (run.matches()) return JarvisAutomationEngine.runRoutine(this, run.group(1).trim());
+
+        Matcher pause = Pattern.compile("(?i)^(?:pause|disable) routine\\s+(.+)$").matcher(raw);
+        if (pause.matches()) {
+            String name = pause.group(1).trim();
+            return JarvisAutomationEngine.setEnabled(this, name, false)
+                    ? "Routine paused: " + name + "."
+                    : "I couldn't find that routine. Say 'list routines' to review saved names.";
+        }
+
+        Matcher enable = Pattern.compile("(?i)^(?:enable|resume) routine\\s+(.+)$").matcher(raw);
+        if (enable.matches()) {
+            String name = enable.group(1).trim();
+            return JarvisAutomationEngine.setEnabled(this, name, true)
+                    ? "Routine enabled: " + name + "."
+                    : "I couldn't find that routine. Say 'list routines' to review saved names.";
+        }
+        return null;
     }
 
     private String handleTodoCommand(String input) {
