@@ -32,6 +32,7 @@ final class JarvisBackupManager {
         if (conversationHistory == null || conversationHistory.trim().isEmpty()) conversationHistory = "[]";
         settings.put("conversation_history", conversationHistory);
         settings.put("task_history", preferences.getString("task_history", "[]"));
+        settings.put("scheduled_reminders", preferences.getString("scheduled_reminders", "[]"));
         settings.put("speech_language_mode", preferences.getInt("speech_language_mode", 0));
         settings.put("speech_rate", preferences.getFloat("speech_rate", 1.0f));
         settings.put("spoken_replies", preferences.getBoolean("spoken_replies", true));
@@ -63,6 +64,7 @@ final class JarvisBackupManager {
         String memories = settings.optString("saved_memories", "[]");
         String conversation = settings.optString("conversation_history", "");
         String history = settings.optString("task_history", "[]");
+        String reminders = settings.optString("scheduled_reminders", "[]");
 
         int languageMode = settings.optInt("speech_language_mode", 0);
         if (languageMode < 0 || languageMode > 2) languageMode = 0;
@@ -73,6 +75,7 @@ final class JarvisBackupManager {
                 .putString("saved_memories", memories)
                 .putString("conversation_history", conversation)
                 .putString("task_history", history)
+                .putString("scheduled_reminders", reminders)
                 .putInt("speech_language_mode", languageMode)
                 .putFloat("speech_rate", speechRate)
                 .putBoolean("spoken_replies", settings.optBoolean("spoken_replies", true))
@@ -91,10 +94,12 @@ final class JarvisBackupManager {
         int memories = new JSONArray(settings.optString("saved_memories", "[]")).length();
         int chat = new JSONArray(conversationRaw).length();
         int tasks = new JSONArray(settings.optString("task_history", "[]")).length();
+        int reminders = new JSONArray(settings.optString("scheduled_reminders", "[]")).length();
         return "Backup format: JARVIS Native v" + VERSION
                 + "\nSaved notes: " + memories
                 + "\nConversation entries: " + chat
                 + "\nTask history entries: " + tasks
+                + "\nSaved reminders: " + reminders
                 + "\nSpeech language and speed preferences are included."
                 + "\n\nRestore replaces these local records. Android permissions, folder grants, account access, microphone mode, and Floating Orb state are not restored.";
     }
@@ -114,9 +119,24 @@ final class JarvisBackupManager {
         JSONArray memories = new JSONArray(settings.optString("saved_memories", "[]"));
         JSONArray conversation = new JSONArray(conversationRaw);
         JSONArray tasks = new JSONArray(settings.optString("task_history", "[]"));
+        JSONArray reminders = new JSONArray(settings.optString("scheduled_reminders", "[]"));
         if (memories.length() > 20) throw new Exception("The backup contains too many saved notes.");
         if (conversation.length() > 21) throw new Exception("The backup contains too many conversation entries.");
         if (tasks.length() > 100) throw new Exception("The backup contains too many task-history entries.");
+        if (reminders.length() > 100) throw new Exception("The backup contains too many reminders.");
+        for (int i = 0; i < reminders.length(); i++) {
+            JSONObject reminder = reminders.optJSONObject(i);
+            if (reminder == null || reminder.optInt("id", -1) <= 0
+                    || reminder.optLong("fire_at", 0L) <= 0L
+                    || reminder.optString("text", "").trim().isEmpty()
+                    || reminder.optString("text", "").length() > 300) {
+                throw new Exception("The backup contains an invalid reminder.");
+            }
+            long interval = reminder.optLong("interval_ms", 0L);
+            if (interval != 0L && (interval < 60000L || interval > 30L * 24L * 60L * 60L * 1000L)) {
+                throw new Exception("The backup contains an unsupported reminder interval.");
+            }
+        }
 
         for (int i = 0; i < memories.length(); i++) {
             if (memories.optString(i, "").length() > 1000) throw new Exception("A saved note is too large.");
