@@ -142,8 +142,6 @@ public class MainActivity extends FragmentActivity {
     private VoiceOrbView voiceOrbView;
     private TextView orbStatus;
     private SignatureView signatureView;
-    private TextView voiceSelectButton;
-    private TextView controlsButton;
     private final ArrayList<Voice> availableVoices = new ArrayList<>();
     private String selectedVoiceName;
     private volatile boolean clapWakeEnabled = false;
@@ -178,8 +176,6 @@ public class MainActivity extends FragmentActivity {
     private int languageMode = 0; // 0 = AUTO, 1 = EN-IN, 2 = HI-IN
     private float speechRate = 1.0f;
     private boolean awaitingAlarmTime = false;
-    private TextView speechRateButton;
-    private LinearLayout systemPanel;
     private String pendingCallContact;
     private final ArrayList<Uri> selectedDocumentUris = new ArrayList<>();
 
@@ -601,8 +597,6 @@ public class MainActivity extends FragmentActivity {
         buildConversation();
         addGap(root, 9);
         buildComposer();
-        buildDeviceControls();
-        systemPanel.setVisibility(View.GONE);
     }
 
 
@@ -694,11 +688,6 @@ public class MainActivity extends FragmentActivity {
         ownerBlock.addView(access);
 
         bar.addView(ownerBlock);
-        controlsButton = text("CONTROLS  ▾", 8, CYAN);
-        controlsButton.setGravity(Gravity.CENTER);
-        controlsButton.setPadding(dp(9), dp(8), dp(3), dp(8));
-        controlsButton.setOnClickListener(v -> toggleSystemPanel());
-        bar.addView(controlsButton);
         root.addView(bar, new LinearLayout.LayoutParams(-1, dp(46)));
     }
 
@@ -868,112 +857,6 @@ public class MainActivity extends FragmentActivity {
         return control;
     }
 
-
-    private void buildDeviceControls() {
-        systemPanel = column();
-        systemPanel.setPadding(dp(11), dp(9), dp(11), dp(9));
-        systemPanel.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(37, 82, 101), 5));
-        systemPanel.setVisibility(View.GONE);
-
-        TextView title = text("LOCAL SYSTEM PANEL", 8, CYAN);
-        title.setLetterSpacing(0.16f);
-        title.setPadding(dp(2), dp(2), dp(2), dp(6));
-        systemPanel.addView(title);
-
-        LinearLayout rowOne = row();
-        addControl(rowOne, "FLASHLIGHT", () -> toggleTorch());
-        addControl(rowOne, "BATTERY", () -> {
-            int level = getBatteryPct();
-            reply(level < 0 ? "I could not read the battery level." : "Battery level is " + level + " percent.");
-        });
-        addControl(rowOne, "WI-FI", () -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Wi-Fi"));
-        systemPanel.addView(rowOne);
-
-        LinearLayout rowTwo = row();
-        addControl(rowTwo, "BLUETOOTH", () -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth"));
-        addControl(rowTwo, "DISPLAY", () -> openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Display"));
-        addControl(rowTwo, "SETTINGS", () -> openSettings(android.provider.Settings.ACTION_SETTINGS, "system"));
-        systemPanel.addView(rowTwo);
-
-        LinearLayout rowThree = row();
-        addControl(rowThree, "STOP SPEECH", () -> stopSpeech());
-        addControl(rowThree, "CLEAR CHAT", () -> clearConversation());
-        addControl(rowThree, "CLAP WAKE", () -> toggleClapWake());
-        systemPanel.addView(rowThree);
-
-        LinearLayout rowFour = row();
-        voiceSelectButton = text("VOICE: SYSTEM DEFAULT", 8, CYAN);
-        voiceSelectButton.setGravity(Gravity.CENTER);
-        voiceSelectButton.setPadding(dp(3), dp(10), dp(3), dp(10));
-        voiceSelectButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        voiceSelectButton.setOnClickListener(v -> openSystemTtsSettings());
-        LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
-        voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        rowFour.addView(voiceSelectButton, voiceLp);
-        addControl(rowFour, "TEST VOICE", () -> speak("Good evening, Sir. JARVIS is online and ready."));
-        systemPanel.addView(rowFour);
-
-        LinearLayout rowFive = row();
-        addControl(rowFive, "VOLUME −", () -> adjustMediaVolume(false));
-        speechRateButton = text("SPEED  " + speechRate + "x", 8, CYAN);
-        speechRateButton.setGravity(Gravity.CENTER);
-        speechRateButton.setPadding(dp(3), dp(10), dp(3), dp(10));
-        speechRateButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        speechRateButton.setOnClickListener(v -> cycleSpeechRate());
-        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(0, -2, 1);
-        speedLp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        rowFive.addView(speechRateButton, speedLp);
-        addControl(rowFive, "VOLUME +", () -> adjustMediaVolume(true));
-        systemPanel.addView(rowFive);
-
-        LinearLayout rowSix = row();
-        addControl(rowSix, "CALL / DIAL", () -> openPhoneDialer());
-        addControl(rowSix, "OPEN FILES", () -> openDocumentPicker());
-        addControl(rowSix, "CHOOSE FOLDER", () -> openFolderPicker());
-        systemPanel.addView(rowSix);
-
-        LinearLayout rowSeven = row();
-        addControl(rowSeven, "BROWSE FOLDER", () -> browseSavedFolder());
-        addControl(rowSeven, "OPEN WPS", () -> launchWpsOffice());
-        addControl(rowSeven, "PERMISSIONS", () -> showPermissionCenter());
-        systemPanel.addView(rowSeven);
-
-        LinearLayout rowEight = row();
-        addControl(rowEight, "FLOATING ORB", () -> toggleFloatingOrb());
-        addControl(rowEight, "LOCK JARVIS", () -> lockAppNow());
-        addControl(rowEight, "FOLDER ACCESS", () -> openFolderPicker());
-        systemPanel.addView(rowEight);
-
-        LinearLayout rowNine = row();
-        addControl(rowNine, "DEFAULT ASSISTANT", () -> requestAssistantRole());
-        addControl(rowNine, "SYSTEM VOICE", () -> openSystemTtsSettings());
-        addControl(rowNine, "LIVE MODE", () -> toggleContinuousListening());
-        systemPanel.addView(rowNine);
-
-        LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(-1, -2);
-        panelLp.topMargin = dp(4);
-        root.addView(systemPanel, panelLp);
-    }
-
-    private void toggleSystemPanel() {
-        if (systemPanel == null) return;
-        boolean opening = systemPanel.getVisibility() != View.VISIBLE;
-        systemPanel.setVisibility(opening ? View.VISIBLE : View.GONE);
-        if (controlsButton != null) controlsButton.setText(opening ? "CONTROLS  ▴" : "CONTROLS  ▾");
-    }
-
-    private void addControl(LinearLayout parent, String label, Runnable action) {
-        TextView button = text(label, 9, Color.rgb(158, 192, 206));
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(3), dp(12), dp(3), dp(12));
-        button.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        button.setClickable(true);
-        button.setFocusable(true);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
-        lp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        parent.addView(button, lp);
-        button.setOnClickListener(v -> action.run());
-    }
 
     private void updateClock() {
         if (clockView != null) {
@@ -1191,6 +1074,9 @@ public class MainActivity extends FragmentActivity {
     private String handleLocalCommand(String input) {
         String value = input.toLowerCase(Locale.ROOT).trim();
 
+        String timerCommand = handleTimerCommand(input);
+        if (timerCommand != null) return timerCommand;
+
         if (value.equals("call") || value.equals("phone") || value.equals("dial")) {
             openPhoneDialer();
             return "";
@@ -1241,6 +1127,9 @@ public class MainActivity extends FragmentActivity {
 
         String playCommand = handlePlayCommand(input);
         if (playCommand != null) return playCommand;
+
+        String urlCommand = handleUrlCommand(input);
+        if (urlCommand != null) return urlCommand;
 
         String appCommand = handleAppLaunch(value);
         if (appCommand != null) return appCommand;
@@ -1349,16 +1238,25 @@ public class MainActivity extends FragmentActivity {
 
         if (numbers.isEmpty()) return "I couldn't find a contact matching " + query + ".";
 
-        if (numbers.size() == 1) return openDialer(numbers.get(0), names.get(0));
+        if (numbers.size() == 1) return confirmCallRecipient(names.get(0), numbers.get(0));
 
         String[] labels = new String[numbers.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = names.get(i) + "  •  " + numbers.get(i);
         new AlertDialog.Builder(this)
                 .setTitle("CHOOSE CONTACT")
-                .setItems(labels, (dialog, which) -> reply(openDialer(numbers.get(which), names.get(which))))
+                .setItems(labels, (dialog, which) -> confirmCallRecipient(names.get(which), numbers.get(which)))
                 .setNegativeButton("CANCEL", null)
                 .show();
-        return "I found more than one matching number. Choose the correct contact.";
+        return "I found more than one matching number. Choose the intended contact.";
+    }
+
+    private String confirmCallRecipient(String name, String number) {
+        new AlertDialog.Builder(this).setTitle("CONFIRM CALL RECIPIENT")
+                .setMessage("Contact: " + name + "\nNumber: " + number
+                        + "\n\nJARVIS will open the dialer. You must tap Call.")
+                .setPositiveButton("OPEN DIALER", (dialog, which) -> reply(openDialer(number, name)))
+                .setNegativeButton("CANCEL", null).show();
+        return "Confirm the displayed contact and number before opening the dialer.";
     }
 
     private String openDialer(String number, String label) {
@@ -1603,6 +1501,26 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
+    private String handleUrlCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        Matcher matcher = Pattern.compile("(?i)^(?:open|visit|go to|browse)\\s+(https?://\\S+|www\\.\\S+)$").matcher(raw);
+        if (!matcher.matches()) return null;
+        String target = matcher.group(1).replaceAll("[.,!?;]+$", "");
+        if (target.startsWith("www.")) target = "https://" + target;
+        try {
+            Uri uri = Uri.parse(target);
+            if (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme())) {
+                return "For safety, JARVIS only opens standard web links.";
+            }
+            Intent browser = new Intent(Intent.ACTION_VIEW, uri);
+            if (browser.resolveActivity(getPackageManager()) == null) return "No browser is available to open this link.";
+            startActivity(browser);
+            return "Opening the link in your browser. You can also send me a link with 'explain this URL' and I will try to analyse its contents.";
+        } catch (Exception error) {
+            return "I couldn't open that link. Check that the URL is valid.";
+        }
+    }
+
     private String handleAppLaunch(String value) {
         boolean launchRequested = value.startsWith("open ") || value.startsWith("launch ")
                 || value.startsWith("start ") || value.startsWith(" kholo")
@@ -1671,28 +1589,79 @@ public class MainActivity extends FragmentActivity {
         getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
                 .putFloat("speech_rate", speechRate).apply();
         if (tts != null) tts.setSpeechRate(speechRate);
-        if (speechRateButton != null) speechRateButton.setText("SPEED  " + speechRate + "x");
         reply("Speech speed set to " + speechRate + " times.");
     }
 
-    private String handleReminderCommand(String input) {
-        Matcher matcher = Pattern.compile("(?i)^remind me in\\s+(\\d{1,4})\\s*(minutes?|mins?|hours?|hrs?)\\s+(?:to\\s+)?(.+)$").matcher(input == null ? "" : input.trim());
+    private String handleTimerCommand(String input) {
+        Matcher matcher = Pattern.compile("(?i)^(?:set|start)\\s+(?:a\\s+)?timer\\s+for\\s+(\\d{1,5})\\s*(seconds?|secs?|sec|minutes?|mins?|min|hours?|hrs?|hr)(?:\\s+(?:for|to)\\s+(.+))?$").matcher(input == null ? "" : input.trim());
         if (!matcher.matches()) return null;
         int amount;
-        try { amount = Integer.parseInt(matcher.group(1)); } catch (Exception error) { return "I could not read that reminder time."; }
+        try { amount = Integer.parseInt(matcher.group(1)); } catch (Exception error) { return "I could not read that timer duration."; }
+        String unit = matcher.group(2).toLowerCase(Locale.ROOT);
+        long seconds = amount * (unit.startsWith("h") ? 3600L : unit.startsWith("m") ? 60L : 1L);
+        if (amount < 1 || seconds > 86400L) return "Please choose a timer between 1 second and 24 hours.";
+        Intent timer = new Intent(android.provider.AlarmClock.ACTION_SET_TIMER);
+        timer.putExtra(android.provider.AlarmClock.EXTRA_LENGTH, (int) seconds);
+        timer.putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, matcher.group(3) == null ? "JARVIS timer" : matcher.group(3));
+        timer.putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false);
+        if (timer.resolveActivity(getPackageManager()) == null) return "No compatible Clock app is available.";
+        try { startActivity(timer); return "Clock opened with the timer prepared. Review it and press Start."; }
+        catch (Exception error) { return "I could not open the Clock app."; }
+    }
+
+    private String handleReminderCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        Matcher matcher = Pattern.compile("(?i)^(?:remind me|reminder me|reminder|yaad dilana|mujhe yaad dilana)\\s+(?:in|after|mein|ke baad)?\\s*(\\d{1,5})\\s*(seconds?|secs?|sec|s|minutes?|mins?|min|m|hours?|hrs?|hr|h)\\s+(?:to\\s+|ki\\s+)?(.+)$").matcher(raw);
+        if (!matcher.matches()) {
+            matcher = Pattern.compile("(?i)^(?:mujhe\\s+)?(\\d{1,5})\\s*(seconds?|secs?|sec|s|minutes?|mins?|min|m|hours?|hrs?|hr|h)\\s+baad\\s+(.+?)(?:\\s+yaad\\s+dilana)?$").matcher(raw);
+        }
+        if (!matcher.matches()) return null;
+
+        int amount;
+        try { amount = Integer.parseInt(matcher.group(1)); }
+        catch (Exception error) { return "I could not read that reminder time."; }
         String unit = matcher.group(2).toLowerCase(Locale.ROOT);
         String task = matcher.group(3).trim();
-        if (amount < 1 || amount > 1000 || task.isEmpty()) return "Please choose a reminder between 1 and 1000 minutes or hours, with a task.";
-        long delay = amount * (unit.startsWith("h") ? 60L : 1L) * 60L * 1000L;
+        if (amount < 1 || amount > 10000 || task.isEmpty()) {
+            return "Choose a reminder from 1 to 10,000 seconds/minutes/hours and include the task.";
+        }
+
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putString("pending_notification_reminder", raw).apply();
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_NOTIFICATIONS);
+            return "Android notification permission is required. I have kept this reminder request pending.";
+        }
+
+        long unitMillis = (unit.startsWith("h") ? 3600000L
+                : (unit.startsWith("m") ? 60000L : 1000L));
+        long delay = amount * unitMillis;
         int id = (int) (System.currentTimeMillis() & 0x7fffffff);
-        Intent alert = new Intent(this, JarvisNotificationReceiver.class).setAction(JarvisNotificationReceiver.ACTION_REMINDER);
+        long triggerAt = System.currentTimeMillis() + delay;
+        Intent alert = new Intent(this, JarvisNotificationReceiver.class)
+                .setAction(JarvisNotificationReceiver.ACTION_REMINDER);
+        alert.putExtra(JarvisNotificationReceiver.EXTRA_ID, id);
         alert.putExtra(JarvisNotificationReceiver.EXTRA_TITLE, "JARVIS reminder");
         alert.putExtra(JarvisNotificationReceiver.EXTRA_TEXT, task);
-        PendingIntent pending = PendingIntent.getBroadcast(this, id, alert, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pending = PendingIntent.getBroadcast(this, id, alert,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         AlarmManager alarms = (AlarmManager) getSystemService(ALARM_SERVICE);
         if (alarms == null) return "Android's reminder service is unavailable.";
-        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pending);
-        return "Reminder set for " + amount + " " + unit + ": " + task + ". Android will notify you when it is due.";
+        try {
+            JSONObject saved = new JSONObject();
+            saved.put("time", triggerAt);
+            saved.put("title", "JARVIS reminder");
+            saved.put("text", task);
+            getSharedPreferences("jarvis_reminders", MODE_PRIVATE).edit()
+                    .putString("reminder_" + id, saved.toString()).apply();
+        } catch (Exception error) {
+            return "I could not save this reminder on the device.";
+        }
+        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
+        String unitLabel = unit.startsWith("h") ? "hour(s)" : unit.startsWith("m") ? "minute(s)" : "second(s)";
+        return "Reminder scheduled in " + amount + " " + unitLabel + ": " + task
+                + ". Android may deliver it slightly late under battery restrictions.";
     }
 
     private String handleMessageCommand(String input) {
@@ -1739,13 +1708,22 @@ public class MainActivity extends FragmentActivity {
         } catch (Exception error) { return "I could not read that contact. Check Contacts permission and try again."; }
         finally { if (cursor != null) cursor.close(); }
         if (numbers.isEmpty()) return "I could not find a phone number for " + query + ".";
-        if (numbers.size() == 1) return openSmsComposer(numbers.get(0), body);
+        if (numbers.size() == 1) return confirmMessageRecipient(names.get(0), numbers.get(0), body);
         String[] labels = new String[numbers.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = names.get(i) + "  •  " + numbers.get(i);
         new AlertDialog.Builder(this).setTitle("CHOOSE MESSAGE RECIPIENT").setItems(labels,
-                (dialog, which) -> reply(openSmsComposer(numbers.get(which), body)))
+                (dialog, which) -> confirmMessageRecipient(names.get(which), numbers.get(which), body))
                 .setNegativeButton("CANCEL", null).show();
-        return "I found multiple matching numbers. Choose the correct recipient.";
+        return "I found multiple matching numbers. Choose the intended contact.";
+    }
+
+    private String confirmMessageRecipient(String name, String number, String body) {
+        new AlertDialog.Builder(this).setTitle("CONFIRM MESSAGE RECIPIENT")
+                .setMessage("Contact: " + name + "\nNumber: " + number
+                        + "\n\nJARVIS will open a draft. You must review and tap Send.")
+                .setPositiveButton("OPEN DRAFT", (dialog, which) -> reply(openSmsComposer(number, body)))
+                .setNegativeButton("CANCEL", null).show();
+        return "Confirm the displayed contact and number before opening the message draft.";
     }
 
     private String openSmsComposer(String phone, String body) {
@@ -1792,8 +1770,14 @@ public class MainActivity extends FragmentActivity {
         }
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
+        if ("NO FEMALE VOICE INSTALLED".equals(selectedVoiceName)
+                || "FEMALE VOICE UNAVAILABLE".equals(selectedVoiceName)) {
+            setStatus("NO FEMALE VOICE INSTALLED  •  CHECK ANDROID TTS VOICE DATA");
+            scheduleListeningRestart(700);
+            resumeLiveModeAfterSpeech();
+            return;
+        }
         try {
-            // Use the Android system's current default TTS voice/engine without overriding it.
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "jarvis-" + System.currentTimeMillis());
             if (result == TextToSpeech.ERROR) {
@@ -1853,22 +1837,30 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void initializeVoiceSelection() {
-        // Respect the voice and engine configured in Android's system Text-to-Speech settings.
-        // JARVIS deliberately does not force a gender, language profile or vendor-specific voice.
-        selectedVoiceName = "ANDROID SYSTEM DEFAULT";
+        availableVoices.clear();
+        try { Set<Voice> voices = tts == null ? null : tts.getVoices(); if (voices != null) availableVoices.addAll(voices); }
+        catch (Exception ignored) { }
+        Voice preferred = null;
+        for (Voice voice : availableVoices) {
+            if (voice == null || voice.getName() == null || voice.getLocale() == null) continue;
+            String n = voice.getName().toLowerCase(Locale.ROOT);
+            boolean female = n.contains("female") || n.contains("woman") || n.contains("samantha")
+                    || n.contains("zira") || n.contains("jenny") || n.contains("aria") || n.contains("ava")
+                    || n.contains("salli") || n.contains("joanna") || n.contains("kendra")
+                    || n.contains("kimberly") || n.contains("raveena") || n.contains("aditi") || n.contains("heera");
+            if (female && (preferred == null || ("IN".equalsIgnoreCase(voice.getLocale().getCountry())
+                    && !"IN".equalsIgnoreCase(preferred.getLocale().getCountry())))) preferred = voice;
+        }
         spokenReplies = true;
-        updateVoiceSelectButton();
+        if (preferred != null) {
+            try { tts.setVoice(preferred); selectedVoiceName = preferred.getName(); }
+            catch (Exception error) { selectedVoiceName = "FEMALE VOICE UNAVAILABLE"; }
+        } else selectedVoiceName = "NO FEMALE VOICE INSTALLED";
         if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(CYAN); }
     }
 
-    private String voiceDisplayName() {
-        return "ANDROID SYSTEM DEFAULT";
-    }
-
-    private void updateVoiceSelectButton() {
-        if (voiceSelectButton != null) voiceSelectButton.setText("SYSTEM DEFAULT VOICE  ⚙");
-    }
-
+    private String voiceDisplayName() { return selectedVoiceName == null ? "FEMALE VOICE UNAVAILABLE" : selectedVoiceName; }
+    private void updateVoiceSelectButton() { }
     private void showVoicePicker() {
         openSystemTtsSettings();
     }
@@ -2504,7 +2496,8 @@ public class MainActivity extends FragmentActivity {
         if (requestCode == REQUEST_ASSISTANT_ROLE) {
             RoleManager roles = Build.VERSION.SDK_INT >= 29 ? getSystemService(RoleManager.class) : null;
             boolean held = roles != null && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
-            reply(held ? "JARVIS is now your Android default assistant, Sir." : "Android did not assign the default assistant role. You can try again from Controls.");
+            reply(held ? "JARVIS is now your Android default assistant, Sir."
+                    : "Android did not assign JARVIS as the default assistant. Say 'make JARVIS default assistant' to reopen Android's role selector, then choose JARVIS.");
             return;
         }
         if (resultCode != RESULT_OK || data == null) return;
@@ -2568,6 +2561,17 @@ public class MainActivity extends FragmentActivity {
                     + ", camera " + (cameraGranted ? "granted" : "not granted")
                     + ", contacts " + (contactsGranted ? "granted" : "not granted")
                     + ". Document access is granted separately when you choose files or folders.");
+        } else if (requestCode == PERMISSION_NOTIFICATIONS) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            SharedPreferences settings = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+            String pendingReminder = settings.getString("pending_notification_reminder", "");
+            settings.edit().remove("pending_notification_reminder").apply();
+            if (granted && pendingReminder != null && !pendingReminder.isEmpty()) {
+                String result = handleReminderCommand(pendingReminder);
+                if (result != null) reply(result);
+            } else if (!granted) {
+                reply("Notifications remain disabled. No reminder was scheduled. Enable them in Android settings and repeat the command.");
+            }
         } else if (requestCode == PERMISSION_CONTACTS) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (pendingMessageContact != null) {

@@ -45,6 +45,8 @@ public class JarvisLiveService extends Service {
     private boolean sessionActive;
     private boolean foregroundStarted;
     private Runnable sessionTimeout;
+    private Runnable restartRunnable;
+    private int consecutiveRecognitionErrors;
 
     private android.content.SharedPreferences prefs() {
         return getSharedPreferences("jarvis_settings", MODE_PRIVATE);
@@ -72,6 +74,7 @@ public class JarvisLiveService extends Service {
                     .putBoolean("live_mode_paused", false).apply();
             publishState(false, false);
             stopListening();
+            cancelRestart();
             stopForeground(true);
             stopSelf();
             return START_NOT_STICKY;
@@ -79,6 +82,7 @@ public class JarvisLiveService extends Service {
         if (ACTION_HOLD.equals(action)) {
             speakingHold = true;
             stopListening();
+            cancelRestart();
             updateNotification("JARVIS is speaking. Listening resumes after the reply.", false);
             return START_STICKY;
         }
@@ -87,6 +91,7 @@ public class JarvisLiveService extends Service {
             prefs().edit().putBoolean("live_mode_paused", true).apply();
             publishState(true, true);
             stopListening();
+            cancelRestart();
             updateNotification("Paused. Tap Resume to listen again.", true);
             return START_STICKY;
         }
@@ -122,10 +127,19 @@ public class JarvisLiveService extends Service {
             return;
         }
         try {
-            recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+                try {
+                    recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
+                } catch (Exception unavailable) {
+                    recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                }
+            } else {
+                recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+            }
             recognizer.setRecognitionListener(new RecognitionListener() {
                 @Override public void onReadyForSpeech(android.os.Bundle params) {
                     listening = true;
+                    consecutiveRecognitionErrors = 0;
                     updateNotification(sessionActive ? "Live conversation active" : "Listening for Hey JARVIS", false);
                 }
                 @Override public void onBeginningOfSpeech() { }
@@ -136,13 +150,24 @@ public class JarvisLiveService extends Service {
                     listening = false;
                     if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
                         userPaused = true;
+                        prefs().edit().putBoolean("live_mode_paused", true).apply();
+                        publishState(true, true);
                         updateNotification("Microphone permission is required. Open JARVIS to fix it.", true);
                         return;
                     }
-                    restartAfter(1100);
+                    consecutiveRecognitionErrors++;
+                    long delay = error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1600L
+                            : error == SpeechRecognizer.ERROR_NO_MATCH ? 550L
+                            : Math.min(5000L, 900L + consecutiveRecognitionErrors * 500L);
+                    if (error == SpeechRecognizer.ERROR_CLIENT && consecutiveRecognitionErrors >= 3) {
+                        destroyRecognizer();
+                        ensureRecognizer();
+                    }
+                    restartAfter(delay);
                 }
                 @Override public void onResults(android.os.Bundle results) {
                     listening = false;
+                    consecutiveRecognitionErrors = 0;
                     ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                     String spoken = (matches == null || matches.isEmpty()) ? "" : matches.get(0);
                     handleRecognizedText(spoken);
@@ -196,9 +221,28 @@ public class JarvisLiveService extends Service {
     }
 
     private void restartAfter(long delay) {
-        handler.postDelayed(() -> {
-            if (!userPaused && prefs().getBoolean("live_mode_enabled", false)) startListening();
-        }, delay);
+        cancelRestart();
+        restartRunnable = () -> {
+            restartRunnable = null;
+            if (!userPaused && !speakingHold && prefs().getBoolean("live_mode_enabled", false)) startListening();
+        };
+        handler.postDelayed(restartRunnable, delay);
+    }
+
+    private void cancelRestart() {
+        if (restartRunnable != null) {
+            handler.removeCallbacks(restartRunnable);
+            restartRunnable = null;
+        }
+    }
+
+    private void destroyRecognizer() {
+        if (recognizer != null) {
+            try { recognizer.cancel(); } catch (Exception ignored) { }
+            try { recognizer.destroy(); } catch (Exception ignored) { }
+            recognizer = null;
+        }
+        listening = false;
     }
 
     private void startListening() {
@@ -206,11 +250,20 @@ public class JarvisLiveService extends Service {
         ensureRecognizer();
         if (recognizer == null) return;
         try {
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                userPaused = true;
+                prefs().edit().putBoolean("live_mode_paused", true).apply();
+                publishState(true, true);
+                updateNotification("Microphone permission is required. Open JARVIS to fix it.", true);
+                return;
+            }
             Intent request = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            request.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
-            request.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
-            request.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1600);
+            request.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+            request.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+            request.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
+            request.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1900);
             request.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900);
             int languageMode = prefs().getInt("speech_language_mode", 0);
             if (languageMode == 1) {
@@ -221,9 +274,10 @@ public class JarvisLiveService extends Service {
                 request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "hi-IN");
             }
             recognizer.startListening(request);
+            listening = true;
         } catch (Exception error) {
             listening = false;
-            restartAfter(1300);
+            restartAfter(1500);
         }
     }
 
@@ -306,10 +360,7 @@ public class JarvisLiveService extends Service {
 
     @Override public void onDestroy() {
         stopListening();
-        if (recognizer != null) {
-            try { recognizer.destroy(); } catch (Exception ignored) { }
-            recognizer = null;
-        }
+        destroyRecognizer();
         handler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
