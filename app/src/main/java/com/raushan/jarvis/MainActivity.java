@@ -129,6 +129,11 @@ public class MainActivity extends Activity {
   }
 
   void toggleTorch() {
+    if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED) {
+      requestPermissions(new String[]{Manifest.permission.CAMERA},11);
+      reply("Camera permission is needed for the flashlight. Allow it, then tap again.");
+      return;
+    }
     try {
       if(cameraId==null){reply("Flashlight unavailable.");return;}
       torch=!torch; camera.setTorchMode(cameraId,torch);
