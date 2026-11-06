@@ -131,14 +131,14 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 
 ## 9. Smart Automation Engine
 
-- [ ] Workflow definition and storage.
-- [ ] Multi-step task execution.
-- [ ] Permission checks per action.
-- [ ] User confirmation gates for sensitive steps.
-- [ ] Step-by-step progress and recovery.
-- [ ] Retry and rollback for reversible operations.
-- [ ] User-created routines such as Study Mode.
-- [ ] Automation history and disable/pause controls.
+- [x] Local workflow definition and storage, up to 25 routines / 12 steps each — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED.
+- [x] User-triggered multi-step execution for allow-listed task, reminder, and Study Mode steps — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED.
+- [ ] Per-action Android permission registry for broader automation — PENDING. Current routine actions are restricted to local task, reminder, and Study Mode operations.
+- [ ] Sensitive-action confirmation gates — PENDING. Sensitive actions are currently excluded from routines; running a routine itself requires an explicit user command.
+- [x] Persisted step progress and resume after interruption without repeating recorded completed steps — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED.
+- [ ] General retry and rollback for reversible operations — PARTIAL. Interrupted routines can resume; general rollback is not implemented.
+- [x] User-created local routines, including Study Mode, task, and reminder steps — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED.
+- [x] Routine execution history plus enable/pause controls — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED. Routine deletion UI and scheduled/background triggers remain pending.
 
 ## 10. System Intelligence and Troubleshooting
 
@@ -233,7 +233,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 - [ ] Modular expansion and configuration.
 - [ ] Battery/RAM/CPU/mobile-data resource budgets.
 - [ ] Graceful failure for unavailable features.
-- [ ] Backup and restore for user-approved settings and data.
+- [x] Validated local backup/restore includes saved notes, conversation history, task history, reminders, to-do tasks, routines, and selected voice settings — IMPLEMENTED / BUILD PASS (#103); DEVICE TEST REQUIRED.
 - [ ] Privacy-safe logs and user-controlled export/delete.
 
 ## Build and device verification ledger
@@ -246,6 +246,8 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 | 2026-11-06 | `29bb8e6` | Local System Panel removed; control commands migrated | Build #59 successful | Pending |
 | 2026-11-06 | `0c49c47` | Conversational aliases for migrated controls | Build #60 successful | Pending |
 | 2026-11-06 | `ddb84a5` / `ad49dc0` / `f794af3` | Diagnostics report and task history | Builds #62–#65 successful | Pending |
+| 2026-11-06 | `9cd1aac` / `d1f335c` / `57ee047` | Routine engine, backup integration, and chat command routing (initial attempts) | Builds #99–#101 failed on an unhandled JSON exception; fixed in #102 | Pending |
+| 2026-11-06 | `c3f6a56` / `579ce69` | Routine state recovery, resume logic, and ID collision protection | Builds #102/#103 successful | Pending |
 
 ## Release acceptance rule
 
