@@ -72,6 +72,9 @@ import java.util.regex.Pattern;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import androidx.biometric.BiometricManager;
+import androidx.biometric.BiometricPrompt;
+import androidx.core.content.ContextCompat;
 
 public class MainActivity extends Activity {
     private static final String WORKER_URL = "https://quiet-scribe-ai.thequietscribe.workers.dev";
@@ -82,6 +85,8 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_CORE = 14;
     private static final int REQUEST_OPEN_DOCUMENTS = 31;
     private static final int REQUEST_OPEN_FOLDER = 32;
+    private static final int REQUEST_OVERLAY_PERMISSION = 33;
+    private static final int REQUEST_DEVICE_CREDENTIAL = 34;
     private static final int MAX_HISTORY_MESSAGES = 20;
     private static final int MAX_SAVED_MEMORIES = 20;
 
@@ -130,6 +135,7 @@ public class MainActivity extends Activity {
     private TextView orbStatus;
     private SignatureView signatureView;
     private TextView voiceSelectButton;
+    private TextView controlsButton;
     private final ArrayList<Voice> availableVoices = new ArrayList<>();
     private String selectedVoiceName;
     private volatile boolean clapWakeEnabled = false;
@@ -141,7 +147,13 @@ public class MainActivity extends Activity {
     private CameraManager camera;
     private final android.os.Handler voiceHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private Runnable voiceRestartRunnable;
-    private boolean continuousListeningEnabled = true;
+    private boolean continuousListeningEnabled = false;
+    private boolean ownerAuthenticated = false;
+    private boolean welcomePending = false;
+    private boolean lockPromptStarted = false;
+    private boolean securitySettingsOpened = false;
+    private boolean floatingOrbEnabled = false;
+    private BiometricPrompt biometricPrompt;
     private boolean activityVisible = false;
     private boolean micPermissionRequested = false;
     private String cameraId;
@@ -186,11 +198,15 @@ public class MainActivity extends Activity {
                 initializeVoiceSelection();
                 tts.setSpeechRate(speechRate);
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override public void onStart(String id) { runOnUiThread(() -> { showVoiceOrb("J.A.R.V.I.S. IS SPEAKING"); setStatus("SPEAKING"); }); }
+                    @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
                     @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
                     @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); }); }
                     @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
                 });
+                if (welcomePending && ownerAuthenticated) {
+                    welcomePending = false;
+                    speak("Hey Raushan, welcome again.");
+                }
             }
         });
 
@@ -214,6 +230,156 @@ public class MainActivity extends Activity {
         handlerClock.handler.post(handlerClock.runnable);
 
         setStatus("SYSTEM STANDBY");
+        appFrame.setVisibility(View.INVISIBLE);
+        authenticateOwner();
+    }
+
+    private void authenticateOwner() {
+        if (ownerAuthenticated || lockPromptStarted || isFinishing()) return;
+        lockPromptStarted = true;
+
+        int authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG
+                | BiometricManager.Authenticators.DEVICE_CREDENTIAL;
+        BiometricManager manager = BiometricManager.from(this);
+        boolean biometricAvailable;
+        if (Build.VERSION.SDK_INT >= 30) {
+            biometricAvailable = manager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS;
+        } else {
+            biometricAvailable = manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                    == BiometricManager.BIOMETRIC_SUCCESS;
+        }
+
+        if (biometricAvailable) {
+            BiometricPrompt.AuthenticationCallback callback = new BiometricPrompt.AuthenticationCallback() {
+                @Override public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) {
+                    runOnUiThread(() -> unlockOwner());
+                }
+                @Override public void onAuthenticationFailed() {
+                    runOnUiThread(() -> setStatus("FINGERPRINT NOT RECOGNISED"));
+                }
+                @Override public void onAuthenticationError(int errorCode, CharSequence errString) {
+                    runOnUiThread(() -> {
+                        lockPromptStarted = false;
+                        if (errorCode == BiometricPrompt.ERROR_USER_CANCELED
+                                || errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                                || errorCode == BiometricPrompt.ERROR_CANCELED) {
+                            new AlertDialog.Builder(MainActivity.this)
+                                    .setTitle("J.A.R.V.I.S. LOCKED")
+                                    .setMessage("Authenticate to enter JARVIS.")
+                                    .setPositiveButton("TRY AGAIN", (d, w) -> authenticateOwner())
+                                    .setNegativeButton("EXIT", (d, w) -> finish())
+                                    .show();
+                        } else {
+                            setStatus("AUTHENTICATION REQUIRED");
+                        }
+                    });
+                }
+            };
+            biometricPrompt = new BiometricPrompt(this, ContextCompat.getMainExecutor(this), callback);
+            BiometricPrompt.PromptInfo.Builder promptBuilder = new BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("J.A.R.V.I.S. ACCESS")
+                    .setSubtitle("Verify your identity to continue");
+            if (Build.VERSION.SDK_INT >= 30) {
+                promptBuilder.setAllowedAuthenticators(authenticators);
+            } else {
+                promptBuilder.setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                        .setNegativeButtonText("CANCEL");
+            }
+            biometricPrompt.authenticate(promptBuilder.build());
+            return;
+        }
+
+        android.app.KeyguardManager keyguard =
+                (android.app.KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+        if (keyguard != null && keyguard.isDeviceSecure()) {
+            try {
+                Intent credential = keyguard.createConfirmDeviceCredentialIntent(
+                        "Unlock J.A.R.V.I.S.", "Confirm your device screen lock");
+                if (credential != null) {
+                    startActivityForResult(credential, REQUEST_DEVICE_CREDENTIAL);
+                    return;
+                }
+            } catch (Exception ignored) { }
+        }
+
+        lockPromptStarted = false;
+        new AlertDialog.Builder(this)
+                .setTitle("DEVICE LOCK REQUIRED")
+                .setMessage("Set up a fingerprint or secure screen lock in Android Settings first. JARVIS will use the device's system authentication and will not store your fingerprint.")
+                .setPositiveButton("OPEN SECURITY SETTINGS", (d, w) -> {
+                    securitySettingsOpened = true;
+                    try { startActivity(new Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)); }
+                    catch (Exception error) { finish(); }
+                })
+                .setNegativeButton("EXIT", (d, w) -> finish())
+                .setCancelable(false)
+                .show();
+    }
+
+    private void unlockOwner() {
+        ownerAuthenticated = true;
+        lockPromptStarted = false;
+        if (appFrame != null) appFrame.setVisibility(View.VISIBLE);
+        setStatus("OWNER VERIFIED");
+        welcomePending = true;
+        if (tts != null && spokenReplies) {
+            welcomePending = false;
+            speak("Hey Raushan, welcome again.");
+        }
+    }
+
+    private void lockAppNow() {
+        ownerAuthenticated = false;
+        welcomePending = false;
+        if (appFrame != null) appFrame.setVisibility(View.INVISIBLE);
+        lockPromptStarted = false;
+        authenticateOwner();
+    }
+
+    private void toggleFloatingOrb() {
+        if (floatingOrbEnabled) {
+            floatingOrbEnabled = false;
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putBoolean("floating_orb_enabled", false).apply();
+            stopService(new Intent(this, JarvisOverlayService.class));
+            setStatus("FLOATING ORB OFF");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.canDrawOverlays(this)) {
+            try {
+                Intent overlay = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName()));
+                startActivityForResult(overlay, REQUEST_OVERLAY_PERMISSION);
+            } catch (Exception error) {
+                reply("Android could not open the overlay permission screen.");
+            }
+            return;
+        }
+        setFloatingOrbEnabled(true);
+    }
+
+    private void setFloatingOrbEnabled(boolean enabled) {
+        floatingOrbEnabled = enabled;
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .putBoolean("floating_orb_enabled", enabled).apply();
+        if (enabled) {
+            startOverlayService(JarvisOverlayService.ACTION_HIDE);
+            setStatus("FLOATING ORB ENABLED");
+        } else {
+            stopService(new Intent(this, JarvisOverlayService.class));
+            setStatus("FLOATING ORB OFF");
+        }
+    }
+
+    private void startOverlayService(String action) {
+        Intent service = new Intent(this, JarvisOverlayService.class);
+        service.setAction(action);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) startForegroundService(service);
+            else startService(service);
+        } catch (Exception error) {
+            setStatus("FLOATING ORB SERVICE UNAVAILABLE");
+        }
     }
 
     private void loadUserSettings() {
@@ -222,6 +388,7 @@ public class MainActivity extends Activity {
         if (languageMode < 0 || languageMode > 2) languageMode = 0;
         speechRate = prefs.getFloat("speech_rate", 1.0f);
         if (speechRate < 0.7f || speechRate > 1.6f) speechRate = 1.0f;
+        floatingOrbEnabled = prefs.getBoolean("floating_orb_enabled", false);
     }
 
     private JSONArray getSavedMemories() {
@@ -402,6 +569,8 @@ public class MainActivity extends Activity {
         buildConversation();
         addGap(root, 9);
         buildComposer();
+        buildDeviceControls();
+        systemPanel.setVisibility(View.GONE);
     }
 
 
@@ -493,6 +662,11 @@ public class MainActivity extends Activity {
         ownerBlock.addView(access);
 
         bar.addView(ownerBlock);
+        controlsButton = text("CONTROLS  ▾", 8, CYAN);
+        controlsButton.setGravity(Gravity.CENTER);
+        controlsButton.setPadding(dp(9), dp(8), dp(3), dp(8));
+        controlsButton.setOnClickListener(v -> toggleSystemPanel());
+        bar.addView(controlsButton);
         root.addView(bar, new LinearLayout.LayoutParams(-1, dp(46)));
     }
 
@@ -521,6 +695,14 @@ public class MainActivity extends Activity {
         reactorLp.gravity = Gravity.CENTER;
         reactorLp.topMargin = dp(7);
         reactorLp.bottomMargin = dp(4);
+        reactorView.setClickable(true);
+        reactorView.setFocusable(true);
+        reactorView.setContentDescription("Open JARVIS voice orb");
+        reactorView.setOnClickListener(v -> showVoiceOrb("READY"));
+        reactorView.setClickable(true);
+        reactorView.setFocusable(true);
+        reactorView.setContentDescription("Open JARVIS voice orb");
+        reactorView.setOnClickListener(v -> showVoiceOrb("READY"));
         hero.addView(reactorView, reactorLp);
 
         TextView title = text("J.A.R.V.I.S.", 22, WHITE);
@@ -663,7 +845,7 @@ public class MainActivity extends Activity {
         systemPanel = column();
         systemPanel.setPadding(dp(11), dp(9), dp(11), dp(9));
         systemPanel.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(37, 82, 101), 5));
-        systemPanel.setVisibility(View.VISIBLE);
+        systemPanel.setVisibility(View.GONE);
 
         TextView title = text("LOCAL SYSTEM PANEL", 8, CYAN);
         title.setLetterSpacing(0.16f);
@@ -728,14 +910,22 @@ public class MainActivity extends Activity {
         addControl(rowSeven, "PERMISSIONS", () -> showPermissionCenter());
         systemPanel.addView(rowSeven);
 
+        LinearLayout rowEight = row();
+        addControl(rowEight, "FLOATING ORB", () -> toggleFloatingOrb());
+        addControl(rowEight, "LOCK JARVIS", () -> lockAppNow());
+        addControl(rowEight, "FOLDER ACCESS", () -> openFolderPicker());
+        systemPanel.addView(rowEight);
+
         LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(-1, -2);
         panelLp.topMargin = dp(4);
         root.addView(systemPanel, panelLp);
     }
 
     private void toggleSystemPanel() {
-        // The control drawer is intentionally removed from the JARVIS interface.
-        // Device actions remain available through supported voice commands.
+        if (systemPanel == null) return;
+        boolean opening = systemPanel.getVisibility() != View.VISIBLE;
+        systemPanel.setVisibility(opening ? View.VISIBLE : View.GONE);
+        if (controlsButton != null) controlsButton.setText(opening ? "CONTROLS  ▴" : "CONTROLS  ▾");
     }
 
     private void addControl(LinearLayout parent, String label, Runnable action) {
@@ -1795,14 +1985,14 @@ public class MainActivity extends Activity {
         return new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) {
                 listening = true;
-                showVoiceOrb("LISTENING");
+                // Voice input stays in the chat; the Orb is opened only by tapping the Reactor.
                 setStatus("LISTENING");
                 if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
             }
-            @Override public void onBeginningOfSpeech() { showVoiceOrb("I AM LISTENING"); setStatus("LISTENING"); }
+            @Override public void onBeginningOfSpeech() { setStatus("LISTENING"); }
             @Override public void onRmsChanged(float rmsdB) { }
             @Override public void onBufferReceived(byte[] buffer) { }
-            @Override public void onEndOfSpeech() { showVoiceOrb("PROCESSING"); setStatus("PROCESSING VOICE"); }
+            @Override public void onEndOfSpeech() { setStatus("PROCESSING VOICE"); }
             @Override public void onError(int error) {
                 listening = false;
                 if (micButton != null) { micButton.setText("●"); micButton.setTextColor(continuousListeningEnabled ? GOLD : MUTED); }
@@ -1861,7 +2051,7 @@ public class MainActivity extends Activity {
     }
 
     private void startListening() {
-        if (!continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
+        if (!ownerAuthenticated || !continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
         if (busy || (tts != null && tts.isSpeaking())) return;
         if (listening) return;
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -2131,6 +2321,19 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_OVERLAY_PERMISSION) {
+            if (Build.VERSION.SDK_INT >= 23 && android.provider.Settings.canDrawOverlays(this)) {
+                setFloatingOrbEnabled(true);
+            } else {
+                reply("Overlay permission was not granted. The floating Orb remains off.");
+            }
+            return;
+        }
+        if (requestCode == REQUEST_DEVICE_CREDENTIAL) {
+            if (resultCode == RESULT_OK) unlockOwner();
+            else finish();
+            return;
+        }
         if (resultCode != RESULT_OK || data == null) return;
         if (requestCode == REQUEST_OPEN_DOCUMENTS) {
             selectedDocumentUris.clear();
@@ -2447,6 +2650,7 @@ public class MainActivity extends Activity {
         }
         listening = false;
         stopClapRecorder();
+        if (floatingOrbEnabled && ownerAuthenticated) startOverlayService(JarvisOverlayService.ACTION_SHOW);
         super.onPause();
     }
 
@@ -2455,7 +2659,13 @@ public class MainActivity extends Activity {
         super.onResume();
         activityVisible = true;
         applyImmersiveMode();
-        if (continuousListeningEnabled) scheduleListeningRestart(350);
+        if (floatingOrbEnabled) startOverlayService(JarvisOverlayService.ACTION_HIDE);
+        if (securitySettingsOpened && !ownerAuthenticated) {
+            securitySettingsOpened = false;
+            lockPromptStarted = false;
+            authenticateOwner();
+        }
+        if (continuousListeningEnabled && ownerAuthenticated) scheduleListeningRestart(350);
         resumeClapWake();
     }
 
