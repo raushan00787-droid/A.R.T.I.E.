@@ -629,7 +629,7 @@ public class MainActivity extends FragmentActivity {
         voiceOrbPanel.addView(orbStatus, statusLp);
         View bottomSpace = new View(this);
         voiceOrbPanel.addView(bottomSpace, new LinearLayout.LayoutParams(1, 0, 1));
-        TextView pause = text("Ⅱ   PAUSE MICROPHONE", 9, Color.rgb(173, 207, 222));
+        TextView pause = text("■   STOP LIVE MODE", 9, Color.rgb(173, 207, 222));
         pause.setGravity(Gravity.CENTER);
         pause.setPadding(dp(18), dp(14), dp(18), dp(14));
         pause.setBackground(shape(Color.rgb(8, 25, 39), Color.rgb(40, 108, 139), 24));
@@ -1906,6 +1906,10 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void toggleClapWake() {
+        if (liveModeEnabled) {
+            setStatus("STOP LIVE MODE BEFORE USING CLAP WAKE");
+            return;
+        }
         if (clapWakeEnabled) {
             clapWakeEnabled = false;
             stopClapRecorder();
@@ -2105,6 +2109,7 @@ public class MainActivity extends FragmentActivity {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_AUDIO);
             return;
         }
+        if (clapWakeEnabled) { clapWakeEnabled = false; stopClapRecorder(); }
         liveModeEnabled = true;
         liveModePaused = false;
         continuousListeningEnabled = false;
@@ -2836,8 +2841,10 @@ public class MainActivity extends FragmentActivity {
             authenticateOwner();
         }
         if (liveModeEnabled && !liveModePaused && ownerAuthenticated) {
-            try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
-            catch (Exception ignored) { }
+            if (tts == null || !tts.isSpeaking()) {
+                try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
+                catch (Exception ignored) { }
+            }
         } else if (continuousListeningEnabled && ownerAuthenticated) scheduleListeningRestart(350);
         resumeClapWake();
         consumePendingLiveCommand();
