@@ -1517,6 +1517,28 @@ public class MainActivity extends FragmentActivity {
             openSystemTtsSettings();
             return "Opening Android text-to-speech settings.";
         }
+        Matcher timerCommand = Pattern.compile(
+                "(?i)^(?:start|set)(?: a)? timer(?: for)?\\s+(\\d{1,4})\\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)(?:\\s+(?:for|labelled|called)\\s+(.+))?$")
+                .matcher(input == null ? "" : input.trim());
+        if (timerCommand.matches()) {
+            int amount = Integer.parseInt(timerCommand.group(1));
+            String unit = timerCommand.group(2).toLowerCase(Locale.ROOT);
+            long seconds = amount * (unit.startsWith("h") ? 3600L
+                    : unit.startsWith("m") ? 60L : 1L);
+            if (seconds < 1L || seconds > 24L * 60L * 60L) {
+                return "Please choose a timer between 1 second and 24 hours.";
+            }
+            String label = timerCommand.group(3) == null ? "JARVIS timer" : timerCommand.group(3).trim();
+            return JarvisIntegrationIntents.startTimer(this, (int) seconds, label)
+                    ? "Opening Android Clock with a " + amount + " " + unit + " timer. Review and start it there."
+                    : "No compatible Clock app could start that timer.";
+        }
+        if (value.equals("dismiss timer") || value.equals("cancel timer")) {
+            return JarvisIntegrationIntents.dismissTimer(this)
+                    ? "Opening Android Clock to review and dismiss the active timer."
+                    : "No compatible Clock app could manage the timer.";
+        }
+
         String alarmCommand = handleAlarmCommand(input, value);
         if (alarmCommand != null) return alarmCommand;
 
