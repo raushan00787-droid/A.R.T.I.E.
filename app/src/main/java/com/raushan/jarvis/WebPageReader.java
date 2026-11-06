@@ -229,9 +229,12 @@ final class WebPageReader {
 
     private static String stripHtml(String html) {
         String value = html.replaceAll("(?is)<!--.*?-->", " ");
-        value = value.replaceAll("(?is)<(script|style|noscript|svg|iframe|form)[^>]*>.*?</\\\\1>", " ");
-        value = value.replaceAll("(?is)<(br|hr)\\\\b[^>]*>", "\\n");
-        value = value.replaceAll("(?is)</(p|div|article|section|h[1-6]|li|tr|blockquote)>", "\\n");
+        String[] blockedTags = new String[]{"script", "style", "noscript", "svg", "iframe", "form"};
+        for (String tag : blockedTags) {
+            value = value.replaceAll("(?is)<" + tag + "\\b[^>]*>.*?</" + tag + "\\s*>", " ");
+        }
+        value = value.replaceAll("(?is)<(?:br|hr)\\b[^>]*>", "\n");
+        value = value.replaceAll("(?is)</(?:p|div|article|section|h[1-6]|li|tr|blockquote)\\s*>", "\n");
         value = value.replaceAll("(?s)<[^>]+>", " ");
         return decodeEntities(value);
     }
@@ -261,8 +264,8 @@ final class WebPageReader {
     private static String cleanText(String value) {
         return value.replace('\u00a0', ' ')
                 .replaceAll("[\\t\\x0B\\f\\r ]+", " ")
-                .replaceAll(" *\\n *", "\\n")
-                .replaceAll("\\n{3,}", "\\n\\n")
+                .replaceAll(" *\\n *", "\n")
+                .replaceAll("\\n{3,}", "\n\n")
                 .trim();
     }
 }
