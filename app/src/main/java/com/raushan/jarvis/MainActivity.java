@@ -7,6 +7,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -23,6 +25,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.os.BatteryManager;
 import android.provider.AlarmClock;
+import android.provider.ContactsContract;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -71,6 +74,7 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_AUDIO = 10;
     private static final int PERMISSION_CAMERA = 11;
     private static final int PERMISSION_CLAP = 12;
+    private static final int PERMISSION_CONTACTS = 13;
     private static final int MAX_HISTORY_MESSAGES = 20;
     private static final int MAX_SAVED_MEMORIES = 20;
 
@@ -122,6 +126,8 @@ public class MainActivity extends Activity {
     private float speechRate = 1.0f;
     private boolean awaitingAlarmTime = false;
     private TextView speechRateButton;
+    private LinearLayout systemPanel;
+    private String pendingCallContact;
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final HandlerClock handlerClock = new HandlerClock();
@@ -325,13 +331,14 @@ public class MainActivity extends Activity {
         return view;
     }
 
+
     private void buildUI() {
         ScrollView page = new ScrollView(this);
         page.setFillViewport(true);
         page.setBackgroundColor(BG);
 
         root = column();
-        root.setPadding(dp(22), dp(22), dp(22), dp(24));
+        root.setPadding(dp(18), dp(18), dp(18), dp(22));
         page.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         page.setOnApplyWindowInsetsListener((view, insets) -> {
@@ -344,151 +351,170 @@ public class MainActivity extends Activity {
                 top = insets.getSystemWindowInsetTop();
                 bottom = insets.getSystemWindowInsetBottom();
             }
-            root.setPadding(dp(22), dp(22) + top, dp(22), dp(24) + bottom);
+            root.setPadding(dp(18), dp(16) + top, dp(18), dp(18) + bottom);
             return insets;
         });
         setContentView(page);
 
         buildTopBar();
-        addLine(root);
+        addGap(root, 12);
         buildMainArea();
-        addLine(root);
+        addGap(root, 12);
         buildConversation();
-        addGap(root, 12);
+        addGap(root, 9);
         buildComposer();
-        addGap(root, 10);
+        addGap(root, 8);
         buildDeviceControls();
-        addGap(root, 12);
-        TextView footer = text("J.A.R.V.I.S.  •  PERSONAL SYSTEM  •  BUILD 1.4", 9, MUTED);
+
+        TextView footer = text("J.A.R.V.I.S.  /  R-01  •  NATIVE CORE 1.5", 8, MUTED);
         footer.setGravity(Gravity.CENTER);
-        root.addView(footer);
+        footer.setLetterSpacing(0.12f);
+        LinearLayout.LayoutParams footerLp = new LinearLayout.LayoutParams(-1, -2);
+        footerLp.topMargin = dp(10);
+        root.addView(footer, footerLp);
     }
+
 
     private void buildTopBar() {
         LinearLayout bar = row();
-        TextView brand = text("R  J.A.R.V.I.S.  /  PERSONAL SYSTEM", 11, CYAN);
-        brand.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        brand.setLetterSpacing(0.08f);
-        bar.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout identity = column();
 
-        TextView owner = text("AUTHORIZED USER\nRAUSHAN  ◈", 9, GOLD);
-        owner.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        owner.setLetterSpacing(0.08f);
-        bar.addView(owner);
-        root.addView(bar, new LinearLayout.LayoutParams(-1, dp(42)));
+        TextView brand = text("J.A.R.V.I.S.", 17, CYAN);
+        brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        brand.setLetterSpacing(0.12f);
+        identity.addView(brand);
+
+        TextView sub = text("PERSONAL AI  /  NATIVE SYSTEM", 8, MUTED);
+        sub.setLetterSpacing(0.14f);
+        identity.addView(sub);
+
+        bar.addView(identity, new LinearLayout.LayoutParams(0, -2, 1));
+
+        LinearLayout ownerBlock = column();
+        TextView owner = text("RAUSHAN", 9, GOLD);
+        owner.setGravity(Gravity.RIGHT);
+        owner.setLetterSpacing(0.16f);
+        ownerBlock.addView(owner);
+
+        TextView access = text("CREATOR ACCESS  ◈", 7, MUTED);
+        access.setGravity(Gravity.RIGHT);
+        access.setLetterSpacing(0.08f);
+        ownerBlock.addView(access);
+
+        bar.addView(ownerBlock);
+        TextView systemButton = smallControl("⚙", () -> toggleSystemPanel());
+        LinearLayout.LayoutParams gearLp = new LinearLayout.LayoutParams(dp(40), dp(40));
+        gearLp.leftMargin = dp(10);
+        systemButton.setLayoutParams(gearLp);
+        bar.addView(systemButton);
+        root.addView(bar, new LinearLayout.LayoutParams(-1, dp(46)));
     }
 
+
     private void buildMainArea() {
-        int widthDp = (int) (getResources().getDisplayMetrics().widthPixels /
+        LinearLayout hero = column();
+        hero.setPadding(dp(14), dp(13), dp(14), dp(13));
+        GradientDrawable heroBackground = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.rgb(10, 29, 45), Color.rgb(5, 13, 23)});
+        heroBackground.setCornerRadius(dp(7));
+        heroBackground.setStroke(dp(1), Color.rgb(37, 91, 113));
+        hero.setBackground(heroBackground);
+
+        LinearLayout header = row();
+        TextView eyebrow = text("NEURAL INTERFACE  //  CORE 01", 8, MUTED);
+        eyebrow.setLetterSpacing(0.16f);
+        header.addView(eyebrow, new LinearLayout.LayoutParams(0, -2, 1));
+
+        TextView live = text("● ONLINE", 8, CYAN);
+        live.setLetterSpacing(0.12f);
+        header.addView(live);
+        hero.addView(header);
+
+        LinearLayout body = row();
+        body.setGravity(Gravity.CENTER_VERTICAL);
+
+        int screenWidthDp = (int) (getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        boolean wide = widthDp >= 720;
-
-        LinearLayout main = row();
-        main.setGravity(Gravity.TOP);
-        LinearLayout left = column();
-        LinearLayout right = column();
-
-        TextView eyebrow = text("NEURAL INTERFACE  //  " + "NATIVE CORE", 9, MUTED);
-        eyebrow.setLetterSpacing(0.18f);
-        left.addView(eyebrow);
-
-        TextView heading = text("At your service.", 27, WHITE);
-        heading.setTypeface(sansSerif(), Typeface.NORMAL);
-        heading.setLetterSpacing(0.05f);
-        LinearLayout.LayoutParams headingLp = new LinearLayout.LayoutParams(-1, -2);
-        headingLp.topMargin = dp(7);
-        left.addView(heading, headingLp);
-
-        TextView subtitle = text("All systems ready, Raushan.", 11, MUTED);
-        subtitle.setLetterSpacing(0.05f);
-        left.addView(subtitle);
+        int reactorSize = screenWidthDp >= 600 ? 190 : 142;
 
         reactorView = new ReactorView(this);
-        LinearLayout.LayoutParams reactorLp = new LinearLayout.LayoutParams(dp(wide ? 290 : 250), dp(wide ? 290 : 250));
-        reactorLp.gravity = Gravity.CENTER_HORIZONTAL;
-        reactorLp.topMargin = dp(8);
-        left.addView(reactorView, reactorLp);
+        LinearLayout.LayoutParams reactorLp = new LinearLayout.LayoutParams(dp(reactorSize), dp(reactorSize));
+        reactorLp.rightMargin = dp(9);
+        body.addView(reactorView, reactorLp);
 
-        TextView readout = text("J.A.R.V.I.S. ONLINE", 10, CYAN);
-        readout.setGravity(Gravity.CENTER);
-        readout.setLetterSpacing(0.22f);
-        left.addView(readout);
+        LinearLayout detail = column();
+        detail.setGravity(Gravity.CENTER_VERTICAL);
+        TextView heading = text("At your service.", screenWidthDp >= 600 ? 25 : 21, WHITE);
+        heading.setTypeface(sansSerif(), Typeface.NORMAL);
+        heading.setLetterSpacing(0.01f);
+        detail.addView(heading);
 
-        TextView hint = text("LOCAL SYSTEMS  •  AI LINK", 8, MUTED);
-        hint.setGravity(Gravity.CENTER);
-        hint.setPadding(0, dp(5), 0, 0);
-        left.addView(hint);
+        TextView subtitle = text("Your personal system.", 9, MUTED);
+        subtitle.setPadding(0, dp(3), 0, dp(8));
+        detail.addView(subtitle);
 
-        TextView rightCaption = text("RAUSHAN SIGNATURE  /  R-01", 9, MUTED);
-        rightCaption.setGravity(Gravity.CENTER);
-        rightCaption.setLetterSpacing(0.16f);
-        right.addView(rightCaption);
-
+        LinearLayout signatureRow = row();
         signatureView = new SignatureView(this);
-        LinearLayout.LayoutParams signatureLp = new LinearLayout.LayoutParams(dp(wide ? 220 : 185), dp(wide ? 220 : 185));
-        signatureLp.gravity = Gravity.CENTER_HORIZONTAL;
-        signatureLp.topMargin = dp(10);
-        right.addView(signatureView, signatureLp);
+        LinearLayout.LayoutParams signatureLp = new LinearLayout.LayoutParams(dp(58), dp(58));
+        signatureLp.rightMargin = dp(8);
+        signatureRow.addView(signatureView, signatureLp);
 
-        TextView ownerTitle = text("RAUSHAN", 12, GOLD);
-        ownerTitle.setGravity(Gravity.CENTER);
-        ownerTitle.setLetterSpacing(0.25f);
-        right.addView(ownerTitle);
-        TextView ownerSub = text("CREATOR'S SIGNATURE  •  JARVIS CORE", 8, MUTED);
-        ownerSub.setGravity(Gravity.CENTER);
-        ownerSub.setPadding(0, dp(5), 0, dp(10));
-        right.addView(ownerSub);
+        LinearLayout signatureText = column();
+        TextView signatureName = text("R-01", 10, GOLD);
+        signatureName.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        signatureText.addView(signatureName);
+        TextView signatureCaption = text("CREATOR'S MARK", 7, MUTED);
+        signatureCaption.setLetterSpacing(0.08f);
+        signatureText.addView(signatureCaption);
+        signatureRow.addView(signatureText);
+        detail.addView(signatureRow);
 
-        LinearLayout statusCard = column();
-        statusCard.setPadding(dp(12), dp(10), dp(12), dp(10));
-        statusCard.setBackground(shape(PANEL, Color.rgb(37, 82, 101), 4));
-        statusView = text("SYSTEM STANDBY", 10, CYAN);
-        statusView.setGravity(Gravity.CENTER);
-        statusView.setLetterSpacing(0.14f);
-        statusCard.addView(statusView);
-        clockView = text("--:--:--", 9, MUTED);
+        body.addView(detail, new LinearLayout.LayoutParams(0, -2, 1));
+        hero.addView(body, new LinearLayout.LayoutParams(-1, -2));
+
+        View divider = new View(this);
+        divider.setBackgroundColor(Color.rgb(31, 70, 88));
+        LinearLayout.LayoutParams dividerLp = new LinearLayout.LayoutParams(-1, dp(1));
+        dividerLp.topMargin = dp(8);
+        dividerLp.bottomMargin = dp(8);
+        hero.addView(divider, dividerLp);
+
+        LinearLayout readouts = row();
+        statusView = text("SYSTEM STANDBY", 8, CYAN);
+        statusView.setLetterSpacing(0.08f);
+        readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1.1f));
+
+        clockView = text("--:--", 8, WHITE);
         clockView.setGravity(Gravity.CENTER);
-        clockView.setPadding(0, dp(5), 0, 0);
-        statusCard.addView(clockView);
-        connectionView = text("AI LINK READY", 8, MUTED);
-        connectionView.setGravity(Gravity.CENTER);
-        connectionView.setPadding(0, dp(5), 0, 0);
-        statusCard.addView(connectionView);
-        LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(-1, -2);
-        statusLp.topMargin = dp(8);
-        right.addView(statusCard, statusLp);
+        readouts.addView(clockView, new LinearLayout.LayoutParams(0, -2, 0.8f));
 
-        if (wide) {
-            LinearLayout.LayoutParams leftLp = new LinearLayout.LayoutParams(0, -2, 1.15f);
-            leftLp.rightMargin = dp(28);
-            main.addView(left, leftLp);
-            main.addView(right, new LinearLayout.LayoutParams(0, -2, 0.85f));
-        } else {
-            main.setOrientation(LinearLayout.VERTICAL);
-            main.addView(left, new LinearLayout.LayoutParams(-1, -2));
-            LinearLayout.LayoutParams rightLp = new LinearLayout.LayoutParams(-1, -2);
-            rightLp.topMargin = dp(12);
-            main.addView(right, rightLp);
-        }
-        root.addView(main, new LinearLayout.LayoutParams(-1, -2));
+        connectionView = text("AI LINK READY", 7, MUTED);
+        connectionView.setGravity(Gravity.RIGHT);
+        connectionView.setLetterSpacing(0.04f);
+        readouts.addView(connectionView, new LinearLayout.LayoutParams(0, -2, 1.1f));
+        hero.addView(readouts);
 
+        root.addView(hero, new LinearLayout.LayoutParams(-1, -2));
     }
 
     private Typeface sansSerif() {
         return Typeface.create("sans-serif-light", Typeface.NORMAL);
     }
 
+
     private void buildConversation() {
         LinearLayout card = column();
-        card.setPadding(dp(14), dp(12), dp(14), dp(12));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 3));
+        card.setPadding(dp(13), dp(11), dp(13), dp(10));
+        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 6));
 
         LinearLayout header = row();
-        TextView title = text("J.A.R.V.I.S.  /  CONVERSATION", 9, CYAN);
-        title.setLetterSpacing(0.14f);
+        TextView title = text("LIVE CONVERSATION", 8, CYAN);
+        title.setLetterSpacing(0.16f);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView clear = text("CLEAR", 9, GOLD);
-        clear.setPadding(dp(8), dp(5), dp(8), dp(5));
+
+        TextView clear = text("CLEAR", 8, GOLD);
+        clear.setPadding(dp(8), dp(5), dp(3), dp(5));
         clear.setOnClickListener(v -> clearConversation());
         header.addView(clear);
         card.addView(header);
@@ -496,16 +522,14 @@ public class MainActivity extends Activity {
         chatScroll = new ScrollView(this);
         chatScroll.setFillViewport(false);
         chatList = column();
-        chatList.setPadding(0, dp(7), 0, 0);
+        chatList.setPadding(0, dp(6), 0, dp(2));
         chatScroll.addView(chatList);
-        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(116));
-        chatLp.topMargin = dp(5);
+        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(158));
+        chatLp.topMargin = dp(4);
         card.addView(chatScroll, chatLp);
 
         if (conversation.length() <= 1) {
-            TextView welcome = text("Good day, Raushan. JARVIS is online. What shall we work on?", 12, Color.rgb(184, 210, 222));
-            welcome.setPadding(dp(2), dp(6), dp(2), dp(6));
-            chatList.addView(welcome);
+            addMessage("JARVIS", "Good day, Raushan. I am online.", false);
         } else {
             for (int i = 1; i < conversation.length(); i++) {
                 JSONObject item = conversation.optJSONObject(i);
@@ -569,57 +593,82 @@ public class MainActivity extends Activity {
         return control;
     }
 
+
     private void buildDeviceControls() {
-        TextView title = text("DEVICE CONTROLS", 9, MUTED);
-        title.setLetterSpacing(0.18f);
-        title.setPadding(0, dp(5), 0, dp(8));
-        root.addView(title);
+        systemPanel = column();
+        systemPanel.setPadding(dp(11), dp(9), dp(11), dp(9));
+        systemPanel.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(37, 82, 101), 5));
+        systemPanel.setVisibility(View.GONE);
+
+        TextView title = text("LOCAL SYSTEM PANEL", 8, CYAN);
+        title.setLetterSpacing(0.16f);
+        title.setPadding(dp(2), dp(2), dp(2), dp(6));
+        systemPanel.addView(title);
 
         LinearLayout rowOne = row();
         addControl(rowOne, "FLASHLIGHT", () -> toggleTorch());
-        addControl(rowOne, "BATTERY STATUS", () -> {
+        addControl(rowOne, "BATTERY", () -> {
             int level = getBatteryPct();
             reply(level < 0 ? "I could not read the battery level." : "Battery level is " + level + " percent.");
         });
-        addControl(rowOne, "WI-FI SETTINGS", () -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Wi-Fi"));
-        root.addView(rowOne);
+        addControl(rowOne, "WI-FI", () -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Wi-Fi"));
+        systemPanel.addView(rowOne);
 
         LinearLayout rowTwo = row();
         addControl(rowTwo, "BLUETOOTH", () -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth"));
         addControl(rowTwo, "DISPLAY", () -> openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Display"));
-        addControl(rowTwo, "ALL SETTINGS", () -> openSettings(android.provider.Settings.ACTION_SETTINGS, "system"));
-        root.addView(rowTwo);
+        addControl(rowTwo, "SETTINGS", () -> openSettings(android.provider.Settings.ACTION_SETTINGS, "system"));
+        systemPanel.addView(rowTwo);
 
         LinearLayout rowThree = row();
         addControl(rowThree, "STOP SPEECH", () -> stopSpeech());
         addControl(rowThree, "CLEAR CHAT", () -> clearConversation());
-        root.addView(rowThree);
+        addControl(rowThree, "CLAP WAKE", () -> toggleClapWake());
+        systemPanel.addView(rowThree);
 
         LinearLayout rowFour = row();
-        voiceSelectButton = text("VOICE: SYSTEM DEFAULT", 9, CYAN);
+        voiceSelectButton = text("VOICE: SYSTEM DEFAULT", 8, CYAN);
         voiceSelectButton.setGravity(Gravity.CENTER);
-        voiceSelectButton.setPadding(dp(3), dp(12), dp(3), dp(12));
+        voiceSelectButton.setPadding(dp(3), dp(10), dp(3), dp(10));
         voiceSelectButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
         voiceSelectButton.setOnClickListener(v -> showVoicePicker());
-        LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1);
+        LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
         voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
         rowFour.addView(voiceSelectButton, voiceLp);
-        addControl(rowFour, "CLAP WAKE", () -> toggleClapWake());
         addControl(rowFour, "TEST VOICE", () -> speak("Hello Raushan. This is your selected JARVIS voice."));
-        root.addView(rowFour);
+        systemPanel.addView(rowFour);
 
         LinearLayout rowFive = row();
         addControl(rowFive, "VOLUME −", () -> adjustMediaVolume(false));
-        speechRateButton = text("SPEED  " + speechRate + "x", 9, CYAN);
+        speechRateButton = text("SPEED  " + speechRate + "x", 8, CYAN);
         speechRateButton.setGravity(Gravity.CENTER);
-        speechRateButton.setPadding(dp(3), dp(12), dp(3), dp(12));
+        speechRateButton.setPadding(dp(3), dp(10), dp(3), dp(10));
         speechRateButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
         speechRateButton.setOnClickListener(v -> cycleSpeechRate());
         LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(0, -2, 1);
         speedLp.setMargins(dp(3), dp(3), dp(3), dp(3));
         rowFive.addView(speechRateButton, speedLp);
         addControl(rowFive, "VOLUME +", () -> adjustMediaVolume(true));
-        root.addView(rowFive);
+        systemPanel.addView(rowFive);
+
+        LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(-1, -2);
+        panelLp.topMargin = dp(4);
+        root.addView(systemPanel, panelLp);
+    }
+
+    private void toggleSystemPanel() {
+        if (systemPanel == null) return;
+        boolean show = systemPanel.getVisibility() != View.VISIBLE;
+        systemPanel.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (show) {
+            setStatus("LOCAL SYSTEM PANEL");
+            systemPanel.post(() -> {
+                View parent = (View) systemPanel.getParent();
+                if (parent instanceof ScrollView) ((ScrollView) parent).smoothScrollTo(0, systemPanel.getBottom());
+            });
+        } else {
+            setStatus("SYSTEM STANDBY");
+        }
     }
 
     private void addControl(LinearLayout parent, String label, Runnable action) {
@@ -648,13 +697,38 @@ public class MainActivity extends Activity {
         }
     }
 
+
     private void addMessage(String role, String message, boolean error) {
         if (chatList == null) return;
-        TextView line = text(role + "   " + message, 11,
-                error ? Color.rgb(242, 150, 150) : role.equals("YOU") ? GOLD : Color.rgb(195, 222, 233));
-        line.setPadding(0, dp(6), 0, dp(6));
-        line.setLineSpacing(dp(2), 1.0f);
-        chatList.addView(line);
+
+        boolean userMessage = "YOU".equals(role);
+        LinearLayout line = row();
+        line.setGravity(userMessage ? Gravity.RIGHT : Gravity.LEFT);
+
+        LinearLayout bubble = column();
+        bubble.setPadding(dp(10), dp(7), dp(10), dp(7));
+        bubble.setBackground(shape(
+                userMessage ? Color.rgb(13, 39, 54) : Color.rgb(10, 24, 36),
+                userMessage ? Color.rgb(44, 111, 137) : Color.rgb(35, 75, 93), 5));
+        bubble.setMaxWidth(dp(286));
+
+        TextView label = text(userMessage ? "RAUSHAN" : "J.A.R.V.I.S.",
+                7, userMessage ? GOLD : CYAN);
+        label.setLetterSpacing(0.14f);
+        bubble.addView(label);
+
+        TextView content = text(message, 11,
+                error ? Color.rgb(242, 150, 150) : Color.rgb(195, 222, 233));
+        content.setPadding(0, dp(3), 0, 0);
+        content.setLineSpacing(dp(2), 1.0f);
+        bubble.addView(content);
+
+        LinearLayout.LayoutParams bubbleLp = new LinearLayout.LayoutParams(-2, -2);
+        bubbleLp.gravity = userMessage ? Gravity.RIGHT : Gravity.LEFT;
+        bubbleLp.setMargins(0, dp(3), 0, dp(3));
+        line.addView(bubble, bubbleLp);
+
+        chatList.addView(line, new LinearLayout.LayoutParams(-1, -2));
         while (chatList.getChildCount() > 20) chatList.removeViewAt(0);
         chatScroll.post(() -> chatScroll.fullScroll(View.FOCUS_DOWN));
     }
@@ -818,6 +892,7 @@ public class MainActivity extends Activity {
         return message.length() > 180 ? message.substring(0, 180) : message;
     }
 
+
     private String handleLocalCommand(String input) {
         String value = input.toLowerCase(Locale.ROOT).trim();
 
@@ -826,6 +901,12 @@ public class MainActivity extends Activity {
 
         String alarmCommand = handleAlarmCommand(input, value);
         if (alarmCommand != null) return alarmCommand;
+
+        String callCommand = handleCallCommand(input);
+        if (callCommand != null) return callCommand;
+
+        String playCommand = handlePlayCommand(input);
+        if (playCommand != null) return playCommand;
 
         String appCommand = handleAppLaunch(value);
         if (appCommand != null) return appCommand;
@@ -872,12 +953,161 @@ public class MainActivity extends Activity {
         if (value.equals("date") || value.contains("what is the date")) {
             return "Today is " + new SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(new Date()) + ".";
         }
-        if (value.equals("help") || value.contains("available commands")) {
-            return "I can answer questions with conversation context, remember notes you explicitly ask me to save, launch apps such as WhatsApp, YouTube, Chrome and Maps, open the Clock app to set an alarm, adjust media volume and speech speed, check battery, control the flashlight, open settings, and tell the time and date.";
-        }
         return null;
     }
 
+    private String handleCallCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        Matcher prefix = Pattern.compile("(?i)^(?:call|phone|dial)\\s+(.+)$").matcher(raw);
+        String target = null;
+        if (prefix.matches()) {
+            target = prefix.group(1).trim();
+        } else {
+            Matcher suffix = Pattern.compile("(?i)^(.+?)\\s+(?:ko\\s+)?(?:call|phone)\\s+(?:karo|kar do|lagao|laga do)$").matcher(raw);
+            if (suffix.matches()) target = suffix.group(1).trim();
+        }
+        if (target == null || target.isEmpty()) return null;
+
+        target = target.replaceAll("(?i)\\s+(please|plz|ko|karo|kar do)$", "").trim();
+        if (target.isEmpty()) return null;
+
+        String digits = target.replaceAll("[^0-9]", "");
+        if (digits.length() >= 5 && target.matches("[+0-9() .-]+")) {
+            return openDialer(target, "the requested number");
+        }
+
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            pendingCallContact = target;
+            requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, PERMISSION_CONTACTS);
+            return "I need permission to look up that contact. Allow Contacts access, then I will open the dialer for you to confirm the call.";
+        }
+        return openContactDialer(target);
+    }
+
+    private String openContactDialer(String query) {
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> numbers = new ArrayList<>();
+        Cursor cursor = null;
+        try {
+            Uri lookup = Uri.withAppendedPath(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI, Uri.encode(query));
+            cursor = getContentResolver().query(lookup,
+                    new String[]{
+                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            ContactsContract.CommonDataKinds.Phone.NUMBER
+                    }, null, null,
+                    ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
+
+            if (cursor != null) {
+                while (cursor.moveToNext() && names.size() < 12) {
+                    String name = cursor.getString(0);
+                    String number = cursor.getString(1);
+                    if (name == null || number == null || number.trim().isEmpty()) continue;
+                    names.add(name);
+                    numbers.add(number);
+                }
+            }
+        } catch (Exception error) {
+            return "I couldn't read that contact. Check Contacts permission and try again.";
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+
+        if (numbers.isEmpty()) return "I couldn't find a contact matching " + query + ".";
+
+        if (numbers.size() == 1) return openDialer(numbers.get(0), names.get(0));
+
+        String[] labels = new String[numbers.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = names.get(i) + "  •  " + numbers.get(i);
+        new AlertDialog.Builder(this)
+                .setTitle("CHOOSE CONTACT")
+                .setItems(labels, (dialog, which) -> reply(openDialer(numbers.get(which), names.get(which))))
+                .setNegativeButton("CANCEL", null)
+                .show();
+        return "I found more than one matching number. Choose the correct contact.";
+    }
+
+    private String openDialer(String number, String label) {
+        try {
+            Intent dial = new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null));
+            startActivity(dial);
+            return "Opening the dialer for " + label + ". Review the number and tap Call to place it.";
+        } catch (Exception error) {
+            return "I couldn't open the phone dialer on this device.";
+        }
+    }
+
+    private String handlePlayCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        String lower = raw.toLowerCase(Locale.ROOT);
+        String query = null;
+
+        if (lower.startsWith("play ")) {
+            query = raw.substring(5).trim();
+        } else {
+            Matcher songPattern = Pattern.compile("(?i)^(?:song|gaana|gana)\\s+(.+?)\\s+(?:bajao|chalao)$").matcher(raw);
+            if (songPattern.matches()) query = songPattern.group(1).trim();
+            else {
+                Matcher hindiPattern = Pattern.compile("(?i)^(.+?)\\s+(?:song|gaana|gana)\\s+(?:bajao|chala do)$").matcher(raw);
+                if (hindiPattern.matches()) query = hindiPattern.group(1).trim();
+            }
+        }
+        if (query == null) return null;
+        if (query.equalsIgnoreCase("music") || query.equalsIgnoreCase("songs")) query = "";
+
+        try {
+            if (query.isEmpty()) return launchMusicApp();
+
+            try {
+                Intent youtubeMusic = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://music.youtube.com/search?q=" + Uri.encode(query)));
+                youtubeMusic.setPackage("com.google.android.apps.youtube.music");
+                startActivity(youtubeMusic);
+                return "Opening YouTube Music results for " + query + ". Select a track to start playback.";
+            } catch (Exception ignored) { }
+
+            try {
+                Intent spotify = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("spotify:search:" + Uri.encode(query)));
+                spotify.setPackage("com.spotify.music");
+                startActivity(spotify);
+                return "Opening Spotify results for " + query + ". Select a track to start playback.";
+            } catch (Exception ignored) { }
+
+            try {
+                Intent youtube = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(query)));
+                youtube.setPackage("com.google.android.youtube");
+                startActivity(youtube);
+                return "Opening YouTube results for " + query + ". Select a track to start playback.";
+            } catch (Exception ignored) { }
+
+            Intent browser = new Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://music.youtube.com/search?q=" + Uri.encode(query)));
+            startActivity(browser);
+            return "Opening music search results for " + query + ". Select a track to start playback.";
+        } catch (Exception error) {
+            return "I couldn't open a music app. Install YouTube Music, Spotify or YouTube and try again.";
+        }
+    }
+
+    private String launchMusicApp() {
+        String[][] apps = new String[][]{
+                {"YouTube Music", "com.google.android.apps.youtube.music"},
+                {"Spotify", "com.spotify.music"},
+                {"YouTube", "com.google.android.youtube"}
+        };
+        for (String[] app : apps) {
+            try {
+                Intent launch = getPackageManager().getLaunchIntentForPackage(app[1]);
+                if (launch != null) {
+                    startActivity(launch);
+                    return "Opening " + app[0] + ".";
+                }
+            } catch (Exception ignored) { }
+        }
+        return "No supported music app was found. Install YouTube Music, Spotify or YouTube.";
+    }
 
     private String handleMemoryCommand(String input) {
         String raw = input == null ? "" : input.trim();
@@ -1541,6 +1771,7 @@ public class MainActivity extends Activity {
         }
     }
 
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -1564,8 +1795,19 @@ public class MainActivity extends Activity {
                 clapWakeEnabled = false;
                 setStatus("MICROPHONE PERMISSION REQUIRED FOR CLAP WAKE");
             }
+        } else if (requestCode == PERMISSION_CONTACTS) {
+            String requested = pendingCallContact;
+            pendingCallContact = null;
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    && requested != null) {
+                reply(openContactDialer(requested));
+            } else {
+                reply("Contacts permission was not granted. You can still say 'dial' followed by a phone number.");
+            }
         }
     }
+
+    private static class ReactorView extends View {
 
     private static class ReactorView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
