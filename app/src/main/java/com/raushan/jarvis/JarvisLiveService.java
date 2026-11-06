@@ -28,7 +28,10 @@ public class JarvisLiveService extends Service {
     public static final String ACTION_PAUSE = "com.raushan.jarvis.live.PAUSE";
     public static final String ACTION_STOP = "com.raushan.jarvis.live.STOP";
     public static final String ACTION_TRANSCRIPT = "com.raushan.jarvis.live.TRANSCRIPT";
+    public static final String ACTION_STATE = "com.raushan.jarvis.live.STATE";
     public static final String EXTRA_COMMAND = "command";
+    public static final String EXTRA_ENABLED = "enabled";
+    public static final String EXTRA_PAUSED = "paused";
     private static final String CHANNEL_ID = "jarvis_live_voice";
     private static final int NOTIFICATION_ID = 9020;
     private static final long SESSION_TIMEOUT_MS = 25000L;
@@ -57,6 +60,7 @@ public class JarvisLiveService extends Service {
         if (ACTION_STOP.equals(action)) {
             prefs().edit().putBoolean("live_mode_enabled", false)
                     .putBoolean("live_mode_paused", false).apply();
+            publishState(false, false);
             stopListening();
             stopForeground(true);
             stopSelf();
@@ -65,6 +69,7 @@ public class JarvisLiveService extends Service {
         if (ACTION_PAUSE.equals(action)) {
             userPaused = true;
             prefs().edit().putBoolean("live_mode_paused", true).apply();
+            publishState(true, true);
             stopListening();
             updateNotification("Paused. Tap Resume to listen again.", true);
             return START_STICKY;
@@ -82,6 +87,7 @@ public class JarvisLiveService extends Service {
             sessionActive = false;
         }
         if (!userPaused) {
+            publishState(true, false);
             ensureRecognizer();
             startListening();
             updateNotification(sessionActive ? "Live conversation active" : "Listening for Hey JARVIS", false);
@@ -150,6 +156,14 @@ public class JarvisLiveService extends Service {
         if (command.isEmpty()) command = "__JARVIS_WAKE__";
         deliverCommand(command);
         updateNotification("Heard you. Processing command…", false);
+    }
+
+    private void publishState(boolean enabled, boolean paused) {
+        Intent state = new Intent(ACTION_STATE);
+        state.setPackage(getPackageName());
+        state.putExtra(EXTRA_ENABLED, enabled);
+        state.putExtra(EXTRA_PAUSED, paused);
+        sendBroadcast(state);
     }
 
     private void deliverCommand(String command) {
