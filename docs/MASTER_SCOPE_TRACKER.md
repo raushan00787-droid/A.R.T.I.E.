@@ -144,7 +144,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 
 - [x] Existing permission centre — EXISTING / UNVERIFIED.
 - [x] Existing low-battery notification — EXISTING / UNVERIFIED.
-- [ ] System diagnostics report for battery, RAM, storage, network, permissions, role, and background service state.
+- [x] System diagnostics report for battery, RAM, storage, network, permissions, role, and voice/live-mode indicators — IMPLEMENTED / BUILD PASS (#62–#65); DEVICE TEST REQUIRED.
 - [ ] App/service health tracking.
 - [ ] Failed-task detection and diagnostics.
 - [ ] Error log collection with privacy controls.
@@ -228,7 +228,7 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 
 - [ ] Offline command coverage and explicit offline status.
 - [ ] Network retry/backoff and recovery.
-- [ ] Task history with timestamps and outcomes.
+- [x] Local task history with timestamps, handled command, and reported outcome — IMPLEMENTED / BUILD PASS (#63–#65); DEVICE TEST REQUIRED.
 - [ ] Undo support for reversible operations.
 - [ ] Modular expansion and configuration.
 - [ ] Battery/RAM/CPU/mobile-data resource budgets.
@@ -244,7 +244,8 @@ No module is complete merely because a heading, plan, or UI control exists. Each
 | 2026-11-06 | `8fc5908` / `a883a9f` | WebPageReader added and extraction fixes | Build #57/#58 on subsequent branch heads | Pending |
 | 2026-11-06 | `21085fe` | Android Share Sheet and HTTP/HTTPS intake filters | Build #57/#58 on subsequent branch heads | Pending |
 | 2026-11-06 | `29bb8e6` | Local System Panel removed; control commands migrated | Build #59 successful | Pending |
-| 2026-11-06 | `0c49c47` | Conversational aliases for migrated controls | Build #60 pending at time of update | Pending |
+| 2026-11-06 | `0c49c47` | Conversational aliases for migrated controls | Build #60 successful | Pending |
+| 2026-11-06 | `ddb84a5` / `ad49dc0` / `f794af3` | Diagnostics report and task history | Builds #62–#65 successful | Pending |
 
 ## Release acceptance rule
 
