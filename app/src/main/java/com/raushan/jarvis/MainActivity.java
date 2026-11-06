@@ -46,6 +46,7 @@ import android.os.Build;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -123,6 +124,10 @@ public class MainActivity extends Activity {
     private TextView voiceButton;
     private TextView languageButton;
     private ReactorView reactorView;
+    private FrameLayout appFrame;
+    private LinearLayout voiceOrbPanel;
+    private VoiceOrbView voiceOrbView;
+    private TextView orbStatus;
     private SignatureView signatureView;
     private TextView voiceSelectButton;
     private final ArrayList<Voice> availableVoices = new ArrayList<>();
@@ -181,7 +186,7 @@ public class MainActivity extends Activity {
                 initializeVoiceSelection();
                 tts.setSpeechRate(speechRate);
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
+                    @Override public void onStart(String id) { runOnUiThread(() -> { showVoiceOrb("J.A.R.V.I.S. IS SPEAKING"); setStatus("SPEAKING"); }); }
                     @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
                     @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); }); }
                     @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); }); }
@@ -378,7 +383,16 @@ public class MainActivity extends Activity {
             root.setPadding(dp(18), dp(16) + top, dp(18), dp(18) + bottom);
             return insets;
         });
-        setContentView(page);
+        appFrame = new FrameLayout(this);
+        appFrame.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        voiceOrbPanel = column();
+        voiceOrbPanel.setGravity(Gravity.CENTER);
+        voiceOrbPanel.setPadding(dp(20), dp(28), dp(20), dp(24));
+        voiceOrbPanel.setBackgroundColor(Color.rgb(2, 8, 17));
+        voiceOrbPanel.setVisibility(View.GONE);
+        appFrame.addView(voiceOrbPanel, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(appFrame);
+        buildVoiceOrbPanel();
         applyImmersiveMode();
 
         buildTopBar();
@@ -390,6 +404,48 @@ public class MainActivity extends Activity {
         buildComposer();
     }
 
+
+    private void buildVoiceOrbPanel() {
+        TextView close = text("‹   BACK TO J.A.R.V.I.S.", 11, Color.rgb(151, 207, 229));
+        close.setPadding(dp(8), dp(12), dp(8), dp(12));
+        close.setOnClickListener(v -> hideVoiceOrb());
+        voiceOrbPanel.addView(close, new LinearLayout.LayoutParams(-1, -2));
+        View topSpace = new View(this);
+        voiceOrbPanel.addView(topSpace, new LinearLayout.LayoutParams(1, 0, 1));
+        voiceOrbView = new VoiceOrbView(this);
+        LinearLayout.LayoutParams orbLp = new LinearLayout.LayoutParams(dp(330), dp(330));
+        orbLp.gravity = Gravity.CENTER;
+        voiceOrbPanel.addView(voiceOrbView, orbLp);
+        TextView name = text("J.A.R.V.I.S.", 21, Color.rgb(224, 246, 255));
+        name.setGravity(Gravity.CENTER);
+        name.setLetterSpacing(0.22f);
+        voiceOrbPanel.addView(name, new LinearLayout.LayoutParams(-1, -2));
+        orbStatus = text("LISTENING", 10, Color.rgb(118, 216, 250));
+        orbStatus.setGravity(Gravity.CENTER);
+        orbStatus.setLetterSpacing(0.22f);
+        LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(-1, -2);
+        statusLp.topMargin = dp(12);
+        voiceOrbPanel.addView(orbStatus, statusLp);
+        View bottomSpace = new View(this);
+        voiceOrbPanel.addView(bottomSpace, new LinearLayout.LayoutParams(1, 0, 1));
+        TextView pause = text("Ⅱ   PAUSE MICROPHONE", 9, Color.rgb(173, 207, 222));
+        pause.setGravity(Gravity.CENTER);
+        pause.setPadding(dp(18), dp(14), dp(18), dp(14));
+        pause.setBackground(shape(Color.rgb(8, 25, 39), Color.rgb(40, 108, 139), 24));
+        pause.setOnClickListener(v -> toggleContinuousListening());
+        voiceOrbPanel.addView(pause, new LinearLayout.LayoutParams(-2, -2));
+    }
+
+    private void showVoiceOrb(String state) {
+        if (voiceOrbPanel == null) return;
+        voiceOrbPanel.setVisibility(View.VISIBLE);
+        if (orbStatus != null) orbStatus.setText(state);
+        if (voiceOrbView != null) voiceOrbView.setState(state);
+    }
+
+    private void hideVoiceOrb() {
+        if (voiceOrbPanel != null) voiceOrbPanel.setVisibility(View.GONE);
+    }
 
     private void applyImmersiveMode() {
         if (Build.VERSION.SDK_INT >= 30) {
@@ -703,6 +759,10 @@ public class MainActivity extends Activity {
 
     private void setStatus(String message) {
         if (statusView != null) statusView.setText(message);
+        if (voiceOrbPanel != null && voiceOrbPanel.getVisibility() == View.VISIBLE) {
+            if (orbStatus != null) orbStatus.setText(message.replace("  •  ", " · "));
+            if (voiceOrbView != null) voiceOrbView.setState(message);
+        }
         if (reactorView != null) {
             reactorView.setMode(message.contains("LISTEN") ? 1 : message.contains("THINK") ? 2 : 0);
         }
@@ -1735,13 +1795,14 @@ public class MainActivity extends Activity {
         return new RecognitionListener() {
             @Override public void onReadyForSpeech(Bundle params) {
                 listening = true;
+                showVoiceOrb("LISTENING");
                 setStatus("LISTENING");
                 if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
             }
-            @Override public void onBeginningOfSpeech() { setStatus("LISTENING"); }
+            @Override public void onBeginningOfSpeech() { showVoiceOrb("I AM LISTENING"); setStatus("LISTENING"); }
             @Override public void onRmsChanged(float rmsdB) { }
             @Override public void onBufferReceived(byte[] buffer) { }
-            @Override public void onEndOfSpeech() { setStatus("PROCESSING VOICE"); }
+            @Override public void onEndOfSpeech() { showVoiceOrb("PROCESSING"); setStatus("PROCESSING VOICE"); }
             @Override public void onError(int error) {
                 listening = false;
                 if (micButton != null) { micButton.setText("●"); micButton.setTextColor(continuousListeningEnabled ? GOLD : MUTED); }
@@ -1772,6 +1833,7 @@ public class MainActivity extends Activity {
     private void toggleContinuousListening() {
         continuousListeningEnabled = !continuousListeningEnabled;
         if (!continuousListeningEnabled) {
+            hideVoiceOrb();
             if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
             if (recognizer != null) {
                 try { recognizer.cancel(); } catch (Exception ignored) { }
@@ -2140,6 +2202,43 @@ public class MainActivity extends Activity {
             } else {
                 reply("Contacts permission was not granted. You can still say 'dial' followed by a phone number.");
             }
+        }
+    }
+
+    private static class VoiceOrbView extends View {
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final long started = System.currentTimeMillis();
+        private String state = "LISTENING";
+        VoiceOrbView(Context context) { super(context); setLayerType(View.LAYER_TYPE_SOFTWARE, null); }
+        void setState(String value) { state = value == null ? "LISTENING" : value; invalidate(); }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            float base = Math.min(getWidth(), getHeight()) * .29f;
+            float t = (System.currentTimeMillis() - started) / 1000f;
+            boolean speaking = state.contains("SPEAK");
+            boolean processing = state.contains("PROCESS") || state.contains("THINK");
+            float pulse = 1f + (speaking ? .075f : processing ? .035f : .018f) * (float)Math.sin(t * (speaking ? 7f : 2.2f));
+            for (int i = 4; i >= 1; i--) {
+                float r = base * (1f + i * .23f) + (float)Math.sin(t * 1.4f + i) * 4f;
+                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2f);
+                p.setColor(Color.argb(Math.max(8, 34 - i * 5), 90, 197, 255));
+                canvas.drawCircle(cx, cy, r, p);
+            }
+            p.setStyle(Paint.Style.FILL);
+            p.setShader(new android.graphics.RadialGradient(cx, cy, base * 1.8f,
+                    new int[]{Color.argb(95,91,207,255), Color.argb(30,32,139,218), Color.TRANSPARENT},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, base * 1.8f, p); p.setShader(null);
+            p.setShader(new android.graphics.RadialGradient(cx-base*.25f, cy-base*.32f, base*1.5f,
+                    new int[]{Color.rgb(245,255,255), Color.rgb(123,220,255), Color.rgb(29,128,211), Color.rgb(5,31,69)},
+                    new float[]{0f,.19f,.58f,1f}, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, base * pulse, p); p.setShader(null);
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2f);
+            p.setColor(Color.argb(180,219,249,255)); canvas.drawCircle(cx, cy, base * pulse, p);
+            p.setStyle(Paint.Style.FILL); p.setColor(Color.argb(55,255,255,255));
+            canvas.drawOval(new RectF(cx-base*.65f, cy-base*.78f, cx+base*.18f, cy-base*.25f), p);
+            postInvalidateDelayed(32);
         }
     }
 
