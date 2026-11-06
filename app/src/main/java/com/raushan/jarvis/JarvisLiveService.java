@@ -58,7 +58,15 @@ public class JarvisLiveService extends Service {
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        String action = intent == null ? ACTION_START : intent.getAction();
+        String action = intent == null ? null : intent.getAction();
+        if (intent == null) {
+            userPaused = prefs().getBoolean("live_mode_paused", false);
+            if (!prefs().getBoolean("live_mode_enabled", false)) {
+                stopForeground(true);
+                stopSelf();
+                return START_NOT_STICKY;
+            }
+        }
         if (ACTION_STOP.equals(action)) {
             prefs().edit().putBoolean("live_mode_enabled", false)
                     .putBoolean("live_mode_paused", false).apply();
