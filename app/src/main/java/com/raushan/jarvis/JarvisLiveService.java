@@ -25,6 +25,7 @@ import java.util.Locale;
 public class JarvisLiveService extends Service {
     public static final String ACTION_START = "com.raushan.jarvis.live.START";
     public static final String ACTION_RESUME = "com.raushan.jarvis.live.RESUME";
+    public static final String ACTION_HOLD = "com.raushan.jarvis.live.HOLD";
     public static final String ACTION_PAUSE = "com.raushan.jarvis.live.PAUSE";
     public static final String ACTION_STOP = "com.raushan.jarvis.live.STOP";
     public static final String ACTION_TRANSCRIPT = "com.raushan.jarvis.live.TRANSCRIPT";
@@ -40,6 +41,7 @@ public class JarvisLiveService extends Service {
     private SpeechRecognizer recognizer;
     private boolean listening;
     private boolean userPaused;
+    private boolean speakingHold;
     private boolean sessionActive;
     private boolean foregroundStarted;
     private Runnable sessionTimeout;
@@ -66,6 +68,12 @@ public class JarvisLiveService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (ACTION_HOLD.equals(action)) {
+            speakingHold = true;
+            stopListening();
+            updateNotification("JARVIS is speaking. Listening resumes after the reply.", false);
+            return START_STICKY;
+        }
         if (ACTION_PAUSE.equals(action)) {
             userPaused = true;
             prefs().edit().putBoolean("live_mode_paused", true).apply();
@@ -81,6 +89,7 @@ public class JarvisLiveService extends Service {
                     .putBoolean("live_mode_paused", false).apply();
         } else if (ACTION_RESUME.equals(action)) {
             userPaused = false;
+            speakingHold = false;
             prefs().edit().putBoolean("live_mode_paused", false).apply();
         } else if (intent == null) {
             userPaused = prefs().getBoolean("live_mode_paused", false);
@@ -167,6 +176,7 @@ public class JarvisLiveService extends Service {
     }
 
     private void deliverCommand(String command) {
+        speakingHold = true;
         prefs().edit().putString("pending_live_command", command).apply();
         Intent event = new Intent(ACTION_TRANSCRIPT);
         event.setPackage(getPackageName());
@@ -181,7 +191,7 @@ public class JarvisLiveService extends Service {
     }
 
     private void startListening() {
-        if (userPaused || listening || !prefs().getBoolean("live_mode_enabled", false)) return;
+        if (userPaused || speakingHold || listening || !prefs().getBoolean("live_mode_enabled", false)) return;
         ensureRecognizer();
         if (recognizer == null) return;
         try {
