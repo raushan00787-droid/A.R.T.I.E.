@@ -1351,6 +1351,10 @@ public class MainActivity extends FragmentActivity {
             browseSavedFolder();
             return "";
         }
+
+        Matcher fileSearch = Pattern.compile("(?i)^(?:search|find) (?:files?|documents?)\\s+(.+)$")
+                .matcher(input == null ? "" : input.trim());
+        if (fileSearch.matches()) return searchSavedFolder(fileSearch.group(1).trim());
         if (value.equals("permissions") || value.equals("app permissions")) {
             showPermissionCenter();
             return "";
@@ -3002,6 +3006,96 @@ public class MainActivity extends FragmentActivity {
             Uri treeUri = Uri.parse(saved);
             showFolderContents(treeUri, DocumentsContract.getTreeDocumentId(treeUri), "Selected folder");
         } catch (Exception error) { reply("I could not reopen that folder. Choose it again in the Android folder picker."); }
+    }
+
+    private String searchSavedFolder(String query) {
+        String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (term.isEmpty() || term.length() > 80) {
+            return "Please provide a filename search between 1 and 80 characters.";
+        }
+        String saved = getSharedPreferences("jarvis_settings", MODE_PRIVATE)
+                .getString("document_tree_uri", "");
+        if (saved.isEmpty()) {
+            return "No folder is connected yet. Say 'choose folder' and select a location first.";
+        }
+
+        Uri treeUri = Uri.parse(saved);
+        ArrayList<String> folderIds = new ArrayList<>();
+        ArrayList<Integer> depths = new ArrayList<>();
+        ArrayList<Uri> matches = new ArrayList<>();
+        ArrayList<String> labels = new ArrayList<>();
+        folderIds.add(DocumentsContract.getTreeDocumentId(treeUri));
+        depths.add(0);
+        int next = 0;
+        int visitedFolders = 0;
+        int visitedEntries = 0;
+        boolean capped = false;
+
+        while (next < folderIds.size()) {
+            if (visitedFolders >= 200 || visitedEntries >= 2000 || matches.size() >= 30) {
+                capped = true;
+                break;
+            }
+            String folderId = folderIds.get(next);
+            int depth = depths.get(next);
+            next++;
+            visitedFolders++;
+
+            Cursor cursor = null;
+            try {
+                Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, folderId);
+                cursor = getContentResolver().query(children, new String[]{
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        DocumentsContract.Document.COLUMN_MIME_TYPE
+                }, null, null, DocumentsContract.Document.COLUMN_DISPLAY_NAME + " ASC");
+                if (cursor == null) continue;
+                int idColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+                int nameColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                int mimeColumn = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE);
+                if (idColumn < 0 || nameColumn < 0 || mimeColumn < 0) continue;
+
+                while (cursor.moveToNext()) {
+                    if (visitedEntries >= 2000 || matches.size() >= 30) {
+                        capped = true;
+                        break;
+                    }
+                    visitedEntries++;
+                    String childId = cursor.getString(idColumn);
+                    String name = cursor.getString(nameColumn);
+                    String mime = cursor.getString(mimeColumn);
+                    if (childId == null || name == null) continue;
+                    if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
+                        if (depth < 8 && folderIds.size() < 500) {
+                            folderIds.add(childId);
+                            depths.add(depth + 1);
+                        } else {
+                            capped = true;
+                        }
+                    } else if (name.toLowerCase(Locale.ROOT).contains(term)) {
+                        matches.add(DocumentsContract.buildDocumentUriUsingTree(treeUri, childId));
+                        labels.add(name);
+                    }
+                }
+            } finally {
+                if (cursor != null) cursor.close();
+            }
+            if (capped) break;
+        }
+
+        if (matches.isEmpty()) {
+            return "No matching files found for '" + query + "' across "
+                    + visitedFolders + " folder(s)." + (capped ? " Search reached its safety limit." : "");
+        }
+        final ArrayList<Uri> foundUris = matches;
+        final String[] foundLabels = labels.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle("FILE SEARCH • " + matches.size() + (capped ? "+" : "") + " MATCHES")
+                .setItems(foundLabels, (dialog, which) -> showDocumentActions(foundUris.get(which)))
+                .setNegativeButton("CLOSE", null)
+                .show();
+        return "Found " + matches.size() + (capped ? " or more" : "")
+                + " matching file(s). Select a result to analyse it or open it with another app.";
     }
 
     private void showFolderContents(Uri treeUri, String documentId, String title) {
