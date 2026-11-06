@@ -994,7 +994,6 @@ public class MainActivity extends Activity {
         Matcher matcher = Pattern.compile("(?<!\\d)(\\d{1,2})(?::([0-5]\\d))?\\s*(a\\.?m\\.?|p\\.?m\\.?|am|pm)?(?!\\d)",
                 Pattern.CASE_INSENSITIVE).matcher(input == null ? "" : input);
         if (!matcher.find()) return null;
-        String matchedTime = matcher.group(0).trim();
         String lowerInput = input == null ? "" : input.toLowerCase(Locale.ROOT);
         boolean hasMinuteOrSuffix = matcher.group(2) != null || matcher.group(3) != null;
         boolean hasTimeWord = lowerInput.contains(" at ") || lowerInput.contains(" for ")
@@ -1037,7 +1036,7 @@ public class MainActivity extends Activity {
             String time = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
             String note = (originalRequest.toLowerCase(Locale.ROOT).contains("tomorrow")
                     || originalRequest.toLowerCase(Locale.ROOT).contains("kal"))
-                    ? " Check the date in Clock before saving, because Android's alarm screen chooses the actual alarm date."
+                    ? " Android's alarm intent sets a time, not a calendar date. Check that the next occurrence is the one you intend before saving."
                     : " Confirm and save it in the Clock app.";
             return "Opening your Clock app with " + time + " selected." + note;
         } catch (Exception error) {
