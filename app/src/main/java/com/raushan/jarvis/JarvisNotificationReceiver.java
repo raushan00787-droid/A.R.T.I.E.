@@ -13,6 +13,7 @@ public class JarvisNotificationReceiver extends BroadcastReceiver {
     public static final String ACTION_REMINDER = "com.raushan.jarvis.notification.REMINDER";
     public static final String EXTRA_TITLE = "title";
     public static final String EXTRA_TEXT = "text";
+    public static final String EXTRA_ID = "reminder_id";
     private static final String CHANNEL_ID = "jarvis_personal_alerts";
 
     @Override public void onReceive(Context context, Intent intent) {
@@ -48,6 +49,13 @@ public class JarvisNotificationReceiver extends BroadcastReceiver {
                 .build();
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) manager.notify((int) (System.currentTimeMillis() & 0x7fffffff), notification);
+        if (ACTION_REMINDER.equals(action)) {
+            int reminderId = intent.getIntExtra(EXTRA_ID, -1);
+            String reminderText = JarvisReminderScheduler.findTextById(context, reminderId);
+            JarvisTaskHistory.record(context, "Reminder notification: " + reminderText, "DELIVERED",
+                    "Android reminder receiver posted the notification.");
+            JarvisReminderScheduler.onDelivered(context, reminderId);
+        }
     }
 
     private void createChannel(Context context) {

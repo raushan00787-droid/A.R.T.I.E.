@@ -1,0 +1,221 @@
+package com.raushan.jarvis;
+
+import android.content.ContentResolver;
+import android.content.SharedPreferences;
+import android.net.Uri;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
+
+final class JarvisBackupManager {
+    private static final String FORMAT = "jarvis-native-backup";
+    private static final int VERSION = 1;
+    private static final int MAX_BACKUP_BYTES = 512 * 1024;
+
+    private JarvisBackupManager() { }
+
+    static void writeBackup(ContentResolver resolver, Uri destination,
+                            SharedPreferences preferences) throws Exception {
+        JSONObject root = new JSONObject();
+        root.put("format", FORMAT);
+        root.put("schema_version", VERSION);
+        root.put("exported_at", System.currentTimeMillis());
+
+        JSONObject settings = new JSONObject();
+        settings.put("saved_memories", preferences.getString("saved_memories", "[]"));
+        String conversationHistory = preferences.getString("conversation_history", "[]");
+        if (conversationHistory == null || conversationHistory.trim().isEmpty()) conversationHistory = "[]";
+        settings.put("conversation_history", conversationHistory);
+        settings.put("task_history", preferences.getString("task_history", "[]"));
+        settings.put("scheduled_reminders", preferences.getString("scheduled_reminders", "[]"));
+        settings.put("todo_tasks", preferences.getString("todo_tasks", "[]"));
+        settings.put("speech_language_mode", preferences.getInt("speech_language_mode", 0));
+        settings.put("speech_rate", preferences.getFloat("speech_rate", 1.0f));
+        settings.put("spoken_replies", preferences.getBoolean("spoken_replies", true));
+        root.put("settings", settings);
+
+        byte[] bytes = root.toString(2).getBytes(Charset.forName("UTF-8"));
+        if (bytes.length > MAX_BACKUP_BYTES) throw new Exception("The backup exceeds the 512 KB size limit.");
+        try (OutputStream output = resolver.openOutputStream(destination, "w")) {
+            if (output == null) throw new Exception("Android could not open the selected backup destination.");
+            output.write(bytes);
+            output.flush();
+        }
+    }
+
+    static JSONObject readBackup(ContentResolver resolver, Uri source) throws Exception {
+        byte[] bytes;
+        try (InputStream input = resolver.openInputStream(source)) {
+            if (input == null) throw new Exception("Android could not read the selected backup file.");
+            bytes = readBounded(input);
+        }
+        JSONObject root = new JSONObject(new String(bytes, Charset.forName("UTF-8")));
+        validate(root);
+        return root;
+    }
+
+    static void restoreBackup(JSONObject root, SharedPreferences preferences) throws Exception {
+        validate(root);
+        JSONObject settings = root.getJSONObject("settings");
+        String memories = settings.optString("saved_memories", "[]");
+        String conversation = settings.optString("conversation_history", "");
+        String history = settings.optString("task_history", "[]");
+        String reminders = settings.optString("scheduled_reminders", "[]");
+        String todoTasks = settings.optString("todo_tasks", "[]");
+        String workflows = settings.optString("automation_workflows", "[]");
+
+        int languageMode = settings.optInt("speech_language_mode", 0);
+        if (languageMode < 0 || languageMode > 2) languageMode = 0;
+        float speechRate = (float) settings.optDouble("speech_rate", 1.0);
+        if (speechRate < 0.7f || speechRate > 1.6f) speechRate = 1.0f;
+
+        preferences.edit()
+                .putString("saved_memories", memories)
+                .putString("conversation_history", conversation)
+                .putString("task_history", history)
+                .putString("scheduled_reminders", reminders)
+                .putString("todo_tasks", todoTasks)
+                .putString("automation_workflows", workflows)
+                .putInt("speech_language_mode", languageMode)
+                .putFloat("speech_rate", speechRate)
+                .putBoolean("spoken_replies", settings.optBoolean("spoken_replies", true))
+                // Never resume microphone or overlay behaviour just because a backup was restored.
+                .putBoolean("live_mode_enabled", false)
+                .putBoolean("live_mode_paused", false)
+                .putBoolean("floating_orb_enabled", false)
+                .apply();
+    }
+
+    static String preview(JSONObject root) throws Exception {
+        validate(root);
+        JSONObject settings = root.getJSONObject("settings");
+        String conversationRaw = settings.optString("conversation_history", "[]");
+        if (conversationRaw == null || conversationRaw.trim().isEmpty()) conversationRaw = "[]";
+        int memories = new JSONArray(settings.optString("saved_memories", "[]")).length();
+        int chat = new JSONArray(conversationRaw).length();
+        int tasks = new JSONArray(settings.optString("task_history", "[]")).length();
+        int reminders = new JSONArray(settings.optString("scheduled_reminders", "[]")).length();
+        int todoTasks = new JSONArray(settings.optString("todo_tasks", "[]")).length();
+        int workflows = new JSONArray(settings.optString("automation_workflows", "[]")).length();
+        return "Backup format: JARVIS Native v" + VERSION
+                + "\nSaved notes: " + memories
+                + "\nConversation entries: " + chat
+                + "\nTask history entries: " + tasks
+                + "\nSaved reminders: " + reminders
+                + "\nTo-do tasks: " + todoTasks
+                + "\nSaved routines: " + workflows
+                + "\nSpeech language and speed preferences are included."
+                + "\n\nRestore replaces these local records. Android permissions, folder grants, account access, microphone mode, and Floating Orb state are not restored.";
+    }
+
+    private static void validate(JSONObject root) throws Exception {
+        if (root == null || !FORMAT.equals(root.optString("format", ""))) {
+            throw new Exception("This is not a JARVIS Native backup file.");
+        }
+        if (root.optInt("schema_version", -1) != VERSION) {
+            throw new Exception("This backup uses an unsupported JARVIS backup format version.");
+        }
+        JSONObject settings = root.optJSONObject("settings");
+        if (settings == null) throw new Exception("The backup does not contain settings data.");
+
+        String conversationRaw = settings.optString("conversation_history", "[]");
+        if (conversationRaw == null || conversationRaw.trim().isEmpty()) conversationRaw = "[]";
+        JSONArray memories = new JSONArray(settings.optString("saved_memories", "[]"));
+        JSONArray conversation = new JSONArray(conversationRaw);
+        JSONArray tasks = new JSONArray(settings.optString("task_history", "[]"));
+        JSONArray reminders = new JSONArray(settings.optString("scheduled_reminders", "[]"));
+        JSONArray todoTasks = new JSONArray(settings.optString("todo_tasks", "[]"));
+        JSONArray workflows = new JSONArray(settings.optString("automation_workflows", "[]"));
+        if (memories.length() > 20) throw new Exception("The backup contains too many saved notes.");
+        if (conversation.length() > 21) throw new Exception("The backup contains too many conversation entries.");
+        if (tasks.length() > 100) throw new Exception("The backup contains too many task-history entries.");
+        if (reminders.length() > 100) throw new Exception("The backup contains too many reminders.");
+        if (todoTasks.length() > 100) throw new Exception("The backup contains too many to-do tasks.");
+        if (workflows.length() > 25) throw new Exception("The backup contains too many routines.");
+        for (int i = 0; i < todoTasks.length(); i++) {
+            JSONObject task = todoTasks.optJSONObject(i);
+            if (task == null || task.optInt("id", -1) <= 0
+                    || task.optString("title", "").trim().isEmpty()
+                    || task.optString("title", "").length() > 240
+                    || task.optLong("created_at", 0L) <= 0L) {
+                throw new Exception("The backup contains an invalid to-do task.");
+            }
+        }
+        for (int i = 0; i < reminders.length(); i++) {
+            JSONObject reminder = reminders.optJSONObject(i);
+            if (reminder == null || reminder.optInt("id", -1) <= 0
+                    || reminder.optLong("fire_at", 0L) <= 0L
+                    || reminder.optString("text", "").trim().isEmpty()
+                    || reminder.optString("text", "").length() > 300) {
+                throw new Exception("The backup contains an invalid reminder.");
+            }
+            long interval = reminder.optLong("interval_ms", 0L);
+            if (interval != 0L && (interval < 60000L || interval > 30L * 24L * 60L * 60L * 1000L)) {
+                throw new Exception("The backup contains an unsupported reminder interval.");
+            }
+        }
+
+        for (int i = 0; i < workflows.length(); i++) {
+            JSONObject routine = workflows.optJSONObject(i);
+            JSONArray steps = routine == null ? null : routine.optJSONArray("steps");
+            String name = routine == null ? "" : routine.optString("name", "").trim();
+            if (routine == null || routine.optInt("id", -1) <= 0 || name.isEmpty()
+                    || name.length() > 48 || steps == null || steps.length() < 1 || steps.length() > 12) {
+                throw new Exception("The backup contains an invalid routine.");
+            }
+            for (int j = 0; j < steps.length(); j++) {
+                JSONObject step = steps.optJSONObject(j);
+                String type = step == null ? "" : step.optString("type", "");
+                if ("ADD_TASK".equals(type)) {
+                    String title = step.optString("title", "").trim();
+                    if (title.isEmpty() || title.length() > 240) throw new Exception("A routine task step is invalid.");
+                } else if ("REMINDER".equals(type)) {
+                    String title = step.optString("title", "").trim();
+                    long delay = step.optLong("delay_ms", 0L);
+                    if (title.isEmpty() || title.length() > 300 || delay < 60000L
+                            || delay > 365L * 24L * 60L * 60L * 1000L) {
+                        throw new Exception("A routine reminder step is invalid.");
+                    }
+                } else if ("STUDY".equals(type)) {
+                    int minutes = step.optInt("minutes", 0);
+                    if (minutes < 5 || minutes > 240) throw new Exception("A routine study step is invalid.");
+                } else {
+                    throw new Exception("The backup contains an unsupported routine action.");
+                }
+            }
+        }
+
+        for (int i = 0; i < memories.length(); i++) {
+            if (memories.optString(i, "").length() > 1000) throw new Exception("A saved note is too large.");
+        }
+        for (int i = 0; i < conversation.length(); i++) {
+            JSONObject entry = conversation.optJSONObject(i);
+            if (entry == null) throw new Exception("The conversation history contains an invalid entry.");
+            String role = entry.optString("role", "");
+            if (!"system".equals(role) && !"user".equals(role) && !"assistant".equals(role)) {
+                throw new Exception("The conversation history contains an unsupported role.");
+            }
+            if (entry.optString("content", "").length() > 16000) {
+                throw new Exception("A conversation entry is too large.");
+            }
+        }
+    }
+
+    private static byte[] readBounded(InputStream input) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int count;
+        while ((count = input.read(buffer)) != -1) {
+            if (output.size() + count > MAX_BACKUP_BYTES) {
+                throw new Exception("The selected backup exceeds the 512 KB safety limit.");
+            }
+            output.write(buffer, 0, count);
+        }
+        return output.toByteArray();
+    }
+}
