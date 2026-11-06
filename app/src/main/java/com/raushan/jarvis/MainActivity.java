@@ -74,9 +74,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
+import androidx.fragment.app.FragmentActivity;
 import androidx.core.content.ContextCompat;
 
-public class MainActivity extends Activity {
+public class MainActivity extends FragmentActivity {
     private static final String WORKER_URL = "https://quiet-scribe-ai.thequietscribe.workers.dev";
     private static final int PERMISSION_AUDIO = 10;
     private static final int PERMISSION_CAMERA = 11;
