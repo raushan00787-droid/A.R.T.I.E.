@@ -17,23 +17,22 @@ Audit branch: mission/jarvis-v1.2-audit
 - TTS uses the Android-configured system engine; the app does not guarantee a particular gender or voice.
 - Live wake phrase is a software recognition loop, not hardware DSP hotword support. Background reliability is device/OEM dependent.
 
-## Confirmed gaps against Master Scope v1.1
+## Confirmed gaps and mission progress (2026-11-06)
 
-1. The Local System Panel still exists in MainActivity, including its controls button and a hidden panel containing device actions. It has not yet been removed/migrated.
-2. Generic URL intake and webpage extraction/analysis are not implemented as a native flow. Existing ACTION_VIEW uses are for specific music searches and document viewing; the manifest has no generic ACTION_SEND URL intake filter.
-3. MainActivity combines UI, local command routing, networking, memory, permissions, and device actions. This is a maintainability/refactoring risk.
-4. README heading says v1.11 while Gradle reports v1.12.
-5. GitHub Actions builds on pushes to main and manual dispatch. The audit branch is isolated and will not alter the installed app or main branch.
-6. Repository inspection cannot verify actual device behavior. Voice quality, default assistant role, background operation, reminders, notification delivery, file-provider compatibility, and all device controls still require on-device tests.
+1. **Local System Panel:** removed from MainActivity on the mission branch. Its former actions were migrated to conversational commands (flashlight, battery, Wi-Fi, Bluetooth, display/settings, speech stop, chat clear, clap wake, voice settings/test, volume, speech speed, calls/dialer, file/folder pickers, folder browsing, WPS, permissions, floating orb, lock, default assistant, and live mode). CI builds #59 and #60 passed. Device command-by-command verification is still required.
+2. **URL/share intake:** added Android ACTION_SEND text/plain and ACTION_VIEW HTTP/HTTPS entry points. Shared and typed links use a dedicated WebPageReader with public-address checks, redirect limits, HTTPS downgrade rejection, timeouts, and response/text-size caps. Extracted page data is sent to the AI Worker as untrusted source material. CI builds #57 and #58 passed. Device Share Sheet tests are still required.
+3. **Diagnostics/task history:** added a local diagnostics report and bounded task history with timestamps. CI builds #62–#65 passed. The report still needs device verification.
+4. **Architecture:** WebPageReader, JarvisDiagnostics, and JarvisTaskHistory are separate classes. MainActivity remains large and further refactoring is pending.
+5. **Documentation:** MASTER_SCOPE_TRACKER.md now tracks the sub-capabilities of all 17 modules. The README version-heading mismatch is not yet corrected.
+6. **Platform/device validation:** repository inspection and CI builds cannot verify actual runtime behaviour. Default assistant role, TTS voice quality, background operation, wake phrase reliability, reminders, notification delivery, file-provider compatibility, and all device controls still require testing on the target tablet.
 
-## Safe implementation order
+## Remaining engineering priorities
 
-1. Preserve main and work on the audit branch.
-2. Remove the Local System Panel only after every useful action has a tested conversational command route.
-3. Add explicit Android share/URL intake and safe webpage text extraction with size/time limits, then pass extracted content to the AI service for analysis. Reject unsupported schemes and avoid silently fetching arbitrary related sites.
-4. Split command routing, web intake, reminders, device actions, and permission handling into focused classes without changing behavior in one giant rewrite.
-5. Add tests/build verification for each change and maintain a device-test checklist.
-6. Update README/version metadata only after the implementation and build are verified.
+1. Preserve main; continue implementation only on the mission branch until the candidate is reviewed.
+2. Finish all sub-capabilities listed in MASTER_SCOPE_TRACKER.md, keeping Android permission and platform constraints explicit.
+3. Add tests/build verification for each change and maintain a device-test checklist.
+4. Complete the modular refactor and only then update release version metadata.
+5. Do not call a feature complete until it has passed both CI and the required target-device test.
 
 ## Non-goals / platform boundaries
 
