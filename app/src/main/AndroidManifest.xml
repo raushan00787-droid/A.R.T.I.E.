@@ -7,6 +7,7 @@
         <package android:name="com.google.android.apps.maps" />
         <package android:name="com.google.android.gm" />
         <package android:name="com.spotify.music" />
+        <package android:name="com.google.android.apps.youtube.music" />
         <package android:name="com.instagram.android" />
     </queries>
     <uses-permission android:name="android.permission.INTERNET" />
@@ -14,6 +15,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FLASHLIGHT" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
