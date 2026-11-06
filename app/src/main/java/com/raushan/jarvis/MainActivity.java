@@ -693,6 +693,10 @@ public class MainActivity extends Activity {
     private void sendMessage(String raw) {
         String message = raw == null ? "" : raw.trim();
         if (message.isEmpty() || busy) return;
+        if (message.length() > 5000) {
+            reply("That message is too long for one request. Please split it into smaller parts.");
+            return;
+        }
         addMessage("YOU", message, false);
 
         String local = handleLocalCommand(message);
@@ -728,6 +732,7 @@ public class MainActivity extends Activity {
                 }
                 final String finalAnswer = answer;
                 runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
                     busy = false;
                     if (sendButton != null) sendButton.setAlpha(1f);
                     boolean failed = finalAnswer.startsWith("I couldn't reach");
@@ -789,7 +794,8 @@ public class MainActivity extends Activity {
                 if (message != null) answer = message.optString("content", "");
             }
             if (answer.isEmpty()) {
-                answer = json.optString("reply", json.optString("response", ""));
+                answer = json.optString("reply",
+                        json.optString("response", json.optString("output", json.optString("message", ""))));
             }
             if (answer.trim().isEmpty()) throw new Exception("AI server returned an empty response.");
             return answer.trim();
@@ -803,7 +809,12 @@ public class MainActivity extends Activity {
         StringBuilder output = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, "UTF-8"))) {
             String line;
-            while ((line = reader.readLine()) != null) output.append(line);
+            while ((line = reader.readLine()) != null) {
+                output.append(line);
+                if (output.length() > 1000000) {
+                    throw new Exception("AI response exceeded the 1 MB safety limit.");
+                }
+            }
         }
         return output.toString();
     }
@@ -1407,13 +1418,17 @@ public class MainActivity extends Activity {
                 if (micButton != null) micButton.setTextColor(CYAN);
                 setStatus(error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS
                         ? "MICROPHONE PERMISSION REQUIRED" : "VOICE INPUT READY");
+                resumeClapWake();
             }
             @Override public void onResults(Bundle results) {
                 listening = false;
                 if (micButton != null) micButton.setTextColor(CYAN);
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (matches != null && !matches.isEmpty()) sendMessage(matches.get(0));
-                else setStatus("NO SPEECH DETECTED");
+                else {
+                    setStatus("NO SPEECH DETECTED");
+                    resumeClapWake();
+                }
             }
             @Override public void onPartialResults(Bundle partialResults) { }
             @Override public void onEvent(int eventType, Bundle params) { }
