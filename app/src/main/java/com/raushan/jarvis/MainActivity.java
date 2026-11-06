@@ -16,11 +16,13 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.os.BatteryManager;
+import android.provider.AlarmClock;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -58,6 +60,9 @@ import java.util.Date;
 import java.util.Collections;
 import java.util.Set;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -66,6 +71,8 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_AUDIO = 10;
     private static final int PERMISSION_CAMERA = 11;
     private static final int PERMISSION_CLAP = 12;
+    private static final int MAX_HISTORY_MESSAGES = 20;
+    private static final int MAX_SAVED_MEMORIES = 20;
 
     private static final int BG = Color.rgb(5, 11, 19);
     private static final int PANEL = Color.rgb(9, 22, 35);
@@ -111,6 +118,10 @@ public class MainActivity extends Activity {
     private boolean listening = false;
     private boolean busy = false;
     private boolean useHindi = false;
+    private int languageMode = 0; // 0 = AUTO, 1 = EN-IN, 2 = HI-IN
+    private float speechRate = 1.0f;
+    private boolean awaitingAlarmTime = false;
+    private TextView speechRateButton;
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final HandlerClock handlerClock = new HandlerClock();
@@ -131,13 +142,14 @@ public class MainActivity extends Activity {
 
         camera = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
         findFlashCamera();
-        resetConversation();
+        loadUserSettings();
+        loadConversation();
         buildUI();
 
         tts = new TextToSpeech(this, result -> {
             if (tts != null && result == TextToSpeech.SUCCESS) {
                 initializeVoiceSelection();
-                tts.setSpeechRate(1.0f);
+                tts.setSpeechRate(speechRate);
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
                     @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("SYSTEM STANDBY"); resumeClapWake(); }); }
@@ -164,14 +176,88 @@ public class MainActivity extends Activity {
         setStatus("SYSTEM STANDBY");
     }
 
+    private void loadUserSettings() {
+        SharedPreferences prefs = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+        languageMode = prefs.getInt("speech_language_mode", 0);
+        if (languageMode < 0 || languageMode > 2) languageMode = 0;
+        speechRate = prefs.getFloat("speech_rate", 1.0f);
+        if (speechRate < 0.7f || speechRate > 1.6f) speechRate = 1.0f;
+    }
+
+    private JSONArray getSavedMemories() {
+        String raw = getSharedPreferences("jarvis_settings", MODE_PRIVATE)
+                .getString("saved_memories", "[]");
+        try {
+            return new JSONArray(raw);
+        } catch (Exception ignored) {
+            return new JSONArray();
+        }
+    }
+
+    private String buildSystemPrompt() {
+        StringBuilder promptText = new StringBuilder(SYSTEM_PROMPT);
+        JSONArray notes = getSavedMemories();
+        if (notes.length() > 0) {
+            promptText.append("\n\nUser-approved notes saved on this device. Use them only when relevant; do not assume anything beyond these notes:\n");
+            for (int i = 0; i < notes.length(); i++) {
+                String note = notes.optString(i, "").trim();
+                if (!note.isEmpty()) promptText.append("- ").append(note).append("\n");
+            }
+        }
+        return promptText.toString();
+    }
+
     private void resetConversation() {
         conversation = new JSONArray();
         try {
             JSONObject system = new JSONObject();
             system.put("role", "system");
-            system.put("content", SYSTEM_PROMPT);
+            system.put("content", buildSystemPrompt());
             conversation.put(system);
         } catch (Exception ignored) { }
+    }
+
+    private void refreshSystemPrompt() {
+        try {
+            JSONObject system = new JSONObject();
+            system.put("role", "system");
+            system.put("content", buildSystemPrompt());
+            if (conversation.length() == 0) conversation.put(system);
+            else conversation.put(0, system);
+        } catch (Exception ignored) { }
+    }
+
+    private void loadConversation() {
+        resetConversation();
+        String saved = getSharedPreferences("jarvis_settings", MODE_PRIVATE)
+                .getString("conversation_history", "");
+        if (saved.isEmpty()) return;
+        try {
+            JSONArray history = new JSONArray(saved);
+            int start = Math.max(1, history.length() - MAX_HISTORY_MESSAGES);
+            for (int i = start; i < history.length(); i++) {
+                JSONObject item = history.optJSONObject(i);
+                if (item == null) continue;
+                String role = item.optString("role", "");
+                if (!"user".equals(role) && !"assistant".equals(role)) continue;
+                JSONObject copy = new JSONObject();
+                copy.put("role", role);
+                copy.put("content", item.optString("content", ""));
+                if (!copy.optString("content", "").trim().isEmpty()) conversation.put(copy);
+            }
+        } catch (Exception ignored) {
+            resetConversation();
+        }
+    }
+
+    private void persistConversation() {
+        while (conversation.length() > MAX_HISTORY_MESSAGES + 1) conversation.remove(1);
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .putString("conversation_history", conversation.toString()).apply();
+    }
+
+    private String languageLabel() {
+        return languageMode == 1 ? "EN" : languageMode == 2 ? "HI" : "AUTO";
     }
 
     private int dp(float value) {
@@ -268,7 +354,7 @@ public class MainActivity extends Activity {
         addGap(root, 10);
         buildDeviceControls();
         addGap(root, 12);
-        TextView footer = text("J.A.R.V.I.S.  •  PERSONAL SYSTEM  •  BUILD 1.3", 9, MUTED);
+        TextView footer = text("J.A.R.V.I.S.  •  PERSONAL SYSTEM  •  BUILD 1.4", 9, MUTED);
         footer.setGravity(Gravity.CENTER);
         root.addView(footer);
     }
@@ -456,7 +542,7 @@ public class MainActivity extends Activity {
         voiceButton = smallControl("◖", () -> toggleVoice());
         voiceButton.setTextColor(CYAN);
         composer.addView(voiceButton);
-        languageButton = smallControl("EN", () -> toggleLanguage());
+        languageButton = smallControl(languageLabel(), () -> toggleLanguage());
         composer.addView(languageButton);
         sendButton = smallControl("➤", () -> sendFromInput());
         sendButton.setTextColor(BG);
@@ -517,6 +603,19 @@ public class MainActivity extends Activity {
         addControl(rowFour, "CLAP WAKE", () -> toggleClapWake());
         addControl(rowFour, "TEST VOICE", () -> speak("Hello Raushan. This is your selected JARVIS voice."));
         root.addView(rowFour);
+
+        LinearLayout rowFive = row();
+        addControl(rowFive, "VOLUME −", () -> adjustMediaVolume(false));
+        speechRateButton = text("SPEED  " + speechRate + "x", 9, CYAN);
+        speechRateButton.setGravity(Gravity.CENTER);
+        speechRateButton.setPadding(dp(3), dp(12), dp(3), dp(12));
+        speechRateButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
+        speechRateButton.setOnClickListener(v -> cycleSpeechRate());
+        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(0, -2, 1);
+        speedLp.setMargins(dp(3), dp(3), dp(3), dp(3));
+        rowFive.addView(speechRateButton, speedLp);
+        addControl(rowFive, "VOLUME +", () -> adjustMediaVolume(true));
+        root.addView(rowFive);
     }
 
     private void addControl(LinearLayout parent, String label, Runnable action) {
@@ -564,6 +663,8 @@ public class MainActivity extends Activity {
             chatList.addView(welcome);
         }
         resetConversation();
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .remove("conversation_history").apply();
         stopSpeech();
         setStatus("SYSTEM STANDBY");
     }
@@ -599,38 +700,47 @@ public class MainActivity extends Activity {
             user.put("role", "user");
             user.put("content", message);
             conversation.put(user);
+            persistConversation();
         } catch (Exception e) {
             busy = false;
             reply("I couldn't prepare that message.");
             return;
         }
 
-        network.execute(() -> {
-            String answer;
-            try {
-                answer = callWorker();
-            } catch (Exception error) {
-                answer = "I couldn't reach the AI service. " + safeMessage(error);
-            }
-            final String finalAnswer = answer;
-            runOnUiThread(() -> {
-                busy = false;
-                if (sendButton != null) sendButton.setAlpha(1f);
-                if (connectionView != null) {
-                    connectionView.setText(finalAnswer.startsWith("I couldn't reach")
-                            ? "AI LINK ISSUE" : "AI LINK READY");
-                }
-                addMessage("JARVIS", finalAnswer, finalAnswer.startsWith("I couldn't reach"));
+        try {
+            network.execute(() -> {
+                String answer;
                 try {
-                    JSONObject assistant = new JSONObject();
-                    assistant.put("role", "assistant");
-                    assistant.put("content", finalAnswer);
-                    conversation.put(assistant);
-                } catch (Exception ignored) { }
-                setStatus(finalAnswer.startsWith("I couldn't reach") ? "CONNECTION ISSUE" : "RESPONSE READY");
-                speak(finalAnswer);
+                    answer = callWorker();
+                } catch (Exception error) {
+                    answer = "I couldn't reach the AI service. " + safeMessage(error);
+                }
+                final String finalAnswer = answer;
+                runOnUiThread(() -> {
+                    busy = false;
+                    if (sendButton != null) sendButton.setAlpha(1f);
+                    boolean failed = finalAnswer.startsWith("I couldn't reach");
+                    if (connectionView != null) {
+                        connectionView.setText(failed ? "AI LINK ISSUE" : "AI LINK READY");
+                    }
+                    addMessage("JARVIS", finalAnswer, failed);
+                    try {
+                        JSONObject assistant = new JSONObject();
+                        assistant.put("role", "assistant");
+                        assistant.put("content", finalAnswer);
+                        conversation.put(assistant);
+                        persistConversation();
+                    } catch (Exception ignored) { }
+                    setStatus(failed ? "CONNECTION ISSUE" : "RESPONSE READY");
+                    speak(finalAnswer);
+                });
             });
-        });
+        } catch (RejectedExecutionException error) {
+            busy = false;
+            if (sendButton != null) sendButton.setAlpha(1f);
+            if (connectionView != null) connectionView.setText("AI LINK UNAVAILABLE");
+            reply("The AI request could not be queued. Please close and reopen JARVIS, then try again.");
+        }
     }
 
     private String callWorker() throws Exception {
@@ -696,6 +806,15 @@ public class MainActivity extends Activity {
     private String handleLocalCommand(String input) {
         String value = input.toLowerCase(Locale.ROOT).trim();
 
+        String memoryCommand = handleMemoryCommand(input);
+        if (memoryCommand != null) return memoryCommand;
+
+        String alarmCommand = handleAlarmCommand(input, value);
+        if (alarmCommand != null) return alarmCommand;
+
+        String appCommand = handleAppLaunch(value);
+        if (appCommand != null) return appCommand;
+
         if (value.equals("stop") || value.equals("bas") || value.equals("chup") ||
                 value.contains("stop speech") || value.contains("jarvis stop")) {
             stopSpeech();
@@ -739,9 +858,225 @@ public class MainActivity extends Activity {
             return "Today is " + new SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(new Date()) + ".";
         }
         if (value.equals("help") || value.contains("available commands")) {
-            return "I can check battery, toggle the flashlight, open Wi-Fi, Bluetooth, display and system settings, tell the time and date, and answer general questions through the AI connection.";
+            return "I can answer questions with conversation context, remember notes you explicitly ask me to save, launch apps such as WhatsApp, YouTube, Chrome and Maps, open the Clock app to set an alarm, adjust media volume and speech speed, check battery, control the flashlight, open settings, and tell the time and date.";
         }
         return null;
+    }
+
+
+    private String handleMemoryCommand(String input) {
+        String raw = input == null ? "" : input.trim();
+        String value = raw.toLowerCase(Locale.ROOT);
+
+        if (value.equals("what do you remember") || value.equals("show memories")
+                || value.equals("show my memory") || value.equals("meri memory dikhao")
+                || value.equals("tumhe kya yaad hai")) {
+            JSONArray notes = getSavedMemories();
+            if (notes.length() == 0) return "I don't have any saved personal notes yet. Say, 'remember that...' to save something on this device.";
+            StringBuilder result = new StringBuilder("These are the notes you asked me to remember: ");
+            for (int i = 0; i < notes.length(); i++) {
+                if (i > 0) result.append("; ");
+                result.append(notes.optString(i, ""));
+            }
+            return result.toString();
+        }
+
+        String rememberPrefix = null;
+        if (value.startsWith("remember that ")) rememberPrefix = "remember that ";
+        else if (value.startsWith("remember ")) rememberPrefix = "remember ";
+        else if (value.startsWith("yaad rakhna ")) rememberPrefix = "yaad rakhna ";
+
+        if (rememberPrefix != null) {
+            String note = raw.substring(rememberPrefix.length()).trim();
+            if (note.isEmpty()) return "Tell me what you'd like me to remember.";
+            if (note.length() > 240) return "Please keep a saved note under 240 characters.";
+            JSONArray notes = getSavedMemories();
+            for (int i = 0; i < notes.length(); i++) {
+                if (note.equalsIgnoreCase(notes.optString(i, ""))) {
+                    return "That note is already saved on this device.";
+                }
+            }
+            if (notes.length() >= MAX_SAVED_MEMORIES) notes.remove(0);
+            notes.put(note);
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putString("saved_memories", notes.toString()).apply();
+            refreshSystemPrompt();
+            persistConversation();
+            return "Saved to JARVIS memory on this device: " + note;
+        }
+
+        if (value.equals("forget all memories") || value.equals("clear all memories")
+                || value.equals("meri saari memories bhool jao")) {
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .remove("saved_memories").apply();
+            refreshSystemPrompt();
+            persistConversation();
+            return "All saved JARVIS notes have been cleared from this device.";
+        }
+
+        if (value.startsWith("forget ") || value.startsWith("bhool jao ")) {
+            String target = value.startsWith("forget ") ? raw.substring(7).trim() : raw.substring(9).trim();
+            JSONArray notes = getSavedMemories();
+            JSONArray kept = new JSONArray();
+            boolean removed = false;
+            for (int i = 0; i < notes.length(); i++) {
+                String note = notes.optString(i, "");
+                if (!removed && (note.equalsIgnoreCase(target)
+                        || note.toLowerCase(Locale.ROOT).contains(target.toLowerCase(Locale.ROOT)))) {
+                    removed = true;
+                } else {
+                    kept.put(note);
+                }
+            }
+            if (!removed) return "I couldn't find a saved note matching that text.";
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putString("saved_memories", kept.toString()).apply();
+            refreshSystemPrompt();
+            persistConversation();
+            return "That saved note has been removed.";
+        }
+        return null;
+    }
+
+    private String handleAlarmCommand(String input, String value) {
+        if (awaitingAlarmTime) {
+            if (value.equals("cancel") || value.equals("cancel alarm") || value.equals("rehne do")) {
+                awaitingAlarmTime = false;
+                return "Alarm request cancelled.";
+            }
+            int[] requestedTime = parseClockTime(input);
+            if (requestedTime == null) return "I couldn't identify the time. Try saying something like 7:30 AM or 19:30, or say cancel.";
+            awaitingAlarmTime = false;
+            return openClockAlarm(requestedTime[0], requestedTime[1], input);
+        }
+
+        boolean alarmRequest = value.contains("alarm") || value.contains("wake me")
+                || value.contains("alarm laga") || value.contains("जगा");
+        if (!alarmRequest) return null;
+
+        int[] requestedTime = parseClockTime(input);
+        if (requestedTime == null) {
+            awaitingAlarmTime = true;
+            return "What time should I set? Say a time like 7:30 AM or 19:30.";
+        }
+        return openClockAlarm(requestedTime[0], requestedTime[1], input);
+    }
+
+    private int[] parseClockTime(String input) {
+        Matcher matcher = Pattern.compile("(?<!\\\\d)(\\\\d{1,2})(?::([0-5]\\\\d))?\\\\s*(a\\\\.?m\\\\.?|p\\\\.?m\\\\.?|am|pm)?(?!\\\\d)",
+                Pattern.CASE_INSENSITIVE).matcher(input == null ? "" : input);
+        if (!matcher.find()) return null;
+
+        int hour;
+        int minute = 0;
+        try {
+            hour = Integer.parseInt(matcher.group(1));
+            if (matcher.group(2) != null) minute = Integer.parseInt(matcher.group(2));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+        String suffix = matcher.group(3) == null ? "" : matcher.group(3).toLowerCase(Locale.ROOT).replace(".", "");
+        String lower = input.toLowerCase(Locale.ROOT);
+        boolean morning = lower.contains("subah") || lower.contains("savere") || lower.contains("morning");
+        boolean evening = lower.contains("shaam") || lower.contains("raat") || lower.contains("evening") || lower.contains("night");
+        if (suffix.equals("pm") || (suffix.isEmpty() && evening && hour < 12)) {
+            if (hour < 12) hour += 12;
+        } else if (suffix.equals("am") || (suffix.isEmpty() && morning && hour == 12)) {
+            if (hour == 12) hour = 0;
+        }
+        return new int[]{hour, minute};
+    }
+
+    private String openClockAlarm(int hour, int minute, String originalRequest) {
+        try {
+            Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
+            intent.putExtra(AlarmClock.EXTRA_HOUR, hour);
+            intent.putExtra(AlarmClock.EXTRA_MINUTES, minute);
+            intent.putExtra(AlarmClock.EXTRA_MESSAGE, "JARVIS alarm");
+            intent.putExtra(AlarmClock.EXTRA_SKIP_UI, false);
+            startActivity(intent);
+            String time = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
+            String note = (originalRequest.toLowerCase(Locale.ROOT).contains("tomorrow")
+                    || originalRequest.toLowerCase(Locale.ROOT).contains("kal"))
+                    ? " Check the date in Clock before saving, because Android's alarm screen chooses the actual alarm date."
+                    : " Confirm and save it in the Clock app.";
+            return "Opening your Clock app with " + time + " selected." + note;
+        } catch (Exception error) {
+            return "I couldn't open the Clock app to set that alarm. You can set it from your device's Clock app.";
+        }
+    }
+
+    private String handleAppLaunch(String value) {
+        boolean launchRequested = value.startsWith("open ") || value.startsWith("launch ")
+                || value.startsWith("start ") || value.startsWith(" kholo")
+                || value.contains(" kholo") || value.contains(" khol do")
+                || value.contains(" खोल") || value.contains("chalao") || value.contains("chala do");
+        if (!launchRequested) return null;
+
+        if (value.contains("whatsapp") || value.contains("व्हाट्सएप"))
+            return launchInstalledApp("WhatsApp", "com.whatsapp");
+        if (value.contains("youtube") || value.contains("यूट्यूब"))
+            return launchInstalledApp("YouTube", "com.google.android.youtube");
+        if (value.contains("chrome"))
+            return launchInstalledApp("Chrome", "com.android.chrome");
+        if (value.contains("maps") || value.contains("google map") || value.contains("मैप"))
+            return launchInstalledApp("Google Maps", "com.google.android.apps.maps");
+        if (value.contains("gmail"))
+            return launchInstalledApp("Gmail", "com.google.android.gm");
+        if (value.contains("spotify"))
+            return launchInstalledApp("Spotify", "com.spotify.music");
+        if (value.contains("instagram"))
+            return launchInstalledApp("Instagram", "com.instagram.android");
+        return null;
+    }
+
+    private String launchInstalledApp(String label, String packageName) {
+        try {
+            Intent launchIntent = getPackageManager().getLaunchIntentForPackage(packageName);
+            if (launchIntent == null) return label + " doesn't appear to be installed on this device.";
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(launchIntent);
+            return "Opening " + label + ".";
+        } catch (Exception error) {
+            return "I couldn't open " + label + " on this device.";
+        }
+    }
+
+    private void adjustMediaVolume(boolean raise) {
+        try {
+            AudioManager audio = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            if (audio == null) {
+                reply("Audio controls are unavailable on this device.");
+                return;
+            }
+            audio.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                    raise ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER,
+                    AudioManager.FLAG_SHOW_UI);
+            int current = audio.getStreamVolume(AudioManager.STREAM_MUSIC);
+            int maximum = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            reply("Media volume is " + current + " of " + maximum + ".");
+        } catch (Exception error) {
+            reply("I couldn't adjust media volume. Check your device's audio settings.");
+        }
+    }
+
+    private void cycleSpeechRate() {
+        float[] rates = new float[]{0.8f, 1.0f, 1.15f, 1.3f, 1.45f};
+        int next = 0;
+        for (int i = 0; i < rates.length; i++) {
+            if (Math.abs(speechRate - rates[i]) < 0.04f) {
+                next = (i + 1) % rates.length;
+                break;
+            }
+        }
+        speechRate = rates[next];
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .putFloat("speech_rate", speechRate).apply();
+        if (tts != null) tts.setSpeechRate(speechRate);
+        if (speechRateButton != null) speechRateButton.setText("SPEED  " + speechRate + "x");
+        reply("Speech speed set to " + speechRate + " times.");
     }
 
     private void reply(String message) {
@@ -1025,9 +1360,14 @@ public class MainActivity extends Activity {
     }
 
     private void toggleLanguage() {
-        useHindi = !useHindi;
-        if (languageButton != null) languageButton.setText(useHindi ? "HI" : "EN");
-        reply(useHindi ? "Hindi voice recognition selected." : "English India voice recognition selected.");
+        languageMode = (languageMode + 1) % 3;
+        getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                .putInt("speech_language_mode", languageMode).apply();
+        if (languageButton != null) languageButton.setText(languageLabel());
+        String label = languageMode == 0 ? "Automatic language recognition selected. Mixed Hindi and English recognition depends on your installed speech service."
+                : languageMode == 1 ? "English India recognition selected."
+                : "Hindi India recognition selected.";
+        reply(label);
     }
 
     private RecognitionListener createRecognitionListener() {
@@ -1072,9 +1412,13 @@ public class MainActivity extends Activity {
         try {
             Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-            String language = useHindi ? "hi-IN" : "en-IN";
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language);
-            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language);
+            if (languageMode == 1) {
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-IN");
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "en-IN");
+            } else if (languageMode == 2) {
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN");
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "hi-IN");
+            }
             intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
             recognizer.startListening(intent);
             setStatus("LISTENING");
