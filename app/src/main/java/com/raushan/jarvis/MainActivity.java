@@ -1249,8 +1249,8 @@ public class MainActivity extends FragmentActivity {
 
     private String confirmCallRecipient(String name, String number) {
         new AlertDialog.Builder(this).setTitle("CONFIRM CALL RECIPIENT")
-                .setMessage("Contact: " + name + "\\nNumber: " + number
-                        + "\\n\\nJARVIS will open the dialer. You must tap Call.")
+                .setMessage("Contact: " + name + "\nNumber: " + number
+                        + "\n\nJARVIS will open the dialer. You must tap Call.")
                 .setPositiveButton("OPEN DIALER", (dialog, which) -> reply(openDialer(number, name)))
                 .setNegativeButton("CANCEL", null).show();
         return "Confirm the displayed contact and number before opening the dialer.";
@@ -1682,8 +1682,8 @@ public class MainActivity extends FragmentActivity {
 
     private String confirmMessageRecipient(String name, String number, String body) {
         new AlertDialog.Builder(this).setTitle("CONFIRM MESSAGE RECIPIENT")
-                .setMessage("Contact: " + name + "\\nNumber: " + number
-                        + "\\n\\nJARVIS will open a draft. You must review and tap Send.")
+                .setMessage("Contact: " + name + "\nNumber: " + number
+                        + "\n\nJARVIS will open a draft. You must review and tap Send.")
                 .setPositiveButton("OPEN DRAFT", (dialog, which) -> reply(openSmsComposer(number, body)))
                 .setNegativeButton("CANCEL", null).show();
         return "Confirm the displayed contact and number before opening the message draft.";
