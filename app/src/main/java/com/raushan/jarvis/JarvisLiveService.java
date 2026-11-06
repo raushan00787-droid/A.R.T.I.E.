@@ -256,7 +256,7 @@ public class JarvisLiveService extends Service {
 
     private void startForegroundNow(String status) {
         Notification notification = buildNotification(status, false);
-        if (Build.VERSION.SDK_INT >= 29) {
+        if (Build.VERSION.SDK_INT >= 30) {
             startForeground(NOTIFICATION_ID, notification,
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
         } else {
