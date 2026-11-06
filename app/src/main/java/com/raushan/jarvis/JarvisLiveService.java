@@ -108,6 +108,8 @@ public class JarvisLiveService extends Service {
             ensureRecognizer();
             startListening();
             updateNotification(sessionActive ? "Live conversation active" : "Listening for Hey JARVIS", false);
+        } else {
+            updateNotification("Paused. Tap Resume to listen again.", true);
         }
         return START_STICKY;
     }
