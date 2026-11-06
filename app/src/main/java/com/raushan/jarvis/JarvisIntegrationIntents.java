@@ -59,6 +59,31 @@ final class JarvisIntegrationIntents {
         }
     }
 
+    static boolean startTimer(Context context, int seconds, String label) {
+        if (seconds < 1 || seconds > 24 * 60 * 60) return false;
+        try {
+            Intent timer = new Intent(android.provider.AlarmClock.ACTION_SET_TIMER);
+            timer.putExtra(android.provider.AlarmClock.EXTRA_LENGTH, seconds);
+            timer.putExtra(android.provider.AlarmClock.EXTRA_MESSAGE,
+                    label == null || label.trim().isEmpty() ? "JARVIS timer" : label.trim());
+            timer.putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, false);
+            context.startActivity(Intent.createChooser(timer, "Set timer in Clock"));
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    static boolean dismissTimer(Context context) {
+        try {
+            Intent timer = new Intent(android.provider.AlarmClock.ACTION_DISMISS_TIMER);
+            context.startActivity(Intent.createChooser(timer, "Dismiss timer in Clock"));
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     static boolean openMapSearch(Context context, String destination) {
         if (destination == null || destination.trim().isEmpty()) return false;
         try {
