@@ -902,7 +902,7 @@ public class MainActivity extends Activity {
                     .putString("saved_memories", notes.toString()).apply();
             refreshSystemPrompt();
             persistConversation();
-            return "Saved to JARVIS memory on this device: " + note;
+            return "Saved to JARVIS memory on this device: " + note + ". Relevant notes may be included in future AI requests to personalize replies.";
         }
 
         if (value.equals("forget all memories") || value.equals("clear all memories")
@@ -915,7 +915,7 @@ public class MainActivity extends Activity {
         }
 
         if (value.startsWith("forget ") || value.startsWith("bhool jao ")) {
-            String target = value.startsWith("forget ") ? raw.substring(7).trim() : raw.substring(9).trim();
+            String target = value.startsWith("forget ") ? raw.substring(7).trim() : raw.substring(10).trim();
             JSONArray notes = getSavedMemories();
             JSONArray kept = new JSONArray();
             boolean removed = false;
@@ -963,7 +963,7 @@ public class MainActivity extends Activity {
     }
 
     private int[] parseClockTime(String input) {
-        Matcher matcher = Pattern.compile("(?<!\\\\d)(\\\\d{1,2})(?::([0-5]\\\\d))?\\\\s*(a\\\\.?m\\\\.?|p\\\\.?m\\\\.?|am|pm)?(?!\\\\d)",
+        Matcher matcher = Pattern.compile("(?<!\\d)(\\d{1,2})(?::([0-5]\\d))?\\s*(a\\.?m\\.?|p\\.?m\\.?|am|pm)?(?!\\d)",
                 Pattern.CASE_INSENSITIVE).matcher(input == null ? "" : input);
         if (!matcher.find()) return null;
 
