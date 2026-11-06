@@ -1366,6 +1366,59 @@ public class MainActivity extends FragmentActivity {
             startBackupImport();
             return "";
         }
+        Matcher calendarEvent = Pattern.compile(
+                "(?i)^(?:calendar event|add event|schedule event|create event)\\s*:?\\s*(.+?)\\s+on\\s+(\\d{4}-\\d{2}-\\d{2})\\s+at\\s+(\\d{1,2}:\\d{2})(?:\\s+to\\s+(\\d{1,2}:\\d{2}))?$")
+                .matcher(input == null ? "" : input.trim());
+        if (calendarEvent.matches()) {
+            String title = calendarEvent.group(1).trim();
+            try {
+                SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT);
+                parser.setLenient(false);
+                Date startDate = parser.parse(calendarEvent.group(2) + " " + calendarEvent.group(3));
+                Date endDate = calendarEvent.group(4) == null ? null
+                        : parser.parse(calendarEvent.group(2) + " " + calendarEvent.group(4));
+                long startMillis = startDate.getTime();
+                long endMillis = endDate == null ? startMillis + 60L * 60L * 1000L : endDate.getTime();
+                if (title.isEmpty() || startMillis <= System.currentTimeMillis() || endMillis <= startMillis) {
+                    return "Please provide a future event time and an end time later than its start. Format: calendar event Project meeting on 2026-11-08 at 17:00 to 18:00.";
+                }
+                if (JarvisIntegrationIntents.createCalendarEvent(this, title, startMillis, endMillis)) {
+                    return "Opening your Calendar app with the event details. Review and save the event there.";
+                }
+                return "No compatible Calendar app could create an event on this device.";
+            } catch (Exception error) {
+                return "I couldn't read that date or time. Use YYYY-MM-DD and 24-hour HH:MM.";
+            }
+        }
+
+        Matcher emailDraft = Pattern.compile(
+                "(?is)^email(?:\\s+to\\s+([^\\s]+))?\\s+subject\\s*:\\s*(.+?)\\s+body\\s*:\\s*(.+)$")
+                .matcher(input == null ? "" : input.trim());
+        if (emailDraft.matches()) {
+            String address = emailDraft.group(1);
+            String subject = emailDraft.group(2).trim();
+            String body = emailDraft.group(3).trim();
+            return JarvisIntegrationIntents.composeEmail(this, address, subject, body)
+                    ? "Opening an email draft. Review the recipient, subject and message before sending."
+                    : "No compatible email app could open a draft.";
+        }
+
+        Matcher telegramDraft = Pattern.compile("(?is)^(?:telegram|send telegram)(?:\\s+message)?\\s*:\\s*(.+)$")
+                .matcher(input == null ? "" : input.trim());
+        if (telegramDraft.matches()) {
+            return JarvisIntegrationIntents.shareTelegram(this, telegramDraft.group(1).trim())
+                    ? "Opening Telegram or the Android share sheet. Choose the recipient and send the message yourself."
+                    : "No compatible app could share that message.";
+        }
+
+        Matcher mapRequest = Pattern.compile("(?i)^(?:navigate|directions|map|maps)\\s+(?:to\\s+)?(.+)$")
+                .matcher(input == null ? "" : input.trim());
+        if (mapRequest.matches()) {
+            return JarvisIntegrationIntents.openMapSearch(this, mapRequest.group(1).trim())
+                    ? "Opening a map search for " + mapRequest.group(1).trim() + "."
+                    : "No compatible map app could open that destination.";
+        }
+
         if (value.equals("system diagnostics") || value.equals("run diagnostics")
                 || value.equals("device health") || value.equals("system health")
                 || value.equals("check jarvis status")) {
