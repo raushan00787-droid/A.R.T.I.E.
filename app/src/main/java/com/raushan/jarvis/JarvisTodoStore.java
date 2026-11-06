@@ -111,6 +111,17 @@ final class JarvisTodoStore {
         return output.toString().trim();
     }
 
+    static synchronized void ensureNextId(Context context) {
+        JSONArray tasks = load(context);
+        int maxId = 20000;
+        for (int i = 0; i < tasks.length(); i++) {
+            JSONObject task = tasks.optJSONObject(i);
+            if (task != null) maxId = Math.max(maxId, task.optInt("id", 20000));
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putInt(NEXT_ID, maxId).apply();
+    }
+
     static synchronized void clear(Context context) {
         save(context, new JSONArray());
     }
