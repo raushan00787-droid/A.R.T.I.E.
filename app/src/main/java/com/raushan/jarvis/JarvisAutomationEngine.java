@@ -43,7 +43,12 @@ final class JarvisAutomationEngine {
         }
 
         SharedPreferences prefs = prefs(context);
-        int id = prefs.getInt(NEXT_ID, 30000) + 1;
+        int maxId = prefs.getInt(NEXT_ID, 30000);
+        for (int i = 0; i < routines.length(); i++) {
+            JSONObject existing = routines.optJSONObject(i);
+            if (existing != null) maxId = Math.max(maxId, existing.optInt("id", 30000));
+        }
+        int id = maxId + 1;
         if (id <= 0) id = 30001;
         prefs.edit().putInt(NEXT_ID, id).apply();
 
@@ -178,15 +183,22 @@ final class JarvisAutomationEngine {
         int completed = 0;
         long startedAt = System.currentTimeMillis();
         try {
+            String previousStatus = routine.optString("last_status", "NEVER_RUN");
+            if ("RUNNING".equals(previousStatus) || "INTERRUPTED".equals(previousStatus)
+                    || "PARTIAL_FAILURE".equals(previousStatus)) {
+                completed = Math.max(0, Math.min(routine.optInt("last_step", 0), steps.length()));
+            }
             routine.put("last_status", "RUNNING");
-            routine.put("last_step", 0);
+            routine.put("last_step", completed);
             routine.put("last_run_at", startedAt);
             save(context, routines);
-            JarvisTaskHistory.record(context, "Run routine: " + routineName, "STARTED",
-                    steps.length() + " step(s).");
+            JarvisTaskHistory.record(context, "Run routine: " + routineName,
+                    completed > 0 ? "RESUMED" : "STARTED",
+                    completed + " of " + steps.length() + " step(s) already completed.");
 
             StringBuilder report = new StringBuilder("Routine ").append(routineName).append(":\n");
-            for (int i = 0; i < steps.length(); i++) {
+            if (completed > 0) report.append("Resuming after ").append(completed).append(" completed step(s).\n");
+            for (int i = completed; i < steps.length(); i++) {
                 JSONObject step = steps.optJSONObject(i);
                 if (step == null) throw new Exception("A saved routine step is invalid.");
                 String type = step.optString("type", "");
