@@ -1,6 +1,5 @@
 package com.raushan.jarvis;
 
-import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -21,7 +20,6 @@ public class JarvisNotificationReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         String title;
         String text;
-        if (AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED.equals(action)) return;
         if (Intent.ACTION_BATTERY_LOW.equals(action)) {
             title = "Battery running low";
             text = "Sir, your device battery is low. Consider connecting the charger.";
