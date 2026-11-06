@@ -1955,23 +1955,84 @@ public class MainActivity extends FragmentActivity {
     }
 
     private String handleReminderCommand(String input) {
-        Matcher matcher = Pattern.compile("(?i)^remind me in\\s+(\\d{1,4})\\s*(minutes?|mins?|hours?|hrs?)\\s+(?:to\\s+)?(.+)$").matcher(input == null ? "" : input.trim());
-        if (!matcher.matches()) return null;
+        String raw = input == null ? "" : input.trim();
+        String value = raw.toLowerCase(Locale.ROOT);
+
+        if (value.equals("reminders") || value.equals("list reminders")
+                || value.equals("show reminders") || value.equals("my reminders")) {
+            return JarvisReminderScheduler.summary(this);
+        }
+
+        Matcher cancel = Pattern.compile("(?i)^cancel reminder\\\\s+(.+)$").matcher(raw);
+        if (cancel.matches()) {
+            String query = cancel.group(1).trim();
+            int id = JarvisReminderScheduler.findByText(this, query);
+            if (id < 0) return "I couldn't find a saved reminder matching " + query + ". Say 'list reminders' to see your saved reminders.";
+            confirmCancelReminder(id, query);
+            return "";
+        }
+
+        Matcher recurring = Pattern.compile(
+                "(?i)^remind me every\\\\s+(?:(\\\\d{1,4})\\\\s*)?(minutes?|mins?|hours?|hrs?|days?|weeks?)\\\\s+(?:to\\\\s+)?(.+)$")
+                .matcher(raw);
+        if (recurring.matches()) {
+            int amount = recurring.group(1) == null ? 1 : Integer.parseInt(recurring.group(1));
+            String unit = recurring.group(2).toLowerCase(Locale.ROOT);
+            String task = recurring.group(3).trim();
+            if (amount < 1 || task.isEmpty()) return "Please give a positive repeat interval and a reminder task.";
+            long multiplier = unit.startsWith("w") ? 7L * 24L * 60L * 60L * 1000L
+                    : unit.startsWith("d") ? 24L * 60L * 60L * 1000L
+                    : unit.startsWith("h") ? 60L * 60L * 1000L : 60L * 1000L;
+            long interval = amount * multiplier;
+            if (interval > 30L * 24L * 60L * 60L * 1000L) {
+                return "Recurring reminders can repeat between 1 minute and 30 days.";
+            }
+            try {
+                JarvisReminderScheduler.schedule(this, task, interval, interval);
+                JarvisTaskHistory.record(this, "Create recurring reminder: " + task, "SCHEDULED",
+                        "Repeats every " + amount + " " + unit + ".");
+                return "Recurring reminder saved for " + task + ". It will repeat every " + amount + " " + unit + ". Say 'list reminders' to review it.";
+            } catch (Exception error) {
+                return "I couldn't save that reminder. " + safeMessage(error);
+            }
+        }
+
+        Matcher oneTime = Pattern.compile(
+                "(?i)^remind me in\\\\s+(\\\\d{1,4})\\\\s*(minutes?|mins?|hours?|hrs?|days?|weeks?)\\\\s+(?:to\\\\s+)?(.+)$")
+                .matcher(raw);
+        if (!oneTime.matches()) return null;
         int amount;
-        try { amount = Integer.parseInt(matcher.group(1)); } catch (Exception error) { return "I could not read that reminder time."; }
-        String unit = matcher.group(2).toLowerCase(Locale.ROOT);
-        String task = matcher.group(3).trim();
-        if (amount < 1 || amount > 1000 || task.isEmpty()) return "Please choose a reminder between 1 and 1000 minutes or hours, with a task.";
-        long delay = amount * (unit.startsWith("h") ? 60L : 1L) * 60L * 1000L;
-        int id = (int) (System.currentTimeMillis() & 0x7fffffff);
-        Intent alert = new Intent(this, JarvisNotificationReceiver.class).setAction(JarvisNotificationReceiver.ACTION_REMINDER);
-        alert.putExtra(JarvisNotificationReceiver.EXTRA_TITLE, "JARVIS reminder");
-        alert.putExtra(JarvisNotificationReceiver.EXTRA_TEXT, task);
-        PendingIntent pending = PendingIntent.getBroadcast(this, id, alert, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        AlarmManager alarms = (AlarmManager) getSystemService(ALARM_SERVICE);
-        if (alarms == null) return "Android's reminder service is unavailable.";
-        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pending);
-        return "Reminder set for " + amount + " " + unit + ": " + task + ". Android will notify you when it is due.";
+        try { amount = Integer.parseInt(oneTime.group(1)); }
+        catch (Exception error) { return "I could not read that reminder time."; }
+        String unit = oneTime.group(2).toLowerCase(Locale.ROOT);
+        String task = oneTime.group(3).trim();
+        if (amount < 1 || task.isEmpty()) return "Please choose a positive reminder time and include the task.";
+        long multiplier = unit.startsWith("w") ? 7L * 24L * 60L * 60L * 1000L
+                : unit.startsWith("d") ? 24L * 60L * 60L * 1000L
+                : unit.startsWith("h") ? 60L * 60L * 1000L : 60L * 1000L;
+        long delay = amount * multiplier;
+        try {
+            JarvisReminderScheduler.schedule(this, task, delay, 0L);
+            JarvisTaskHistory.record(this, "Create reminder: " + task, "SCHEDULED",
+                    "One-time reminder in " + amount + " " + unit + ".");
+            return "Reminder saved for " + amount + " " + unit + ": " + task + ". Android may deliver it around the due time, depending on battery and notification settings.";
+        } catch (Exception error) {
+            return "I couldn't save that reminder. " + safeMessage(error);
+        }
+    }
+
+    private void confirmCancelReminder(int id, String query) {
+        new AlertDialog.Builder(this)
+                .setTitle("CANCEL REMINDER")
+                .setMessage("Cancel the saved reminder matching: " + query + "?")
+                .setPositiveButton("CANCEL REMINDER", (dialog, which) -> {
+                    boolean removed = JarvisReminderScheduler.cancel(this, id);
+                    JarvisTaskHistory.record(this, "Cancel reminder: " + query,
+                            removed ? "CANCELLED" : "NOT FOUND", "");
+                    reply(removed ? "Reminder cancelled." : "That reminder was already removed.");
+                })
+                .setNegativeButton("KEEP", null)
+                .show();
     }
 
     private String handleMessageCommand(String input) {
