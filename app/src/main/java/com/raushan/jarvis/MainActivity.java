@@ -1694,8 +1694,14 @@ public class MainActivity extends FragmentActivity {
         }
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
+        if ("NO FEMALE VOICE INSTALLED".equals(selectedVoiceName)
+                || "FEMALE VOICE UNAVAILABLE".equals(selectedVoiceName)) {
+            setStatus("NO FEMALE VOICE INSTALLED  •  CHECK ANDROID TTS VOICE DATA");
+            scheduleListeningRestart(700);
+            resumeLiveModeAfterSpeech();
+            return;
+        }
         try {
-            // Use the Android system's current default TTS voice/engine without overriding it.
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "jarvis-" + System.currentTimeMillis());
             if (result == TextToSpeech.ERROR) {
