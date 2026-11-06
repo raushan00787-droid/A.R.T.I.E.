@@ -28,7 +28,9 @@ final class JarvisBackupManager {
 
         JSONObject settings = new JSONObject();
         settings.put("saved_memories", preferences.getString("saved_memories", "[]"));
-        settings.put("conversation_history", preferences.getString("conversation_history", ""));
+        String conversationHistory = preferences.getString("conversation_history", "[]");
+        if (conversationHistory == null || conversationHistory.trim().isEmpty()) conversationHistory = "[]";
+        settings.put("conversation_history", conversationHistory);
         settings.put("task_history", preferences.getString("task_history", "[]"));
         settings.put("speech_language_mode", preferences.getInt("speech_language_mode", 0));
         settings.put("speech_rate", preferences.getFloat("speech_rate", 1.0f));
@@ -105,8 +107,10 @@ final class JarvisBackupManager {
         JSONObject settings = root.optJSONObject("settings");
         if (settings == null) throw new Exception("The backup does not contain settings data.");
 
+        String conversationRaw = settings.optString("conversation_history", "[]");
+        if (conversationRaw == null || conversationRaw.trim().isEmpty()) conversationRaw = "[]";
         JSONArray memories = new JSONArray(settings.optString("saved_memories", "[]"));
-        JSONArray conversation = new JSONArray(settings.optString("conversation_history", "[]"));
+        JSONArray conversation = new JSONArray(conversationRaw);
         JSONArray tasks = new JSONArray(settings.optString("task_history", "[]"));
         if (memories.length() > 20) throw new Exception("The backup contains too many saved notes.");
         if (conversation.length() > 21) throw new Exception("The backup contains too many conversation entries.");
