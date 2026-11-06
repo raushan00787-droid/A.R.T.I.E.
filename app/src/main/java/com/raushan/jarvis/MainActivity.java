@@ -143,7 +143,6 @@ public class MainActivity extends FragmentActivity {
     private TextView orbStatus;
     private SignatureView signatureView;
     private TextView voiceSelectButton;
-    private TextView controlsButton;
     private final ArrayList<Voice> availableVoices = new ArrayList<>();
     private String selectedVoiceName;
     private volatile boolean clapWakeEnabled = false;
@@ -180,7 +179,6 @@ public class MainActivity extends FragmentActivity {
     private float speechRate = 1.0f;
     private boolean awaitingAlarmTime = false;
     private TextView speechRateButton;
-    private LinearLayout systemPanel;
     private String pendingCallContact;
     private final ArrayList<Uri> selectedDocumentUris = new ArrayList<>();
 
@@ -604,8 +602,6 @@ public class MainActivity extends FragmentActivity {
         buildConversation();
         addGap(root, 9);
         buildComposer();
-        buildDeviceControls();
-        systemPanel.setVisibility(View.GONE);
     }
 
 
@@ -697,11 +693,6 @@ public class MainActivity extends FragmentActivity {
         ownerBlock.addView(access);
 
         bar.addView(ownerBlock);
-        controlsButton = text("CONTROLS  ▾", 8, CYAN);
-        controlsButton.setGravity(Gravity.CENTER);
-        controlsButton.setPadding(dp(9), dp(8), dp(3), dp(8));
-        controlsButton.setOnClickListener(v -> toggleSystemPanel());
-        bar.addView(controlsButton);
         root.addView(bar, new LinearLayout.LayoutParams(-1, dp(46)));
     }
 
@@ -871,112 +862,6 @@ public class MainActivity extends FragmentActivity {
         return control;
     }
 
-
-    private void buildDeviceControls() {
-        systemPanel = column();
-        systemPanel.setPadding(dp(11), dp(9), dp(11), dp(9));
-        systemPanel.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(37, 82, 101), 5));
-        systemPanel.setVisibility(View.GONE);
-
-        TextView title = text("LOCAL SYSTEM PANEL", 8, CYAN);
-        title.setLetterSpacing(0.16f);
-        title.setPadding(dp(2), dp(2), dp(2), dp(6));
-        systemPanel.addView(title);
-
-        LinearLayout rowOne = row();
-        addControl(rowOne, "FLASHLIGHT", () -> toggleTorch());
-        addControl(rowOne, "BATTERY", () -> {
-            int level = getBatteryPct();
-            reply(level < 0 ? "I could not read the battery level." : "Battery level is " + level + " percent.");
-        });
-        addControl(rowOne, "WI-FI", () -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Wi-Fi"));
-        systemPanel.addView(rowOne);
-
-        LinearLayout rowTwo = row();
-        addControl(rowTwo, "BLUETOOTH", () -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth"));
-        addControl(rowTwo, "DISPLAY", () -> openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Display"));
-        addControl(rowTwo, "SETTINGS", () -> openSettings(android.provider.Settings.ACTION_SETTINGS, "system"));
-        systemPanel.addView(rowTwo);
-
-        LinearLayout rowThree = row();
-        addControl(rowThree, "STOP SPEECH", () -> stopSpeech());
-        addControl(rowThree, "CLEAR CHAT", () -> clearConversation());
-        addControl(rowThree, "CLAP WAKE", () -> toggleClapWake());
-        systemPanel.addView(rowThree);
-
-        LinearLayout rowFour = row();
-        voiceSelectButton = text("VOICE: SYSTEM DEFAULT", 8, CYAN);
-        voiceSelectButton.setGravity(Gravity.CENTER);
-        voiceSelectButton.setPadding(dp(3), dp(10), dp(3), dp(10));
-        voiceSelectButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        voiceSelectButton.setOnClickListener(v -> openSystemTtsSettings());
-        LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
-        voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        rowFour.addView(voiceSelectButton, voiceLp);
-        addControl(rowFour, "TEST VOICE", () -> speak("Good evening, Sir. JARVIS is online and ready."));
-        systemPanel.addView(rowFour);
-
-        LinearLayout rowFive = row();
-        addControl(rowFive, "VOLUME −", () -> adjustMediaVolume(false));
-        speechRateButton = text("SPEED  " + speechRate + "x", 8, CYAN);
-        speechRateButton.setGravity(Gravity.CENTER);
-        speechRateButton.setPadding(dp(3), dp(10), dp(3), dp(10));
-        speechRateButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        speechRateButton.setOnClickListener(v -> cycleSpeechRate());
-        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(0, -2, 1);
-        speedLp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        rowFive.addView(speechRateButton, speedLp);
-        addControl(rowFive, "VOLUME +", () -> adjustMediaVolume(true));
-        systemPanel.addView(rowFive);
-
-        LinearLayout rowSix = row();
-        addControl(rowSix, "CALL / DIAL", () -> openPhoneDialer());
-        addControl(rowSix, "OPEN FILES", () -> openDocumentPicker());
-        addControl(rowSix, "CHOOSE FOLDER", () -> openFolderPicker());
-        systemPanel.addView(rowSix);
-
-        LinearLayout rowSeven = row();
-        addControl(rowSeven, "BROWSE FOLDER", () -> browseSavedFolder());
-        addControl(rowSeven, "OPEN WPS", () -> launchWpsOffice());
-        addControl(rowSeven, "PERMISSIONS", () -> showPermissionCenter());
-        systemPanel.addView(rowSeven);
-
-        LinearLayout rowEight = row();
-        addControl(rowEight, "FLOATING ORB", () -> toggleFloatingOrb());
-        addControl(rowEight, "LOCK JARVIS", () -> lockAppNow());
-        addControl(rowEight, "FOLDER ACCESS", () -> openFolderPicker());
-        systemPanel.addView(rowEight);
-
-        LinearLayout rowNine = row();
-        addControl(rowNine, "DEFAULT ASSISTANT", () -> requestAssistantRole());
-        addControl(rowNine, "SYSTEM VOICE", () -> openSystemTtsSettings());
-        addControl(rowNine, "LIVE MODE", () -> toggleContinuousListening());
-        systemPanel.addView(rowNine);
-
-        LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(-1, -2);
-        panelLp.topMargin = dp(4);
-        root.addView(systemPanel, panelLp);
-    }
-
-    private void toggleSystemPanel() {
-        if (systemPanel == null) return;
-        boolean opening = systemPanel.getVisibility() != View.VISIBLE;
-        systemPanel.setVisibility(opening ? View.VISIBLE : View.GONE);
-        if (controlsButton != null) controlsButton.setText(opening ? "CONTROLS  ▴" : "CONTROLS  ▾");
-    }
-
-    private void addControl(LinearLayout parent, String label, Runnable action) {
-        TextView button = text(label, 9, Color.rgb(158, 192, 206));
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(3), dp(12), dp(3), dp(12));
-        button.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        button.setClickable(true);
-        button.setFocusable(true);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
-        lp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        parent.addView(button, lp);
-        button.setOnClickListener(v -> action.run());
-    }
 
     private void updateClock() {
         if (clockView != null) {
@@ -1341,6 +1226,76 @@ public class MainActivity extends FragmentActivity {
 
         String messageCommand = handleMessageCommand(input);
         if (messageCommand != null) return messageCommand;
+
+        // Conversational replacements for every action that used to live in the Local System Panel.
+        if (value.equals("clear chat") || value.equals("clear conversation") || value.equals("clear chat history")) {
+            clearConversation();
+            return "";
+        }
+        if (value.contains("test voice") || value.equals("speak a test") || value.equals("voice test")) {
+            speak("Good evening, Sir. JARVIS is online and ready.");
+            return "";
+        }
+        if (value.contains("clap wake off") || value.equals("disable clap wake")) {
+            if (clapWakeEnabled) toggleClapWake();
+            return "Clap wake is off.";
+        }
+        if (value.contains("clap wake on") || value.equals("enable clap wake") || value.equals("clap wake")) {
+            if (!clapWakeEnabled) toggleClapWake();
+            return "Clap wake request received. I will report if Android needs microphone permission.";
+        }
+        if (value.contains("volume up") || value.contains("increase volume")
+                || value.contains("raise volume") || value.contains("volume badhao")) {
+            adjustMediaVolume(true);
+            return "";
+        }
+        if (value.contains("volume down") || value.contains("decrease volume")
+                || value.contains("lower volume") || value.contains("volume kam")) {
+            adjustMediaVolume(false);
+            return "";
+        }
+        if (value.contains("speech speed") || value.contains("speaking speed")
+                || value.equals("change speech rate") || value.equals("cycle speech rate")) {
+            cycleSpeechRate();
+            return "";
+        }
+        if (value.contains("voice settings") || value.contains("select voice")
+                || value.contains("choose voice") || value.contains("change voice")) {
+            openSystemTtsSettings();
+            return "Opening Android text-to-speech settings.";
+        }
+        if (value.contains("open wps") || value.contains("launch wps") || value.equals("wps office")) {
+            return launchWpsOffice();
+        }
+        if (value.contains("floating orb")) {
+            if (value.contains("off") || value.contains("disable")) {
+                if (floatingOrbEnabled) setFloatingOrbEnabled(false);
+                return "Floating Orb is off.";
+            }
+            if ((value.contains("on") || value.contains("enable")) && !floatingOrbEnabled) {
+                toggleFloatingOrb();
+                return "Floating Orb activation requested.";
+            }
+            toggleFloatingOrb();
+            return "";
+        }
+        if (value.equals("lock jarvis") || value.equals("lock assistant")) {
+            lockAppNow();
+            return "";
+        }
+        if (value.equals("live mode") || value.equals("start live mode") || value.equals("live mode on")) {
+            if (!liveModeEnabled) startLiveMode();
+            else if (liveModePaused) toggleContinuousListening();
+            return "";
+        }
+        if (value.equals("live mode off") || value.equals("stop live mode") || value.equals("pause live mode")) {
+            stopLiveMode();
+            return "";
+        }
+        if (value.equals("open settings") || value.equals("system settings")) {
+            openSettings(android.provider.Settings.ACTION_SETTINGS, "system");
+            return "Opening Android Settings.";
+        }
 
         if (value.equals("default assistant") || value.equals("make jarvis default assistant")) {
             requestAssistantRole();
