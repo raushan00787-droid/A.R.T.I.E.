@@ -1807,8 +1807,6 @@ public class MainActivity extends Activity {
     }
 
     private static class ReactorView extends View {
-
-    private static class ReactorView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private int mode = 0;
         private final long started = System.currentTimeMillis();
