@@ -1235,16 +1235,25 @@ public class MainActivity extends FragmentActivity {
 
         if (numbers.isEmpty()) return "I couldn't find a contact matching " + query + ".";
 
-        if (numbers.size() == 1) return openDialer(numbers.get(0), names.get(0));
+        if (numbers.size() == 1) return confirmCallRecipient(names.get(0), numbers.get(0));
 
         String[] labels = new String[numbers.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = names.get(i) + "  •  " + numbers.get(i);
         new AlertDialog.Builder(this)
                 .setTitle("CHOOSE CONTACT")
-                .setItems(labels, (dialog, which) -> reply(openDialer(numbers.get(which), names.get(which))))
+                .setItems(labels, (dialog, which) -> confirmCallRecipient(names.get(which), numbers.get(which)))
                 .setNegativeButton("CANCEL", null)
                 .show();
-        return "I found more than one matching number. Choose the correct contact.";
+        return "I found more than one matching number. Choose the intended contact.";
+    }
+
+    private String confirmCallRecipient(String name, String number) {
+        new AlertDialog.Builder(this).setTitle("CONFIRM CALL RECIPIENT")
+                .setMessage("Contact: " + name + "\\nNumber: " + number
+                        + "\\n\\nJARVIS will open the dialer. You must tap Call.")
+                .setPositiveButton("OPEN DIALER", (dialog, which) -> reply(openDialer(number, name)))
+                .setNegativeButton("CANCEL", null).show();
+        return "Confirm the displayed contact and number before opening the dialer.";
     }
 
     private String openDialer(String number, String label) {
@@ -1578,23 +1587,44 @@ public class MainActivity extends FragmentActivity {
     }
 
     private String handleReminderCommand(String input) {
-        Matcher matcher = Pattern.compile("(?i)^remind me in\\s+(\\d{1,4})\\s*(minutes?|mins?|hours?|hrs?)\\s+(?:to\\s+)?(.+)$").matcher(input == null ? "" : input.trim());
+        String raw = input == null ? "" : input.trim();
+        Matcher matcher = Pattern.compile("(?i)^(?:remind me|reminder me|reminder|yaad dilana|mujhe yaad dilana)\\s+(?:in|after|mein|ke baad)?\\s*(\\d{1,5})\\s*(seconds?|secs?|sec|s|minutes?|mins?|min|m|hours?|hrs?|hr|h)\\s+(?:to\\s+|ki\\s+)?(.+)$").matcher(raw);
+        if (!matcher.matches()) {
+            matcher = Pattern.compile("(?i)^(?:mujhe\\s+)?(\\d{1,5})\\s*(seconds?|secs?|sec|s|minutes?|mins?|min|m|hours?|hrs?|hr|h)\\s+baad\\s+(.+?)(?:\\s+yaad\\s+dilana)?$").matcher(raw);
+        }
         if (!matcher.matches()) return null;
+
         int amount;
-        try { amount = Integer.parseInt(matcher.group(1)); } catch (Exception error) { return "I could not read that reminder time."; }
+        try { amount = Integer.parseInt(matcher.group(1)); }
+        catch (Exception error) { return "I could not read that reminder time."; }
         String unit = matcher.group(2).toLowerCase(Locale.ROOT);
         String task = matcher.group(3).trim();
-        if (amount < 1 || amount > 1000 || task.isEmpty()) return "Please choose a reminder between 1 and 1000 minutes or hours, with a task.";
-        long delay = amount * (unit.startsWith("h") ? 60L : 1L) * 60L * 1000L;
+        if (amount < 1 || amount > 10000 || task.isEmpty()) {
+            return "Choose a reminder from 1 to 10,000 seconds/minutes/hours and include the task.";
+        }
+
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_NOTIFICATIONS);
+            return "Android notification permission is required. Allow notifications, then repeat the reminder command.";
+        }
+
+        long unitMillis = (unit.startsWith("h") ? 3600000L
+                : (unit.startsWith("m") ? 60000L : 1000L));
+        long delay = amount * unitMillis;
         int id = (int) (System.currentTimeMillis() & 0x7fffffff);
-        Intent alert = new Intent(this, JarvisNotificationReceiver.class).setAction(JarvisNotificationReceiver.ACTION_REMINDER);
+        Intent alert = new Intent(this, JarvisNotificationReceiver.class)
+                .setAction(JarvisNotificationReceiver.ACTION_REMINDER);
         alert.putExtra(JarvisNotificationReceiver.EXTRA_TITLE, "JARVIS reminder");
         alert.putExtra(JarvisNotificationReceiver.EXTRA_TEXT, task);
-        PendingIntent pending = PendingIntent.getBroadcast(this, id, alert, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pending = PendingIntent.getBroadcast(this, id, alert,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         AlarmManager alarms = (AlarmManager) getSystemService(ALARM_SERVICE);
         if (alarms == null) return "Android's reminder service is unavailable.";
         alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pending);
-        return "Reminder set for " + amount + " " + unit + ": " + task + ". Android will notify you when it is due.";
+        String unitLabel = unit.startsWith("h") ? "hour(s)" : unit.startsWith("m") ? "minute(s)" : "second(s)";
+        return "Reminder scheduled in " + amount + " " + unitLabel + ": " + task
+                + ". Android may deliver it slightly late under battery restrictions.";
     }
 
     private String handleMessageCommand(String input) {
@@ -1641,13 +1671,22 @@ public class MainActivity extends FragmentActivity {
         } catch (Exception error) { return "I could not read that contact. Check Contacts permission and try again."; }
         finally { if (cursor != null) cursor.close(); }
         if (numbers.isEmpty()) return "I could not find a phone number for " + query + ".";
-        if (numbers.size() == 1) return openSmsComposer(numbers.get(0), body);
+        if (numbers.size() == 1) return confirmMessageRecipient(names.get(0), numbers.get(0), body);
         String[] labels = new String[numbers.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = names.get(i) + "  •  " + numbers.get(i);
         new AlertDialog.Builder(this).setTitle("CHOOSE MESSAGE RECIPIENT").setItems(labels,
-                (dialog, which) -> reply(openSmsComposer(numbers.get(which), body)))
+                (dialog, which) -> confirmMessageRecipient(names.get(which), numbers.get(which), body))
                 .setNegativeButton("CANCEL", null).show();
-        return "I found multiple matching numbers. Choose the correct recipient.";
+        return "I found multiple matching numbers. Choose the intended contact.";
+    }
+
+    private String confirmMessageRecipient(String name, String number, String body) {
+        new AlertDialog.Builder(this).setTitle("CONFIRM MESSAGE RECIPIENT")
+                .setMessage("Contact: " + name + "\\nNumber: " + number
+                        + "\\n\\nJARVIS will open a draft. You must review and tap Send.")
+                .setPositiveButton("OPEN DRAFT", (dialog, which) -> reply(openSmsComposer(number, body)))
+                .setNegativeButton("CANCEL", null).show();
+        return "Confirm the displayed contact and number before opening the message draft.";
     }
 
     private String openSmsComposer(String phone, String body) {
@@ -2420,7 +2459,8 @@ public class MainActivity extends FragmentActivity {
         if (requestCode == REQUEST_ASSISTANT_ROLE) {
             RoleManager roles = Build.VERSION.SDK_INT >= 29 ? getSystemService(RoleManager.class) : null;
             boolean held = roles != null && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
-            reply(held ? "JARVIS is now your Android default assistant, Sir." : "Android did not assign the default assistant role. You can try again from Controls.");
+            reply(held ? "JARVIS is now your Android default assistant, Sir."
+                    : "Android did not assign JARVIS as the default assistant. Say 'make JARVIS default assistant' to reopen Android's role selector, then choose JARVIS.");
             return;
         }
         if (resultCode != RESULT_OK || data == null) return;
