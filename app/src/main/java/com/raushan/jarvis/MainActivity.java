@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -26,6 +27,8 @@ import android.hardware.camera2.CameraManager;
 import android.os.BatteryManager;
 import android.provider.AlarmClock;
 import android.provider.ContactsContract;
+import android.provider.DocumentsContract;
+import android.provider.OpenableColumns;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -75,6 +78,9 @@ public class MainActivity extends Activity {
     private static final int PERMISSION_CAMERA = 11;
     private static final int PERMISSION_CLAP = 12;
     private static final int PERMISSION_CONTACTS = 13;
+    private static final int PERMISSION_CORE = 14;
+    private static final int REQUEST_OPEN_DOCUMENTS = 31;
+    private static final int REQUEST_OPEN_FOLDER = 32;
     private static final int MAX_HISTORY_MESSAGES = 20;
     private static final int MAX_SAVED_MEMORIES = 20;
 
@@ -140,6 +146,7 @@ public class MainActivity extends Activity {
     private TextView speechRateButton;
     private LinearLayout systemPanel;
     private String pendingCallContact;
+    private final ArrayList<Uri> selectedDocumentUris = new ArrayList<>();
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final HandlerClock handlerClock = new HandlerClock();
@@ -425,88 +432,66 @@ public class MainActivity extends Activity {
 
     private void buildMainArea() {
         LinearLayout hero = column();
-        hero.setPadding(dp(14), dp(13), dp(14), dp(13));
-        GradientDrawable heroBackground = new GradientDrawable(
+        hero.setGravity(Gravity.CENTER_HORIZONTAL);
+        hero.setPadding(dp(12), dp(18), dp(12), dp(16));
+        GradientDrawable background = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(10, 29, 45), Color.rgb(5, 13, 23)});
-        heroBackground.setCornerRadius(dp(7));
-        heroBackground.setStroke(dp(1), Color.rgb(37, 91, 113));
-        hero.setBackground(heroBackground);
+                new int[]{Color.rgb(8, 28, 45), Color.rgb(3, 9, 17), Color.rgb(5, 16, 28)});
+        background.setCornerRadius(dp(9));
+        background.setStroke(dp(1), Color.rgb(39, 103, 130));
+        hero.setBackground(background);
 
-        LinearLayout header = row();
-        TextView eyebrow = text("NEURAL INTERFACE  //  CORE 01", 8, MUTED);
-        eyebrow.setLetterSpacing(0.16f);
-        header.addView(eyebrow, new LinearLayout.LayoutParams(0, -2, 1));
-
-        TextView live = text("● ONLINE", 8, CYAN);
-        live.setLetterSpacing(0.12f);
-        header.addView(live);
-        hero.addView(header);
-
-        LinearLayout body = row();
-        body.setGravity(Gravity.CENTER_VERTICAL);
+        TextView eyebrow = text("ARC REACTOR  //  CORE 01", 9, MUTED);
+        eyebrow.setLetterSpacing(0.22f);
+        eyebrow.setGravity(Gravity.CENTER);
+        hero.addView(eyebrow);
 
         int screenWidthDp = (int) (getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        int reactorSize = screenWidthDp >= 600 ? 190 : 142;
-
+        int reactorSize = screenWidthDp >= 700 ? 340 : screenWidthDp >= 520 ? 316 : 286;
         reactorView = new ReactorView(this);
         LinearLayout.LayoutParams reactorLp = new LinearLayout.LayoutParams(dp(reactorSize), dp(reactorSize));
-        reactorLp.rightMargin = dp(9);
-        body.addView(reactorView, reactorLp);
+        reactorLp.gravity = Gravity.CENTER;
+        reactorLp.topMargin = dp(7);
+        reactorLp.bottomMargin = dp(4);
+        hero.addView(reactorView, reactorLp);
 
-        LinearLayout detail = column();
-        detail.setGravity(Gravity.CENTER_VERTICAL);
-        TextView heading = text("At your service.", screenWidthDp >= 600 ? 25 : 21, WHITE);
-        heading.setTypeface(sansSerif(), Typeface.NORMAL);
-        heading.setLetterSpacing(0.01f);
-        detail.addView(heading);
+        TextView title = text("J.A.R.V.I.S.", 22, WHITE);
+        title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        title.setLetterSpacing(0.24f);
+        title.setGravity(Gravity.CENTER);
+        hero.addView(title);
 
-        TextView subtitle = text("Your executive assistant.", 9, MUTED);
-        subtitle.setPadding(0, dp(3), 0, dp(8));
-        detail.addView(subtitle);
-
-        LinearLayout signatureRow = row();
-        signatureView = new SignatureView(this);
-        LinearLayout.LayoutParams signatureLp = new LinearLayout.LayoutParams(dp(58), dp(58));
-        signatureLp.rightMargin = dp(8);
-        signatureRow.addView(signatureView, signatureLp);
-
-        LinearLayout signatureText = column();
-        TextView signatureName = text("R-01", 10, GOLD);
-        signatureName.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        signatureText.addView(signatureName);
-        TextView signatureCaption = text("CREATOR'S MARK", 7, MUTED);
-        signatureCaption.setLetterSpacing(0.08f);
-        signatureText.addView(signatureCaption);
-        signatureRow.addView(signatureText);
-        detail.addView(signatureRow);
-
-        body.addView(detail, new LinearLayout.LayoutParams(0, -2, 1));
-        hero.addView(body, new LinearLayout.LayoutParams(-1, -2));
+        TextView sub = text("PERSONAL AI  /  EXECUTIVE ASSISTANT", 8, CYAN);
+        sub.setLetterSpacing(0.16f);
+        sub.setGravity(Gravity.CENTER);
+        sub.setPadding(0, dp(3), 0, dp(13));
+        hero.addView(sub);
 
         View divider = new View(this);
-        divider.setBackgroundColor(Color.rgb(31, 70, 88));
+        divider.setBackgroundColor(Color.rgb(31, 76, 98));
         LinearLayout.LayoutParams dividerLp = new LinearLayout.LayoutParams(-1, dp(1));
-        dividerLp.topMargin = dp(8);
-        dividerLp.bottomMargin = dp(8);
+        dividerLp.bottomMargin = dp(10);
         hero.addView(divider, dividerLp);
 
         LinearLayout readouts = row();
+        readouts.setGravity(Gravity.CENTER);
         statusView = text("SYSTEM STANDBY", 8, CYAN);
-        statusView.setLetterSpacing(0.08f);
-        readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1.1f));
-
-        clockView = text("--:--", 8, WHITE);
+        statusView.setLetterSpacing(0.1f);
+        readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1));
+        clockView = text("--:--", 9, WHITE);
         clockView.setGravity(Gravity.CENTER);
-        readouts.addView(clockView, new LinearLayout.LayoutParams(0, -2, 0.8f));
-
+        readouts.addView(clockView, new LinearLayout.LayoutParams(0, -2, 0.7f));
         connectionView = text("AI LINK READY", 7, MUTED);
         connectionView.setGravity(Gravity.RIGHT);
-        connectionView.setLetterSpacing(0.04f);
-        readouts.addView(connectionView, new LinearLayout.LayoutParams(0, -2, 1.1f));
+        readouts.addView(connectionView, new LinearLayout.LayoutParams(0, -2, 1));
         hero.addView(readouts);
 
+        TextView scrollHint = text("⌄   SCROLL TO EXPLORE FEATURES   ⌄", 8, MUTED);
+        scrollHint.setGravity(Gravity.CENTER);
+        scrollHint.setLetterSpacing(0.12f);
+        scrollHint.setPadding(0, dp(18), 0, dp(2));
+        hero.addView(scrollHint);
         root.addView(hero, new LinearLayout.LayoutParams(-1, -2));
     }
 
@@ -610,7 +595,7 @@ public class MainActivity extends Activity {
         systemPanel = column();
         systemPanel.setPadding(dp(11), dp(9), dp(11), dp(9));
         systemPanel.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(37, 82, 101), 5));
-        systemPanel.setVisibility(View.GONE);
+        systemPanel.setVisibility(View.VISIBLE);
 
         TextView title = text("LOCAL SYSTEM PANEL", 8, CYAN);
         title.setLetterSpacing(0.16f);
@@ -662,6 +647,18 @@ public class MainActivity extends Activity {
         rowFive.addView(speechRateButton, speedLp);
         addControl(rowFive, "VOLUME +", () -> adjustMediaVolume(true));
         systemPanel.addView(rowFive);
+
+        LinearLayout rowSix = row();
+        addControl(rowSix, "CALL / DIAL", () -> openPhoneDialer());
+        addControl(rowSix, "OPEN FILES", () -> openDocumentPicker());
+        addControl(rowSix, "CHOOSE FOLDER", () -> openFolderPicker());
+        systemPanel.addView(rowSix);
+
+        LinearLayout rowSeven = row();
+        addControl(rowSeven, "BROWSE FOLDER", () -> browseSavedFolder());
+        addControl(rowSeven, "OPEN WPS", () -> launchWpsOffice());
+        addControl(rowSeven, "PERMISSIONS", () -> showPermissionCenter());
+        systemPanel.addView(rowSeven);
 
         LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(-1, -2);
         panelLp.topMargin = dp(4);
@@ -907,6 +904,26 @@ public class MainActivity extends Activity {
     private String handleLocalCommand(String input) {
         String value = input.toLowerCase(Locale.ROOT).trim();
 
+        if (value.equals("call") || value.equals("phone") || value.equals("dial")) {
+            openPhoneDialer();
+            return "";
+        }
+        if (value.equals("open files") || value.equals("browse files") || value.equals("choose files")) {
+            openDocumentPicker();
+            return "";
+        }
+        if (value.equals("choose folder") || value.equals("select folder")) {
+            openFolderPicker();
+            return "";
+        }
+        if (value.equals("browse folder") || value.equals("show folder")) {
+            browseSavedFolder();
+            return "";
+        }
+        if (value.equals("permissions") || value.equals("app permissions")) {
+            showPermissionCenter();
+            return "";
+        }
         String memoryCommand = handleMemoryCommand(input);
         if (memoryCommand != null) return memoryCommand;
 
@@ -1286,7 +1303,8 @@ public class MainActivity extends Activity {
                 || value.contains(" kholo") || value.contains(" khol do")
                 || value.contains(" खोल") || value.contains("chalao") || value.contains("chala do");
         if (!launchRequested) return null;
-
+        if (value.contains("wps") || value.contains("office") || value.contains("डब्ल्यूपीएस"))
+            return launchWpsOffice();
         if (value.contains("whatsapp") || value.contains("व्हाट्सएप"))
             return launchInstalledApp("WhatsApp", "com.whatsapp");
         if (value.contains("youtube") || value.contains("यूट्यूब"))
@@ -1361,15 +1379,37 @@ public class MainActivity extends Activity {
         if (!spokenReplies || tts == null || message == null || message.trim().isEmpty()) return;
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { resumeClapWake(); return; }
-        // Keep the explicitly selected Android TTS voice. Do not reset the voice per reply.
+        boolean hindi = languageMode == 2 || (languageMode == 0 && containsDevanagari(speechText));
+        String requestedLocale = hindi ? "hi-IN" : "en-IN";
+        Voice voice = findFemaleVoiceForLanguage(requestedLocale);
+        if (voice == null) {
+            setStatus(hindi ? "HINDI FEMALE VOICE NOT INSTALLED" : "ENGLISH FEMALE VOICE NOT INSTALLED");
+            return;
+        }
         try {
+            if (tts.setVoice(voice) != TextToSpeech.SUCCESS) {
+                setStatus("FEMALE VOICE COULD NOT BE SELECTED");
+                return;
+            }
+            selectedVoiceName = voice.getName();
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putString("tts_voice_name", selectedVoiceName).apply();
+            updateVoiceSelectButton();
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "jarvis-" + System.currentTimeMillis());
             if (result == TextToSpeech.ERROR) setStatus("VOICE OUTPUT ERROR");
             else setStatus("SPEAKING");
-        } catch (Exception error) {
-            setStatus("VOICE OUTPUT UNAVAILABLE");
+        } catch (Exception error) { setStatus("VOICE OUTPUT UNAVAILABLE"); }
+    }
+
+    private boolean containsDevanagari(String value) {
+        if (value == null) return false;
+        for (int offset = 0; offset < value.length();) {
+            int cp = value.codePointAt(offset);
+            if (cp >= 0x0900 && cp <= 0x097F) return true;
+            offset += Character.charCount(cp);
         }
+        return false;
     }
 
     private void stopSpeech() {
@@ -1386,39 +1426,32 @@ public class MainActivity extends Activity {
     private int femaleVoicePriority(Voice voice) {
         if (voice == null) return 0;
         String name = voice.getName().toLowerCase(Locale.ROOT);
-        int score = 0;
-        if (name.contains("female") || name.contains("woman") || name.contains("feminine")) {
-            score = 100;
-        } else {
-            String[] knownFemaleNames = {
-                    "samantha", "zira", "jenny", "aria", "susan", "karen", "victoria",
-                    "serena", "salli", "joanna", "ivy", "kendra", "kimberly",
-                    "tessa", "moira", "fiona", "heera", "priya"
-            };
-            for (String marker : knownFemaleNames) {
-                if (name.contains(marker)) {
-                    score = 80;
-                    break;
-                }
-            }
-        }
-        if (score > 0) {
-            String locale = voice.getLocale().toLanguageTag().toLowerCase(Locale.ROOT);
-            if (locale.startsWith("en-in")) score += 12;
-            else if (locale.startsWith("hi-in")) score += 10;
-        }
-        return score;
+        if (name.contains("female") || name.contains("woman") || name.contains("feminine")) return 120;
+        String[] knownFemaleNames = {
+                "samantha", "zira", "jenny", "aria", "susan", "karen", "victoria",
+                "serena", "salli", "joanna", "ivy", "kendra", "kimberly", "tessa",
+                "moira", "fiona", "heera", "priya", "aditi", "veena", "neerja",
+                "lekha", "meera", "riya", "nisha", "ananya", "kavya", "sangeeta",
+                "sara", "sonia"
+        };
+        for (String marker : knownFemaleNames) if (name.contains(marker)) return 100;
+        return 0;
     }
 
-    private Voice findPreferredFemaleVoice() {
+    private Voice findFemaleVoiceForLanguage(String requestedLocale) {
+        if (requestedLocale == null || availableVoices.isEmpty()) return null;
+        String language = requestedLocale.toLowerCase(Locale.ROOT).startsWith("hi") ? "hi" : "en";
         Voice best = null;
-        int bestScore = 0;
+        int bestScore = -1;
         for (Voice voice : availableVoices) {
+            if (femaleVoicePriority(voice) == 0) continue;
+            Locale locale = voice.getLocale();
+            if (locale == null || !language.equalsIgnoreCase(locale.getLanguage())) continue;
             int score = femaleVoicePriority(voice);
-            if (score > bestScore) {
-                best = voice;
-                bestScore = score;
-            }
+            if ("IN".equalsIgnoreCase(locale.getCountry())) score += 20;
+            if (!voice.isNetworkConnectionRequired()) score += 2;
+            if (voice.getName().equals(selectedVoiceName)) score += 1;
+            if (score > bestScore) { best = voice; bestScore = score; }
         }
         return best;
     }
@@ -1426,54 +1459,37 @@ public class MainActivity extends Activity {
     private void initializeVoiceSelection() {
         availableVoices.clear();
         if (tts == null) return;
-
         Set<Voice> voices = tts.getVoices();
         if (voices != null) {
-            availableVoices.addAll(voices);
-            Collections.sort(availableVoices, (a, b) -> {
-                int byPersona = Integer.compare(femaleVoicePriority(b), femaleVoicePriority(a));
-                if (byPersona != 0) return byPersona;
-                return (a.getLocale().toLanguageTag() + " " + a.getName())
-                        .compareToIgnoreCase(b.getLocale().toLanguageTag() + " " + b.getName());
-            });
+            for (Voice voice : voices) if (femaleVoicePriority(voice) > 0) availableVoices.add(voice);
+            Collections.sort(availableVoices, (a, b) ->
+                    (a.getLocale().toLanguageTag() + " " + a.getName())
+                            .compareToIgnoreCase(b.getLocale().toLanguageTag() + " " + b.getName()));
         }
-
         SharedPreferences preferences = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
         String savedName = preferences.getString("tts_voice_name", "");
         Voice savedVoice = null;
-        for (Voice voice : availableVoices) {
-            if (savedName.equals(voice.getName())) {
-                savedVoice = voice;
-                break;
-            }
-        }
-
-        Voice preferredFemale = findPreferredFemaleVoice();
-        Voice selected = savedVoice;
-
-        // Honour a saved voice when it already matches the requested persona.
-        // Otherwise prefer an explicitly female-labelled voice when the TTS engine exposes one.
-        if (preferredFemale != null
-                && (savedVoice == null || femaleVoicePriority(savedVoice) == 0)) {
-            selected = preferredFemale;
-        }
-
+        for (Voice voice : availableVoices) if (savedName.equals(voice.getName())) { savedVoice = voice; break; }
+        Voice english = findFemaleVoiceForLanguage("en-IN");
+        Voice hindi = findFemaleVoiceForLanguage("hi-IN");
+        Voice selected = savedVoice != null ? savedVoice : (english != null ? english : hindi);
         if (selected != null && tts.setVoice(selected) == TextToSpeech.SUCCESS) {
             selectedVoiceName = selected.getName();
             preferences.edit().putString("tts_voice_name", selectedVoiceName).apply();
         } else {
-            Voice systemVoice = tts.getVoice();
-            if (systemVoice == null) {
-                tts.setLanguage(new Locale("en", "IN"));
-                systemVoice = tts.getVoice();
-            }
-            selectedVoiceName = systemVoice == null ? "SYSTEM DEFAULT" : systemVoice.getName();
+            selectedVoiceName = "";
+            spokenReplies = false;
+        }
+        if (availableVoices.isEmpty()) spokenReplies = false;
+        if (voiceButton != null) {
+            voiceButton.setText(spokenReplies ? "◖" : "◗");
+            voiceButton.setTextColor(spokenReplies ? CYAN : MUTED);
         }
         updateVoiceSelectButton();
     }
 
     private String voiceDisplayName() {
-        if (selectedVoiceName == null || selectedVoiceName.trim().isEmpty()) return "SYSTEM DEFAULT";
+        if (selectedVoiceName == null || selectedVoiceName.trim().isEmpty()) return "FEMALE VOICE MISSING";
         String name = selectedVoiceName;
         int hash = name.indexOf('#');
         if (hash > 0) name = name.substring(0, hash);
@@ -1482,14 +1498,13 @@ public class MainActivity extends Activity {
     }
 
     private void updateVoiceSelectButton() {
-        if (voiceSelectButton != null) {
-            voiceSelectButton.setText("VOICE: " + voiceDisplayName().toUpperCase(Locale.ROOT));
-        }
+        if (voiceSelectButton != null)
+            voiceSelectButton.setText("FEMALE ONLY: " + voiceDisplayName().toUpperCase(Locale.ROOT));
     }
 
     private void showVoicePicker() {
         if (tts == null || availableVoices.isEmpty()) {
-            reply("No selectable Android text-to-speech voices are available. Check your device's text-to-speech settings.");
+            reply("No identifiable female text-to-speech voice is installed. I will keep spoken replies off rather than use a male or unidentified voice. Install female English and Hindi voice data in your Android text-to-speech engine, then reopen JARVIS.");
             return;
         }
         String[] labels = new String[availableVoices.size()];
@@ -1500,8 +1515,7 @@ public class MainActivity extends Activity {
                     + (voice.isNetworkConnectionRequired() ? "  ·  ONLINE" : "  ·  DEVICE");
             if (voice.getName().equals(selectedVoiceName)) selectedIndex = i;
         }
-        new AlertDialog.Builder(this)
-                .setTitle("SELECT JARVIS VOICE")
+        new AlertDialog.Builder(this).setTitle("FEMALE VOICES ONLY")
                 .setSingleChoiceItems(labels, selectedIndex, (dialog, which) -> {
                     Voice voice = availableVoices.get(which);
                     if (tts.setVoice(voice) == TextToSpeech.SUCCESS) {
@@ -1511,12 +1525,8 @@ public class MainActivity extends Activity {
                         updateVoiceSelectButton();
                         dialog.dismiss();
                         speak("Voice profile selected. This is how I will speak from now on.");
-                    } else {
-                        reply("That voice could not be selected by the Android speech engine.");
-                    }
-                })
-                .setNegativeButton("CANCEL", null)
-                .show();
+                    } else reply("That female voice could not be selected by the Android speech engine.");
+                }).setNegativeButton("CANCEL", null).show();
     }
 
     private String cleanSpeechText(String source) {
@@ -1683,13 +1693,20 @@ public class MainActivity extends Activity {
     }
 
     private void toggleVoice() {
-        spokenReplies = !spokenReplies;
-        if (!spokenReplies && tts != null) tts.stop();
-        if (voiceButton != null) {
-            voiceButton.setText(spokenReplies ? "◖" : "◗");
-            voiceButton.setTextColor(spokenReplies ? CYAN : MUTED);
+        if (spokenReplies) {
+            spokenReplies = false;
+            if (tts != null) tts.stop();
+            if (voiceButton != null) { voiceButton.setText("◗"); voiceButton.setTextColor(MUTED); }
+            setStatus("SPOKEN REPLIES OFF");
+            return;
         }
-        reply(spokenReplies ? "Spoken replies enabled." : "Spoken replies disabled.");
+        if (availableVoices.isEmpty()) {
+            reply("Female voice profiles are not available on this device. I will not switch to a male voice. Install female English and Hindi voice data in Android text-to-speech settings.");
+            return;
+        }
+        spokenReplies = true;
+        if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(CYAN); }
+        reply("Female spoken replies enabled.");
     }
 
     private void toggleLanguage() {
@@ -1824,7 +1841,206 @@ public class MainActivity extends Activity {
     }
 
 
+    private void openPhoneDialer() {
+        try { startActivity(new Intent(Intent.ACTION_DIAL)); setStatus("PHONE DIALER READY"); }
+        catch (Exception error) { reply("I could not open the phone dialer on this device."); }
+    }
+
+    private void requestCorePermissions() {
+        ArrayList<String> missing = new ArrayList<>();
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.RECORD_AUDIO);
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.CAMERA);
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) missing.add(Manifest.permission.READ_CONTACTS);
+        if (missing.isEmpty()) {
+            reply("Microphone, camera and contacts permissions are already granted. Documents and folders are accessed separately through Android's file picker.");
+            return;
+        }
+        requestPermissions(missing.toArray(new String[0]), PERMISSION_CORE);
+    }
+
+    private void showPermissionCenter() {
+        boolean microphone = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        boolean cameraPermission = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        boolean contacts = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
+        String folder = getSharedPreferences("jarvis_settings", MODE_PRIVATE).getString("document_tree_uri", "");
+        String message = "MICROPHONE: " + (microphone ? "GRANTED" : "NOT GRANTED")
+                + "\nCAMERA / FLASHLIGHT: " + (cameraPermission ? "GRANTED" : "NOT GRANTED")
+                + "\nCONTACTS: " + (contacts ? "GRANTED" : "NOT GRANTED")
+                + "\nDOCUMENTS: selected files only"
+                + "\nFOLDER ACCESS: " + (folder.isEmpty() ? "NOT SELECTED" : "USER-SELECTED FOLDER")
+                + "\n\nCalls open the dialer for your confirmation. Android does not allow JARVIS to silently grant protected permissions or read another app's private files.";
+        new AlertDialog.Builder(this).setTitle("JARVIS PERMISSION CENTER").setMessage(message)
+                .setPositiveButton("GRANT CORE", (dialog, which) -> requestCorePermissions())
+                .setNeutralButton("ANDROID APP SETTINGS", (dialog, which) -> {
+                    try { startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", getPackageName(), null))); }
+                    catch (Exception error) { reply("I could not open Android app settings."); }
+                }).setNegativeButton("CLOSE", null).show();
+    }
+
+    private void openDocumentPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_OPEN_DOCUMENTS);
+        } catch (Exception error) { reply("The Android document picker is unavailable on this device."); }
+    }
+
+    private void openFolderPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_OPEN_FOLDER);
+        } catch (Exception error) { reply("The Android folder picker is unavailable on this device."); }
+    }
+
+    private void persistReadPermission(Uri uri, int flags) {
+        if (uri == null) return;
+        int granted = flags & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        if ((granted & Intent.FLAG_GRANT_READ_URI_PERMISSION) == 0) granted |= Intent.FLAG_GRANT_READ_URI_PERMISSION;
+        try { getContentResolver().takePersistableUriPermission(uri, granted); }
+        catch (SecurityException | IllegalArgumentException ignored) { }
+    }
+
+    private String getDocumentName(Uri uri) {
+        if (uri == null) return "Unknown document";
+        Cursor cursor = null;
+        try {
+            cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null);
+            if (cursor != null && cursor.moveToFirst()) {
+                String name = cursor.getString(0);
+                if (name != null && !name.trim().isEmpty()) return name;
+            }
+        } catch (Exception ignored) {
+        } finally { if (cursor != null) cursor.close(); }
+        String last = uri.getLastPathSegment();
+        return last == null ? "Selected document" : last;
+    }
+
+    private void showSelectedDocuments() {
+        if (selectedDocumentUris.isEmpty()) {
+            reply("No documents have been selected in this session. Use Open Files to choose documents from your phone or a connected provider.");
+            return;
+        }
+        String[] labels = new String[selectedDocumentUris.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = getDocumentName(selectedDocumentUris.get(i));
+        new AlertDialog.Builder(this).setTitle("SELECTED DOCUMENTS")
+                .setItems(labels, (dialog, which) -> openDocumentWithWps(selectedDocumentUris.get(which)))
+                .setNegativeButton("CLOSE", null).show();
+    }
+
+    private void openDocumentWithWps(Uri uri) {
+        if (uri == null) return;
+        try {
+            String mime = getContentResolver().getType(uri);
+            if (mime == null || mime.trim().isEmpty()) mime = "*/*";
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            view.setDataAndType(uri, mime);
+            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(view, "Open document with"));
+        } catch (Exception error) {
+            reply("No compatible app could open " + getDocumentName(uri) + ". Check that WPS Office or another document viewer is installed.");
+        }
+    }
+
+    private void browseSavedFolder() {
+        String saved = getSharedPreferences("jarvis_settings", MODE_PRIVATE).getString("document_tree_uri", "");
+        if (saved.isEmpty()) {
+            reply("No folder has been selected yet. Choose Folder first, then I can browse the files Android shares with JARVIS.");
+            return;
+        }
+        try {
+            Uri treeUri = Uri.parse(saved);
+            showFolderContents(treeUri, DocumentsContract.getTreeDocumentId(treeUri), "Selected folder");
+        } catch (Exception error) { reply("I could not reopen that folder. Choose it again in the Android folder picker."); }
+    }
+
+    private void showFolderContents(Uri treeUri, String documentId, String title) {
+        Cursor cursor = null;
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> ids = new ArrayList<>();
+        ArrayList<Boolean> directories = new ArrayList<>();
+        try {
+            Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId);
+            cursor = getContentResolver().query(children, new String[]{
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE
+            }, null, null, DocumentsContract.Document.COLUMN_DISPLAY_NAME + " ASC");
+            if (cursor != null) {
+                while (cursor.moveToNext() && names.size() < 100) {
+                    String id = cursor.getString(0);
+                    String name = cursor.getString(1);
+                    boolean directory = DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(2));
+                    ids.add(id);
+                    names.add((directory ? "▸  " : "   ") + (name == null ? "Unnamed" : name));
+                    directories.add(directory);
+                }
+            }
+        } catch (SecurityException error) {
+            reply("Android no longer grants access to that folder. Choose it again.");
+            return;
+        } catch (Exception error) {
+            reply("This folder provider does not support browsing.");
+            return;
+        } finally { if (cursor != null) cursor.close(); }
+
+        if (names.isEmpty()) { reply("That folder is empty, or its provider does not expose a file list."); return; }
+        String[] labels = names.toArray(new String[0]);
+        new AlertDialog.Builder(this).setTitle(title.length() > 42 ? title.substring(0, 42) : title)
+                .setItems(labels, (dialog, which) -> {
+                    String childId = ids.get(which);
+                    if (directories.get(which)) showFolderContents(treeUri, childId, names.get(which).replace("▸  ", ""));
+                    else openDocumentWithWps(DocumentsContract.buildDocumentUriUsingTree(treeUri, childId));
+                }).setNegativeButton("CLOSE", null).show();
+    }
+
+    private String launchWpsOffice() {
+        String[] packages = new String[]{"cn.wps.moffice_eng", "cn.wps.moffice", "cn.wps.moffice_i18n"};
+        for (String packageName : packages) {
+            try {
+                Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
+                if (launch != null) { startActivity(launch); return "Opening WPS Office."; }
+            } catch (Exception ignored) { }
+        }
+        return "WPS Office was not found. Install it, or choose a document and use Open with to select WPS if it is available.";
+    }
+
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null) return;
+        if (requestCode == REQUEST_OPEN_DOCUMENTS) {
+            selectedDocumentUris.clear();
+            ClipData clip = data.getClipData();
+            if (clip != null) {
+                for (int i = 0; i < clip.getItemCount(); i++) {
+                    Uri uri = clip.getItemAt(i).getUri();
+                    if (uri != null) { persistReadPermission(uri, data.getFlags()); selectedDocumentUris.add(uri); }
+                }
+            } else if (data.getData() != null) {
+                persistReadPermission(data.getData(), data.getFlags());
+                selectedDocumentUris.add(data.getData());
+            }
+            if (selectedDocumentUris.isEmpty()) reply("No document was selected.");
+            else {
+                reply("Selected " + selectedDocumentUris.size() + " document(s). I can hand them to WPS Office or another compatible viewer.");
+                showSelectedDocuments();
+            }
+        } else if (requestCode == REQUEST_OPEN_FOLDER && data.getData() != null) {
+            Uri treeUri = data.getData();
+            persistReadPermission(treeUri, data.getFlags());
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putString("document_tree_uri", treeUri.toString()).apply();
+            reply("Folder access saved. JARVIS can browse the files and subfolders Android has shared from that location.");
+            browseSavedFolder();
+        }
+    }
+
+        @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_AUDIO) {
@@ -1847,6 +2063,14 @@ public class MainActivity extends Activity {
                 clapWakeEnabled = false;
                 setStatus("MICROPHONE PERMISSION REQUIRED FOR CLAP WAKE");
             }
+        } else if (requestCode == PERMISSION_CORE) {
+            boolean audio = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+            boolean cameraGranted = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+            boolean contactsGranted = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
+            reply("Permission status: microphone " + (audio ? "granted" : "not granted")
+                    + ", camera " + (cameraGranted ? "granted" : "not granted")
+                    + ", contacts " + (contactsGranted ? "granted" : "not granted")
+                    + ". Document access is granted separately when you choose files or folders.");
         } else if (requestCode == PERMISSION_CONTACTS) {
             String requested = pendingCallContact;
             pendingCallContact = null;
