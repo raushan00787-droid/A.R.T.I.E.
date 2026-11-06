@@ -970,6 +970,7 @@ public class MainActivity extends FragmentActivity {
                             JarvisBackupManager.restoreBackup(backup,
                                     getSharedPreferences("jarvis_settings", MODE_PRIVATE));
                             JarvisReminderScheduler.rescheduleAll(this);
+                            JarvisTodoStore.ensureNextId(this);
                             loadUserSettings();
                             loadConversation();
                             if (tts != null) tts.setSpeechRate(speechRate);
