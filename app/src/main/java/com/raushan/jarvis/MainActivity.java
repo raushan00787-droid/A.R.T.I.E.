@@ -472,17 +472,6 @@ public class MainActivity extends Activity {
         }
         root.addView(main, new LinearLayout.LayoutParams(-1, -2));
 
-        TextView quickTitle = text("QUICK ACCESS", 9, MUTED);
-        quickTitle.setLetterSpacing(0.18f);
-        quickTitle.setPadding(0, dp(13), 0, dp(8));
-        right.addView(quickTitle);
-        LinearLayout quickRow = row();
-        quickRow.setGravity(Gravity.CENTER);
-        quickRow.addView(chip("CAPABILITIES", () -> sendMessage("What can you help me with?")));
-        View spacer = new View(this);
-        quickRow.addView(spacer, new LinearLayout.LayoutParams(dp(7), 1));
-        quickRow.addView(chip("BRAINSTORM", () -> sendMessage("Let's brainstorm an idea.")));
-        right.addView(quickRow);
     }
 
     private Typeface sansSerif() {
@@ -603,7 +592,6 @@ public class MainActivity extends Activity {
 
         LinearLayout rowThree = row();
         addControl(rowThree, "STOP SPEECH", () -> stopSpeech());
-        addControl(rowThree, "HELP", () -> sendMessage("Show me the available JARVIS commands."));
         addControl(rowThree, "CLEAR CHAT", () -> clearConversation());
         root.addView(rowThree);
 
