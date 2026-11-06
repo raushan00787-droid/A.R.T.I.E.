@@ -323,6 +323,10 @@ public class MainActivity extends Activity {
         clockView.setGravity(Gravity.CENTER);
         clockView.setPadding(0, dp(5), 0, 0);
         statusCard.addView(clockView);
+        connectionView = text("AI LINK READY", 8, MUTED);
+        connectionView.setGravity(Gravity.CENTER);
+        connectionView.setPadding(0, dp(5), 0, 0);
+        statusCard.addView(connectionView);
         LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(-1, -2);
         statusLp.topMargin = dp(8);
         right.addView(statusCard, statusLp);
