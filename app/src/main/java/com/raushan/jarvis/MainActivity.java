@@ -96,6 +96,8 @@ public class MainActivity extends FragmentActivity {
     private static final int REQUEST_OVERLAY_PERMISSION = 33;
     private static final int REQUEST_DEVICE_CREDENTIAL = 34;
     private static final int REQUEST_ASSISTANT_ROLE = 35;
+    private static final int REQUEST_EXPORT_BACKUP = 36;
+    private static final int REQUEST_IMPORT_BACKUP = 37;
     private static final int MAX_HISTORY_MESSAGES = 20;
     private static final int MAX_SAVED_MEMORIES = 20;
 
@@ -916,6 +918,85 @@ public class MainActivity extends FragmentActivity {
         chatScroll.post(() -> chatScroll.fullScroll(View.FOCUS_DOWN));
     }
 
+    private void confirmBackupExport() {
+        new AlertDialog.Builder(this)
+                .setTitle("CREATE JARVIS BACKUP")
+                .setMessage("The backup includes saved notes, recent conversation history, task history, and speech preferences. It does not include account credentials or Android permission grants. Save the file somewhere private.")
+                .setPositiveButton("CONTINUE", (dialog, which) -> startBackupExport())
+                .setNegativeButton("CANCEL", null)
+                .show();
+    }
+
+    private void startBackupExport() {
+        try {
+            String stamp = new SimpleDateFormat("yyyyMMdd-HHmm", Locale.getDefault()).format(new Date());
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.putExtra(Intent.EXTRA_TITLE, "JARVIS-Backup-" + stamp + ".json");
+            startActivityForResult(intent, REQUEST_EXPORT_BACKUP);
+        } catch (Exception error) {
+            reply("Android could not open a location for the backup file.");
+        }
+    }
+
+    private void startBackupImport() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_IMPORT_BACKUP);
+        } catch (Exception error) {
+            reply("Android could not open the backup file picker.");
+        }
+    }
+
+    private void confirmBackupRestore(JSONObject backup) {
+        try {
+            String preview = JarvisBackupManager.preview(backup);
+            new AlertDialog.Builder(this)
+                    .setTitle("RESTORE JARVIS BACKUP?")
+                    .setMessage(preview)
+                    .setPositiveButton("RESTORE", (dialog, which) -> {
+                        try {
+                            stopLiveMode();
+                            stopService(new Intent(this, JarvisOverlayService.class));
+                            JarvisBackupManager.restoreBackup(backup,
+                                    getSharedPreferences("jarvis_settings", MODE_PRIVATE));
+                            loadUserSettings();
+                            loadConversation();
+                            if (tts != null) tts.setSpeechRate(speechRate);
+                            refreshConversationUi();
+                            reply("JARVIS backup restored. Microphone and Floating Orb remain off until you enable them.");
+                        } catch (Exception error) {
+                            reply("The backup could not be restored. " + safeMessage(error));
+                        }
+                    })
+                    .setNegativeButton("CANCEL", null)
+                    .show();
+        } catch (Exception error) {
+            reply("The selected backup is not valid. " + safeMessage(error));
+        }
+    }
+
+    private void refreshConversationUi() {
+        if (chatList == null) return;
+        chatList.removeAllViews();
+        if (conversation.length() <= 1) {
+            addMessage("JARVIS", "Backup restored. JARVIS is ready.", false);
+            return;
+        }
+        for (int i = 1; i < conversation.length(); i++) {
+            JSONObject item = conversation.optJSONObject(i);
+            if (item == null) continue;
+            String role = item.optString("role", "");
+            String content = item.optString("content", "");
+            if ("user".equals(role)) addMessage("YOU", content, false);
+            else if ("assistant".equals(role)) addMessage("JARVIS", content, false);
+        }
+    }
+
     private void confirmClearTaskHistory() {
         new AlertDialog.Builder(this)
                 .setTitle("CLEAR TASK HISTORY")
@@ -1276,6 +1357,14 @@ public class MainActivity extends FragmentActivity {
         String messageCommand = handleMessageCommand(input);
         if (messageCommand != null) return messageCommand;
 
+        if (value.equals("backup jarvis") || value.equals("export jarvis backup")) {
+            confirmBackupExport();
+            return "";
+        }
+        if (value.equals("restore jarvis") || value.equals("import jarvis backup")) {
+            startBackupImport();
+            return "";
+        }
         if (value.equals("system diagnostics") || value.equals("run diagnostics")
                 || value.equals("device health") || value.equals("system health")
                 || value.equals("check jarvis status")) {
@@ -2641,6 +2730,33 @@ public class MainActivity extends FragmentActivity {
             RoleManager roles = Build.VERSION.SDK_INT >= 29 ? getSystemService(RoleManager.class) : null;
             boolean held = roles != null && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
             reply(held ? "JARVIS is now your Android default assistant, Sir." : "Android did not assign the default assistant role. You can try again from Controls.");
+            return;
+        }
+        if (requestCode == REQUEST_EXPORT_BACKUP) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                try {
+                    JarvisBackupManager.writeBackup(getContentResolver(), data.getData(),
+                            getSharedPreferences("jarvis_settings", MODE_PRIVATE));
+                    reply("JARVIS backup saved successfully. Keep the file somewhere private.");
+                } catch (Exception error) {
+                    reply("Backup export failed. " + safeMessage(error));
+                }
+            } else {
+                reply("Backup export cancelled.");
+            }
+            return;
+        }
+        if (requestCode == REQUEST_IMPORT_BACKUP) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                try {
+                    JSONObject backup = JarvisBackupManager.readBackup(getContentResolver(), data.getData());
+                    confirmBackupRestore(backup);
+                } catch (Exception error) {
+                    reply("I could not read that backup. " + safeMessage(error));
+                }
+            } else {
+                reply("Backup restore cancelled.");
+            }
             return;
         }
         if (resultCode != RESULT_OK || data == null) return;
