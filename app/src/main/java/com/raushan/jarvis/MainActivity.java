@@ -1697,7 +1697,10 @@ public class MainActivity extends FragmentActivity {
 
     private String handleMessageCommand(String input) {
         String raw = input == null ? "" : input.trim();
-        Matcher sms = Pattern.compile("(?i)^(?:sms|text|message)\\s+(.+?)\\s*:\\s*(.+)$").matcher(raw);
+        Matcher sms = Pattern.compile("(?i)^(?:sms|text|message)\\s+(?:to\\s+)?(.+?)\\s*:\\s*(.+)$").matcher(raw);
+        if (!sms.matches()) {
+            sms = Pattern.compile("(?i)^(?:sms|text|message)\\s+(?:to\\s+)?(.+?)\\s+(?:saying|that)\\s+(.+)$").matcher(raw);
+        }
         if (sms.matches()) {
             String target = sms.group(1).trim();
             String body = sms.group(2).trim();
@@ -1713,6 +1716,10 @@ public class MainActivity extends FragmentActivity {
         }
         Matcher whatsapp = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)\\s*:\\s*(.+)$").matcher(raw);
         if (whatsapp.matches()) return openWhatsAppShare(whatsapp.group(1).trim());
+        Matcher whatsappVoice = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)(?: message)?\\s+to\\s+(.+?)\\s+(?:saying|message)\\s+(.+)$").matcher(raw);
+        if (whatsappVoice.matches()) return openWhatsAppShare(whatsappVoice.group(2).trim());
+        Matcher whatsappSimple = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)\\s+(.+)$").matcher(raw);
+        if (whatsappSimple.matches()) return openWhatsAppShare(whatsappSimple.group(1).trim());
         return null;
     }
 
