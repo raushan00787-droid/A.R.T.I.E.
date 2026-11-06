@@ -1067,7 +1067,7 @@ public class MainActivity extends FragmentActivity {
         }
         if (showUserBubble) addMessage("YOU", message, false);
 
-        String local = handleLocalCommand(message);
+        String local = (showUserBubble || allowWebFetch) ? handleLocalCommand(message) : null;
         if (local != null) {
             if (!local.isEmpty()) reply(local);
             else { scheduleListeningRestart(650); resumeLiveModeAfterSpeech(); }
