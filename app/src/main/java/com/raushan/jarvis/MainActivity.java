@@ -266,7 +266,7 @@ public class MainActivity extends Activity {
         left.addView(eyebrow);
 
         TextView heading = text("At your service.", 27, WHITE);
-        heading.setTypeface(Typeface sansSerif(), Typeface.NORMAL);
+        heading.setTypeface(sansSerif(), Typeface.NORMAL);
         heading.setLetterSpacing(0.05f);
         LinearLayout.LayoutParams headingLp = new LinearLayout.LayoutParams(-1, -2);
         headingLp.topMargin = dp(7);
@@ -490,7 +490,6 @@ public class MainActivity extends Activity {
         if (reactorView != null) {
             reactorView.setMode(message.contains("LISTEN") ? 1 : message.contains("THINK") ? 2 : 0);
         }
-        if (connectionView != null) connectionView.setText(message);
     }
 
     private void addMessage(String role, String message, boolean error) {
@@ -533,7 +532,7 @@ public class MainActivity extends Activity {
 
         String local = handleLocalCommand(message);
         if (local != null) {
-            reply(local);
+            if (!local.isEmpty()) reply(local);
             return;
         }
 
@@ -653,14 +652,14 @@ public class MainActivity extends Activity {
         if (value.contains("flashlight") || value.contains("torch") || value.contains("टॉर्च")) {
             if (value.contains("off") || value.contains("band") || value.contains("bujhao")) {
                 if (torchOn) toggleTorch();
-                return "Flashlight off.";
+                return "";
             }
             if (value.contains("on") || value.contains("chalu") || value.contains("jalao")) {
                 if (!torchOn) toggleTorch();
-                return "Flashlight on.";
+                return "";
             }
             toggleTorch();
-            return torchOn ? "Flashlight on." : "Flashlight off.";
+            return "";
         }
 
         if (value.contains("battery") || value.contains("बैटरी")) {
