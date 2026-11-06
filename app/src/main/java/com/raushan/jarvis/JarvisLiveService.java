@@ -99,6 +99,7 @@ public class JarvisLiveService extends Service {
             userPaused = false;
             speakingHold = false;
             prefs().edit().putBoolean("live_mode_paused", false).apply();
+            if (sessionActive) scheduleSessionTimeout();
         } else if (intent == null) {
             userPaused = prefs().getBoolean("live_mode_paused", false);
             sessionActive = false;
