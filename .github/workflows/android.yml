@@ -1,4 +1,4 @@
-name: Build A.R.T.I.E. APK
+name: Build A.R.T.I.E. Chat-First APK
 on:
   push:
     branches: [ main, 'artie/**', 'rebrand/**' ]
@@ -22,9 +22,9 @@ jobs:
       - name: Rename APK for A.R.T.I.E.
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/ARTIE-v1.21.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/ARTIE-v1.22.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: ARTIE-v1.21-apk
-          path: dist/ARTIE-v1.21.apk
+          name: ARTIE-v1.22-apk
+          path: dist/ARTIE-v1.22.apk
           if-no-files-found: error
