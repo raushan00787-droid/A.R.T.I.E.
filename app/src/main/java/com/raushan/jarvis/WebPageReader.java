@@ -92,11 +92,11 @@ final class WebPageReader {
                 if (!(pdf || lowerType.contains("text/html")
                         || lowerType.contains("application/xhtml+xml")
                         || lowerType.startsWith("text/plain"))) {
-                    throw new Exception("This link is not a supported webpage or PDF document.");
+                    throw new Exception("This link is not a supported HTTPS webpage or PDF document.");
                 }
                 long declaredLength = connection.getContentLengthLong();
                 if (declaredLength > MAX_DOWNLOAD_BYTES) {
-                    throw new Exception("The webpage is larger than the 512 KB reading limit.");
+                    throw new Exception("The webpage or PDF is larger than the 5 MB download limit.");
                 }
 
                 byte[] bytes;
@@ -133,8 +133,8 @@ final class WebPageReader {
             throw new Exception("That link is not a valid URL.");
         }
         String scheme = uri.getScheme();
-        if (scheme == null || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
-            throw new Exception("Only HTTP and HTTPS webpage links are supported.");
+        if (scheme == null || !"https".equalsIgnoreCase(scheme)) {
+            throw new Exception("Only HTTPS webpage links are supported.");
         }
         return uri.toASCIIString();
     }
@@ -148,9 +148,8 @@ final class WebPageReader {
         }
         String scheme = uri.getScheme();
         String host = uri.getHost();
-        if (scheme == null || host == null
-                || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
-            throw new Exception("Only public HTTP and HTTPS webpages can be opened.");
+        if (scheme == null || host == null || !"https".equalsIgnoreCase(scheme)) {
+            throw new Exception("Only public HTTPS webpages can be opened.");
         }
         if (uri.getRawUserInfo() != null || uri.getPort() != -1
                 && !(("http".equalsIgnoreCase(scheme) && uri.getPort() == 80)
@@ -185,7 +184,7 @@ final class WebPageReader {
             if (text.isEmpty()) throw new Exception("No selectable text was found. Scanned-PDF OCR is not enabled.");
             boolean truncated = pages > 20 || text.length() > MAX_TEXT_CHARS;
             if (text.length() > MAX_TEXT_CHARS) text = text.substring(0, MAX_TEXT_CHARS);
-            if (truncated) text += "\\n\\n[PDF preview limited to 20 pages and 16,000 characters.]";
+            if (truncated) text += "\n\n[PDF preview limited to 20 pages and 16,000 characters.]";
             return text;
         }
     }
@@ -223,7 +222,7 @@ final class WebPageReader {
         int count;
         while ((count = input.read(buffer)) != -1) {
             if (output.size() + count > MAX_DOWNLOAD_BYTES) {
-                throw new Exception("The webpage exceeded the 512 KB download limit.");
+                throw new Exception("The webpage or PDF exceeded the 5 MB download limit.");
             }
             output.write(buffer, 0, count);
         }

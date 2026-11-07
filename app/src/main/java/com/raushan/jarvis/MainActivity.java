@@ -226,11 +226,10 @@ public class MainActivity extends FragmentActivity {
 
     @Override
     public void onCreate(Bundle state) {
+        super.onCreate(state);
         Intent initialIntent = getIntent();
         if (initialIntent != null && Intent.ACTION_VIEW.equals(initialIntent.getAction())
                 && initialIntent.getData() != null) pendingSharedUrl = initialIntent.getData().toString();
-
-        super.onCreate(state);
         Intent launchIntent = getIntent();
         assistantLaunchPending = launchIntent != null
                 && (launchIntent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)
