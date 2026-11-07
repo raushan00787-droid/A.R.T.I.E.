@@ -156,6 +156,19 @@ public final class NeuralCoreClient {
         return postResult(context, "/v1/experience", payload);
     }
 
+    /** Removes one exact owner-approved preference from the local Neural Core. */
+    public static JSONObject forgetPreference(Context context, String content) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("category", "preference");
+        payload.put("content", content == null ? "" : content);
+        return postResult(context, "/v1/memory/forget", payload);
+    }
+
+    /** Clears long-term Neural Core records after an explicit owner request. */
+    public static JSONObject clearNeuralMemory(Context context) throws Exception {
+        return postResult(context, "/v1/memory/clear", new JSONObject());
+    }
+
     private static JSONObject postResult(Context context, String path, JSONObject payload) throws Exception {
         String token = loadToken(context);
         if (token.isEmpty()) return null;
