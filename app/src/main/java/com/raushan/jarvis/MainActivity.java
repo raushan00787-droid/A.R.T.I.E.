@@ -244,46 +244,18 @@ public class MainActivity extends FragmentActivity {
         assistantLaunchPending = launchIntent != null
                 && (launchIntent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)
                 || Intent.ACTION_ASSIST.equals(launchIntent.getAction()));
-        pendingInboxOpen = launchIntent != null
-                && launchIntent.getBooleanExtra(EXTRA_OPEN_INBOX, false);
+        pendingInboxOpen = false;
         Window window = getWindow();
         window.setStatusBarColor(BG);
         window.setNavigationBarColor(BG);
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 
-        camera = (CameraManager) getSystemService(Context.CAMERA_SERVICE);
-        findFlashCamera();
         loadUserSettings();
+        floatingOrbEnabled = false;
+        liveModeEnabled = false;
+        liveModePaused = true;
         loadConversation();
         buildUI();
-        registerLiveReceiver();
-
-        tts = new TextToSpeech(this, result -> {
-            if (tts != null && result == TextToSpeech.SUCCESS) {
-                initializeVoiceSelection();
-                tts.setSpeechRate(speechRate);
-                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
-                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
-                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
-                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
-                });
-                if (welcomePending && ownerAuthenticated) {
-                    welcomePending = false;
-                    speak("Hey Raushan, welcome again.");
-                }
-            }
-        });
-
-        if (SpeechRecognizer.isRecognitionAvailable(this)) {
-            try {
-                recognizer = SpeechRecognizer.createSpeechRecognizer(this);
-                recognizer.setRecognitionListener(createRecognitionListener());
-            } catch (Exception error) {
-                recognizer = null;
-                setStatus("VOICE INPUT UNAVAILABLE");
-            }
-        }
 
         updateClock();
         handlerClock.runnable = new Runnable() {
@@ -468,9 +440,9 @@ public class MainActivity extends FragmentActivity {
         if (languageMode < 0 || languageMode > 2) languageMode = 0;
         speechRate = prefs.getFloat("speech_rate", 1.0f);
         if (speechRate < 0.7f || speechRate > 1.6f) speechRate = 1.0f;
-        floatingOrbEnabled = prefs.getBoolean("floating_orb_enabled", false);
-        liveModeEnabled = prefs.getBoolean("live_mode_enabled", false);
-        liveModePaused = prefs.getBoolean("live_mode_paused", false);
+        floatingOrbEnabled = false;
+        liveModeEnabled = false;
+        liveModePaused = true;
     }
 
     private JSONArray getSavedMemories() {
@@ -653,46 +625,29 @@ public class MainActivity extends FragmentActivity {
         sectionHost = column();
         root.addView(sectionHost, new LinearLayout.LayoutParams(-1, -2));
 
-        homeSection = column();
         chatSection = column();
-        inboxSection = column();
-        toolsSection = column();
         settingsSection = column();
-        sectionHost.addView(homeSection, new LinearLayout.LayoutParams(-1, -2));
         sectionHost.addView(chatSection, new LinearLayout.LayoutParams(-1, -2));
-        sectionHost.addView(inboxSection, new LinearLayout.LayoutParams(-1, -2));
-        sectionHost.addView(toolsSection, new LinearLayout.LayoutParams(-1, -2));
         sectionHost.addView(settingsSection, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout pageRoot = root;
-        root = homeSection;
-        buildMainArea();
-        addGap(root, 12);
-        buildHomeQuickAccess();
-
         root = chatSection;
         buildConversation();
         addGap(root, 10);
         buildComposer();
 
-        root = inboxSection;
-        buildInboxScreen();
-
-        root = toolsSection;
-        buildDeviceControls();
-
         root = settingsSection;
         buildSettingsScreen();
 
         root = pageRoot;
-        selectSection("HOME");
+        selectSection("CHAT");
     }
 
     private void buildNavigation() {
         LinearLayout nav = row();
         nav.setPadding(dp(4), dp(4), dp(4), dp(4));
         nav.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(33, 73, 94), 8));
-        String[] labels = new String[]{"HOME", "CHAT", "INBOX", "TOOLS", "SETTINGS"};
+        String[] labels = new String[]{"CHAT", "SETTINGS"};
         navigationTabs.clear();
         for (String label : labels) {
             TextView tab = text(label, 8, MUTED);
@@ -712,14 +667,8 @@ public class MainActivity extends FragmentActivity {
 
     private void selectSection(String section) {
         activeSection = section == null ? "HOME" : section;
-        View incoming = "HOME".equals(activeSection) ? homeSection
-                : "CHAT".equals(activeSection) ? chatSection
-                : "INBOX".equals(activeSection) ? inboxSection
-                : "TOOLS".equals(activeSection) ? toolsSection : settingsSection;
-        if (homeSection != null) homeSection.setVisibility(incoming == homeSection ? View.VISIBLE : View.GONE);
+        View incoming = "SETTINGS".equals(activeSection) ? settingsSection : chatSection;
         if (chatSection != null) chatSection.setVisibility(incoming == chatSection ? View.VISIBLE : View.GONE);
-        if (inboxSection != null) inboxSection.setVisibility(incoming == inboxSection ? View.VISIBLE : View.GONE);
-        if (toolsSection != null) toolsSection.setVisibility(incoming == toolsSection ? View.VISIBLE : View.GONE);
         if (settingsSection != null) settingsSection.setVisibility(incoming == settingsSection ? View.VISIBLE : View.GONE);
         if (incoming != null) animateSectionIn(incoming);
         for (TextView tab : navigationTabs) {
@@ -729,8 +678,7 @@ public class MainActivity extends FragmentActivity {
                     selected ? Color.rgb(44, 118, 145) : Color.TRANSPARENT, 5));
             tab.animate().alpha(selected ? 1f : .72f).setDuration(160).start();
         }
-        refreshNavigationBadges();
-        if ("INBOX".equals(activeSection)) renderInbox();
+        // Chat-first edition has no Inbox workspace.
     }
 
     private void animateSectionIn(View view) {
@@ -937,48 +885,28 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void buildSettingsScreen() {
-        LinearLayout card = column();
-        card.setPadding(dp(15), dp(14), dp(15), dp(14));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
-        TextView title = text("VOICE & ASSISTANT", 10, CYAN);
-        title.setLetterSpacing(0.14f);
-        card.addView(title);
-        TextView description = text("A.R.T.I.E. prefers an installed Hindi voice marked as female by the active TTS engine. If no such marker is available, choose a Hindi voice in Android settings.", 11, MUTED);
-        description.setPadding(0, dp(7), 0, dp(12));
-        card.addView(description);
-        LinearLayout voiceRow = row();
-        voiceRow.addView(chip("ANDROID VOICE SETTINGS", () -> openSystemTtsSettings()), new LinearLayout.LayoutParams(0, -2, 1));
-        voiceRow.addView(chip("TEST HINDI VOICE", () -> speak("नमस्ते सर। मैं A.R.T.I.E. हूँ और आपकी सहायता के लिए तैयार हूँ।")), new LinearLayout.LayoutParams(0, -2, 1));
-        card.addView(voiceRow);
-        addGap(card, 8);
-        card.addView(chip("CHANGE SPEECH LANGUAGE  ·  " + languageLabel(), () -> toggleLanguage()));
-        addGap(card, 8);
-        card.addView(chip("DEFAULT ASSISTANT SETUP", () -> requestAssistantRole()));
-        addGap(card, 8);
-        card.addView(chip("PERMISSION CENTRE", () -> showPermissionCenter()));
-        addGap(card, 8);
-        card.addView(chip("NOTIFICATION PERMISSION", () -> requestNotificationPermission()));
-        root.addView(card, new LinearLayout.LayoutParams(-1, -2));
-
-        addGap(root, 12);
         LinearLayout neural = column();
-        neural.setPadding(dp(15), dp(13), dp(15), dp(13));
+        neural.setPadding(dp(15), dp(15), dp(15), dp(15));
         neural.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
-        TextView neuralTitle = text("LOCAL NEURAL CORE", 10, CYAN);
+
+        TextView neuralTitle = text("A.R.T.I.E. COGNITIVE CORE", 11, CYAN);
         neuralTitle.setLetterSpacing(0.13f);
         neural.addView(neuralTitle);
+
         TextView neuralDescription = text(
-                "Connect the Python brain running in Termux on this tablet. It supplies local context and remembered experiences; Cloud AI remains the natural-language reply engine.",
+                "The Cognitive Core is the default intelligence path. This build sends chat only to the paired Neural Core on this device. Cloud AI is disabled and there is no automatic cloud fallback. The current core provides context, reasoning and memory; a local language model is still needed for full natural-language replies.",
                 11, MUTED);
-        neuralDescription.setPadding(0, dp(7), 0, dp(10));
+        neuralDescription.setPadding(0, dp(8), 0, dp(12));
         neural.addView(neuralDescription);
+
         neuralCoreStatusView = text(
                 NeuralCoreClient.hasSavedToken(this)
-                        ? "PAIRING SAVED • START THE TERMUX BRIDGE TO CONNECT"
-                        : "NOT PAIRED • START THE TERMUX BRIDGE FIRST",
+                        ? "PAIRING SAVED • VERIFY CORE ONLINE"
+                        : "NOT PAIRED • PAIR COGNITIVE CORE",
                 10, GOLD);
         neural.addView(neuralCoreStatusView);
-        addGap(neural, 9);
+        addGap(neural, 10);
+
         LinearLayout neuralActions = row();
         neuralActions.addView(chip("PAIR / TEST", () -> showNeuralCorePairingDialog()),
                 new LinearLayout.LayoutParams(0, -2, 1));
@@ -991,10 +919,12 @@ public class MainActivity extends FragmentActivity {
         LinearLayout privacy = column();
         privacy.setPadding(dp(15), dp(13), dp(15), dp(13));
         privacy.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
-        TextView privacyTitle = text("PRIVACY & CONTROL", 10, GOLD);
+        TextView privacyTitle = text("TEXT-ONLY / PRIVACY", 10, GOLD);
         privacyTitle.setLetterSpacing(0.13f);
         privacy.addView(privacyTitle);
-        TextView privacyText = text("SMS and WhatsApp open drafts for your review. Reminders and A.R.T.I.E. alerts are stored locally on this device. Protected Android permissions and other apps' private data remain under your control.", 11, MUTED);
+        TextView privacyText = text(
+                "Voice, device tools, Inbox and messaging actions are hidden in this rebuild. Chat history and approved notes remain in app storage. Neural Core requests go only to 127.0.0.1:8767 when paired.",
+                11, MUTED);
         privacyText.setPadding(0, dp(7), 0, 0);
         privacy.addView(privacyText);
         root.addView(privacy, new LinearLayout.LayoutParams(-1, -2));
@@ -1004,15 +934,15 @@ public class MainActivity extends FragmentActivity {
         if (neuralCoreStatusView == null) return;
         neuralCoreStatusView.setText(
                 NeuralCoreClient.hasSavedToken(this)
-                        ? "PAIRING SAVED • BRIDGE MUST BE RUNNING IN TERMUX"
-                        : "NOT PAIRED • CLOUD AI WILL CONTINUE TO WORK");
+                        ? "PAIRING SAVED • VERIFY CORE ONLINE"
+                        : "NOT PAIRED • CLOUD AI REMAINS DISABLED");
     }
 
     private void showNeuralCorePairingDialog() {
         LinearLayout content = column();
         content.setPadding(dp(4), dp(4), dp(4), dp(4));
         TextView instructions = text(
-                "1. Start run_bridge.py in Termux.\n2. Copy the API token printed in Termux.\n3. Paste it below. The token is encrypted with Android Keystore and is never sent to the Cloud AI service.",
+                "1. Start the Cognitive Core bridge.\n2. Copy the API token printed in its terminal.\n3. Paste it below. The token is encrypted with Android Keystore; pairing and chat requests stay on this device.",
                 12, MUTED);
         content.addView(instructions);
         addGap(content, 10);
@@ -1073,7 +1003,7 @@ public class MainActivity extends FragmentActivity {
                         setStatus("NEURAL CORE ONLINE");
                         if (connectionView != null) connectionView.setText("NEURAL CORE ONLINE");
                         if (!useSavedToken && dialog.isShowing()) dialog.dismiss();
-                        reply("Neural Core is connected. Its local context will now accompany AI requests.");
+                        reply("Cognitive Core connected. Local context and memory are available. Cloud AI is disabled; a local language model is still needed for full conversational replies.", false);
                     });
                 } catch (Exception error) {
                     runOnUiThread(() -> {
@@ -1095,8 +1025,8 @@ public class MainActivity extends FragmentActivity {
     private void disconnectNeuralCore() {
         NeuralCoreClient.clearToken(this);
         refreshNeuralCoreStatus();
-        if (connectionView != null) connectionView.setText("AI LINK READY");
-        setStatus("NEURAL CORE DISCONNECTED");
+        if (connectionView != null) connectionView.setText("CORE NOT PAIRED");
+        setStatus("COGNITIVE CORE DISCONNECTED");
     }
 
     private void buildVoiceOrbPanel() {
@@ -1169,7 +1099,7 @@ public class MainActivity extends FragmentActivity {
         brand.setLetterSpacing(0.12f);
         identity.addView(brand);
 
-        TextView sub = text("FEMALE AI  /  EXECUTIVE ASSISTANT", 8, MUTED);
+        TextView sub = text("FEMALE AI  /  TEXT CONVERSATION", 8, MUTED);
         sub.setLetterSpacing(0.14f);
         identity.addView(sub);
 
@@ -1271,9 +1201,17 @@ public class MainActivity extends FragmentActivity {
         card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 6));
 
         LinearLayout header = row();
-        TextView title = text("LIVE CONVERSATION", 8, CYAN);
+        TextView title = text("COGNITIVE CORE CHAT", 8, CYAN);
         title.setLetterSpacing(0.16f);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+
+        connectionView = text(NeuralCoreClient.hasSavedToken(this)
+                ? "CORE PAIRED" : "CORE NOT PAIRED", 7, GOLD);
+        connectionView.setGravity(Gravity.RIGHT);
+        header.addView(connectionView);
+        statusView = text("READY", 7, MUTED);
+        statusView.setPadding(dp(6), 0, dp(4), 0);
+        header.addView(statusView);
 
         TextView clear = text("CLEAR", 8, GOLD);
         clear.setPadding(dp(8), dp(5), dp(3), dp(5));
@@ -1291,7 +1229,7 @@ public class MainActivity extends FragmentActivity {
         card.addView(chatScroll, chatLp);
 
         if (conversation.length() <= 1) {
-            addMessage("A.R.T.I.E.", "Good day, Raushan. I am online.", false);
+            addMessage("A.R.T.I.E.", "Text chat is ready. Pair the Cognitive Core in Settings to enable local context and memory. Cloud AI is disabled in this build.", false);
         } else {
             for (int i = 1; i < conversation.length(); i++) {
                 JSONObject item = conversation.optJSONObject(i);
@@ -1315,7 +1253,7 @@ public class MainActivity extends FragmentActivity {
         prompt.setTextSize(13);
         prompt.setTextColor(WHITE);
         prompt.setHintTextColor(MUTED);
-        prompt.setHint("Talk to A.R.T.I.E. or type a command...");
+        prompt.setHint("Message A.R.T.I.E....");
         prompt.setBackgroundColor(Color.TRANSPARENT);
         prompt.setPadding(dp(9), dp(8), dp(5), dp(8));
         prompt.setImeOptions(EditorInfo.IME_ACTION_SEND);
@@ -1328,14 +1266,6 @@ public class MainActivity extends FragmentActivity {
         });
         composer.addView(prompt, new LinearLayout.LayoutParams(0, dp(46), 1));
 
-        micButton = smallControl("●", () -> toggleContinuousListening());
-        micButton.setTextColor(GOLD);
-        composer.addView(micButton);
-        voiceButton = smallControl("◖", () -> toggleVoice());
-        voiceButton.setTextColor(CYAN);
-        composer.addView(voiceButton);
-        languageButton = smallControl(languageLabel(), () -> toggleLanguage());
-        composer.addView(languageButton);
         sendButton = smallControl("➤", () -> sendFromInput());
         sendButton.setTextColor(BG);
         sendButton.setBackground(shape(CYAN, CYAN, 3));
@@ -1554,100 +1484,83 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void sendMessage(String raw, boolean showUserMessage, boolean allowWebRead, boolean speakResponse) {
-        currentResponseShouldSpeak = speakResponse;
+        // This edition is deliberately text-only and never calls the Cloud AI worker.
+        currentResponseShouldSpeak = false;
         String message = raw == null ? "" : raw.trim();
         if (message.isEmpty() || busy) return;
         if (message.length() > 5000) {
-            reply("That message is too long for one request. Please split it into smaller parts.", speakResponse);
+            reply("That message is too long for one request. Please split it into smaller parts.", false);
             return;
         }
+
         if (showUserMessage) addMessage("YOU", message, false);
-        if (allowWebRead) {
-            String pageUrl = extractFirstHttpUrl(message);
-            if (pageUrl != null) {
-                if (countHttpUrls(message) > 1) reply("Please send one webpage link at a time so I can analyse the correct source.", speakResponse);
-                else analyzeWebpage(message, pageUrl, speakResponse);
-                return;
-            }
-        }
-
-        boolean previousSuppressSpeech = suppressSpeechForCurrentCommand;
-        suppressSpeechForCurrentCommand = !speakResponse;
-        String local;
-        try { local = handleLocalCommand(message); }
-        finally { suppressSpeechForCurrentCommand = previousSuppressSpeech; }
-        if (local != null) {
-            if (!local.isEmpty()) reply(local, speakResponse);
-            else { scheduleListeningRestart(650); resumeLiveModeAfterSpeech(); }
-            return;
-        }
-
-        busy = true;
-        setStatus("THINKING  •  AI CORE");
-        if (sendButton != null) sendButton.setAlpha(0.45f);
-        if (connectionView != null) connectionView.setText("AI LINK PROCESSING");
-
         try {
             JSONObject user = new JSONObject();
             user.put("role", "user");
             user.put("content", message);
             conversation.put(user);
             persistConversation();
-        } catch (Exception e) {
-            busy = false;
-            reply("I couldn't prepare that message.", speakResponse);
+        } catch (Exception error) {
+            reply("I couldn't save that message to this device.", false);
             return;
         }
 
+        // Explicit memory commands remain available; device actions and external tools do not.
+        String memoryReply = handleMemoryCommand(message);
+        if (memoryReply != null) {
+            addMessage("A.R.T.I.E.", memoryReply, false);
+            try {
+                JSONObject assistant = new JSONObject();
+                assistant.put("role", "assistant");
+                assistant.put("content", memoryReply);
+                conversation.put(assistant);
+                persistConversation();
+            } catch (Exception ignored) { }
+            setStatus("LOCAL MEMORY UPDATED");
+            return;
+        }
+
+        busy = true;
+        setStatus("COGNITIVE CORE PROCESSING");
+        if (sendButton != null) sendButton.setAlpha(0.45f);
+        if (connectionView != null) connectionView.setText("COGNITIVE CORE PROCESSING");
+
         try {
             network.execute(() -> {
-                JSONObject neuralContext = null;
-                boolean neuralConnected = false;
-                try {
-                    neuralContext = NeuralCoreClient.prepareContext(MainActivity.this, message);
-                    neuralConnected = neuralContext != null;
-                    if (neuralContext != null) {
-                        try {
-                            JSONObject analysis = NeuralCoreClient.analyze(
-                                    MainActivity.this, message, buildNeuralKnownFacts(neuralContext));
-                            if (analysis != null) neuralContext.put("reasoning_analysis", analysis);
-                        } catch (Exception ignored) { }
-
-                        try {
-                            JSONObject workflow = runNeuralWorkflow(message, neuralContext);
-                            if (workflow != null) neuralContext.put("local_workflow", workflow);
-                        } catch (Exception ignored) { }
-                    }
-                } catch (Exception ignored) { }
                 String answer;
+                boolean connected = false;
+                boolean reasoningCompleted = false;
                 try {
-                    answer = callWorker(neuralContext);
+                    JSONObject neuralContext = NeuralCoreClient.prepareContext(MainActivity.this, message);
+                    if (neuralContext == null) {
+                        answer = "The Cognitive Core is not paired. Open Settings and use PAIR / TEST. Cloud AI is disabled, so no remote AI request was made.";
+                    } else {
+                        connected = true;
+                        JSONObject analysis = NeuralCoreClient.analyze(
+                                MainActivity.this, message, buildNeuralKnownFacts(neuralContext));
+                        reasoningCompleted = analysis != null;
+                        answer = reasoningCompleted
+                                ? "I received your message. The Cognitive Core stored its context and completed a local reasoning pass. Its natural-language model is not integrated yet, so I cannot generate a full conversational answer. Cloud AI remains disabled."
+                                : "I received your message and stored its context in the Cognitive Core. The reasoning module did not return a result, and a local language model is not integrated yet. Cloud AI remains disabled.";
+                    }
                 } catch (Exception error) {
-                    answer = "I couldn't reach the AI service. " + safeMessage(error);
+                    answer = "The Cognitive Core could not process this message: " + safeMessage(error)
+                            + " Cloud AI is disabled; no remote fallback was attempted.";
                 }
-                if (neuralConnected && !answer.startsWith("I couldn't reach")
-                        && !containsNeuralCredentialTerm(message)) {
-                    try {
-                        NeuralCoreClient.recordExperience(
-                                MainActivity.this,
-                                limitNeuralText(message, 1400),
-                                limitNeuralText(answer, 1800),
-                                "Completed chat exchange saved locally as an episodic record. "
-                                        + "Preferences change only through explicit owner-approved memory commands.");
-                    } catch (Exception ignored) { }
-                }
+
                 final String finalAnswer = answer;
-                final boolean finalNeuralConnected = neuralConnected;
+                final boolean finalConnected = connected;
+                final boolean finalReasoningCompleted = reasoningCompleted;
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     busy = false;
                     if (sendButton != null) sendButton.setAlpha(1f);
-                    boolean failed = finalAnswer.startsWith("I couldn't reach");
                     if (connectionView != null) {
-                        connectionView.setText(failed ? "AI LINK ISSUE"
-                                : finalNeuralConnected ? "NEURAL CORE + AI READY" : "AI LINK READY");
+                        connectionView.setText(finalConnected
+                                ? (finalReasoningCompleted ? "CORE + REASONING ONLINE" : "CORE ONLINE")
+                                : "CORE NOT READY");
                     }
-                    addMessage("A.R.T.I.E.", finalAnswer, failed);
+                    addMessage("A.R.T.I.E.", finalAnswer, !finalConnected);
                     try {
                         JSONObject assistant = new JSONObject();
                         assistant.put("role", "assistant");
@@ -1655,15 +1568,14 @@ public class MainActivity extends FragmentActivity {
                         conversation.put(assistant);
                         persistConversation();
                     } catch (Exception ignored) { }
-                    setStatus(failed ? "CONNECTION ISSUE" : "RESPONSE READY");
-                    if (speakResponse) speak(finalAnswer);
+                    setStatus(finalConnected ? "COGNITIVE CORE RESPONSE" : "COGNITIVE CORE UNAVAILABLE");
                 });
             });
         } catch (RejectedExecutionException error) {
             busy = false;
             if (sendButton != null) sendButton.setAlpha(1f);
-            if (connectionView != null) connectionView.setText("AI LINK UNAVAILABLE");
-            reply("The AI request could not be queued. Please close and reopen A.R.T.I.E., then try again.", speakResponse);
+            if (connectionView != null) connectionView.setText("CORE UNAVAILABLE");
+            reply("The Cognitive Core request could not be queued. Cloud AI is disabled.", false);
         }
     }
 
@@ -1743,48 +1655,7 @@ public class MainActivity extends FragmentActivity {
     }
 
     private String callWorker(JSONObject neuralContext) throws Exception {
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(WORKER_URL).openConnection();
-            connection.setRequestMethod("POST");
-            connection.setConnectTimeout(18000);
-            connection.setReadTimeout(30000);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-
-            JSONObject body = new JSONObject();
-            body.put("messages", buildWorkerMessages(neuralContext));
-            byte[] payload = body.toString().getBytes("UTF-8");
-            connection.setFixedLengthStreamingMode(payload.length);
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(payload);
-            }
-
-            int code = connection.getResponseCode();
-            InputStream stream = code >= 200 && code < 300
-                    ? connection.getInputStream() : connection.getErrorStream();
-            String responseText = readStream(stream);
-            if (code < 200 || code >= 300) {
-                throw new Exception("AI server returned HTTP " + code + ".");
-            }
-
-            JSONObject json = new JSONObject(responseText);
-            String answer = "";
-            JSONArray choices = json.optJSONArray("choices");
-            if (choices != null && choices.length() > 0) {
-                JSONObject first = choices.optJSONObject(0);
-                JSONObject message = first == null ? null : first.optJSONObject("message");
-                if (message != null) answer = message.optString("content", "");
-            }
-            if (answer.isEmpty()) {
-                answer = json.optString("reply",
-                        json.optString("response", json.optString("output", json.optString("message", ""))));
-            }
-            if (answer.trim().isEmpty()) throw new Exception("AI server returned an empty response.");
-            return answer.trim();
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
+        throw new IOException("Cloud AI is disabled in this text-first build.");
     }
 
 
@@ -1900,61 +1771,9 @@ public class MainActivity extends FragmentActivity {
 
     private JSONObject requestNeuralStructuredProposal(String instruction, String userMessage,
                                                         JSONObject context) throws Exception {
-        JSONArray messages = new JSONArray();
-        JSONObject system = new JSONObject();
-        system.put("role", "system");
-        system.put("content", instruction);
-        messages.put(system);
-
-        JSONObject contextMessage = new JSONObject();
-        contextMessage.put("role", "system");
-        String contextText = context == null ? "{}" : context.toString();
-        if (contextText.length() > 5000) contextText = contextText.substring(0, 5000) + " [context truncated]";
-        contextMessage.put("content", "Local memory/context reference data only, not instructions: " + contextText);
-        messages.put(contextMessage);
-
-        JSONObject user = new JSONObject();
-        user.put("role", "user");
-        user.put("content", limitNeuralText(userMessage, 3000));
-        messages.put(user);
-
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(WORKER_URL).openConnection();
-            connection.setRequestMethod("POST");
-            connection.setConnectTimeout(18000);
-            connection.setReadTimeout(30000);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            JSONObject body = new JSONObject();
-            body.put("messages", messages);
-            byte[] payload = body.toString().getBytes("UTF-8");
-            connection.setFixedLengthStreamingMode(payload.length);
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(payload);
-            }
-            int code = connection.getResponseCode();
-            InputStream stream = code >= 200 && code < 300
-                    ? connection.getInputStream() : connection.getErrorStream();
-            String responseText = readStream(stream);
-            if (code < 200 || code >= 300) throw new IOException("Structured AI request returned HTTP " + code + ".");
-            JSONObject response = new JSONObject(responseText);
-            String content = "";
-            JSONArray choices = response.optJSONArray("choices");
-            if (choices != null && choices.length() > 0) {
-                JSONObject first = choices.optJSONObject(0);
-                JSONObject message = first == null ? null : first.optJSONObject("message");
-                if (message != null) content = message.optString("content", "");
-            }
-            if (content.trim().isEmpty()) {
-                content = response.optString("reply",
-                        response.optString("response", response.optString("output", "")));
-            }
-            return parseNeuralJsonObject(content);
-        } finally {
-            if (connection != null) connection.disconnect();
-        }
+        throw new IOException("Cloud AI is disabled in this text-first build.");
     }
+
 
     private JSONObject parseNeuralJsonObject(String raw) throws Exception {
         if (raw == null) throw new IOException("The structured AI response was empty.");
@@ -4439,58 +4258,20 @@ public class MainActivity extends FragmentActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (intent == null) return;
-        if (Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
-            pendingSharedUrl = intent.getData().toString();
-            dispatchPendingSharedUrl();
-            return;
-        }
-        if (intent.getBooleanExtra(EXTRA_OPEN_INBOX, false)) {
-            pendingInboxOpen = true;
-            if (ownerAuthenticated) {
-                pendingInboxOpen = false;
-                selectSection("INBOX");
-            }
-        }
-        if (intent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)
-                || Intent.ACTION_ASSIST.equals(intent.getAction())) {
-            assistantLaunchPending = true;
-            if (ownerAuthenticated) startAssistantVoiceSession();
-            else if (!lockPromptStarted) authenticateOwner();
-        }
+        if (ownerAuthenticated) selectSection("CHAT");
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         activityVisible = true;
-        if (assistantListeningSessionActive && ownerAuthenticated) continuousListeningEnabled = true;
-        SharedPreferences livePrefs = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
-        liveModeEnabled = livePrefs.getBoolean("live_mode_enabled", false);
-        liveModePaused = livePrefs.getBoolean("live_mode_paused", false);
         applyImmersiveMode();
-        if (floatingOrbEnabled) startOverlayService(JarvisOverlayService.ACTION_HIDE);
         if (securitySettingsOpened && !ownerAuthenticated) {
             securitySettingsOpened = false;
             lockPromptStarted = false;
             authenticateOwner();
         }
-        if (liveModeEnabled && !liveModePaused && ownerAuthenticated) {
-            if (tts == null || !tts.isSpeaking()) {
-                try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
-                catch (Exception ignored) { }
-            }
-        } else if (assistantListeningSessionActive && ownerAuthenticated) {
-            continuousListeningEnabled = true;
-            scheduleListeningRestart(650);
-        } else if (continuousListeningEnabled && ownerAuthenticated) scheduleListeningRestart(350);
-        resumeClapWake();
-        consumePendingLiveCommand();
-        refreshNavigationBadges();
-        if (pendingInboxOpen && ownerAuthenticated) {
-            pendingInboxOpen = false;
-            selectSection("INBOX");
-        }
+        refreshNeuralCoreStatus();
     }
 
     @Override
