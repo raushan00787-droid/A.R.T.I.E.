@@ -60,7 +60,7 @@ public final class JarvisInboxStore {
             JSONObject item = new JSONObject();
             item.put("id", id);
             item.put("type", type == null ? "ALERT" : type);
-            item.put("title", title == null ? "JARVIS notification" : title);
+            item.put("title", title == null ? "A.R.T.I.E. notification" : title);
             item.put("message", message == null ? "" : message);
             item.put("createdAt", System.currentTimeMillis());
             item.put("dueAt", dueAt);
@@ -133,8 +133,8 @@ public final class JarvisInboxStore {
             JSONObject item = items.optJSONObject(i);
             if (item == null || item.optLong("id", -1L) != id) continue;
             long dueAt = System.currentTimeMillis() + Math.max(60_000L, delayMillis);
-            String title = item.optString("title", "JARVIS reminder");
-            String message = item.optString("message", "You have a JARVIS reminder.");
+            String title = item.optString("title", "A.R.T.I.E. reminder");
+            String message = item.optString("message", "You have a A.R.T.I.E. reminder.");
             if (!scheduleReminder(context, id, title, message, dueAt)) return false;
             try {
                 item.put("dueAt", dueAt);
@@ -208,7 +208,7 @@ public final class JarvisInboxStore {
             long id = item.optLong("id", 0L);
             long dueAt = item.optLong("dueAt", 0L);
             if (id > 0 && dueAt > 0) {
-                scheduleReminder(context, id, item.optString("title", "JARVIS reminder"),
+                scheduleReminder(context, id, item.optString("title", "A.R.T.I.E. reminder"),
                         item.optString("message", "You have a reminder."), dueAt);
             }
         }
