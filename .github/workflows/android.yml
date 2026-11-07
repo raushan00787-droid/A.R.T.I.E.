@@ -1,7 +1,7 @@
-name: Build JARVIS APK
+name: Build A.R.T.I.E. APK
 on:
   push:
-    branches: [ main, 'jarvis/**' ]
+    branches: [ main, 'artie/**' ]
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +21,6 @@ jobs:
         run: gradle --no-daemon assembleDebug
       - uses: actions/upload-artifact@v4
         with:
-          name: JARVIS-native-debug-apk
+          name: ARTIE-native-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
