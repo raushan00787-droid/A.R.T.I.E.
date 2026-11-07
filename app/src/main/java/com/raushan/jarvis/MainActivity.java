@@ -74,6 +74,7 @@ import java.util.Set;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.function.Consumer;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -1466,6 +1467,297 @@ public class MainActivity extends FragmentActivity {
     }
 
 
+    private String handleDataCommand(String input, String value) {
+        String raw = input == null ? "" : input.trim();
+        if (value.equals("storage") || value.equals("storage space") || value.equals("storage usage")
+                || value.equals("show storage") || value.equals("storage summary")
+                || value.contains("how much storage") || value.contains("storage left")
+                || value.contains("kitni storage") || value.contains("space left")) {
+            return JarvisDataCore.storageSummary(this);
+        }
+
+        Matcher move = Pattern.compile("(?i)^move\\s+(?:the\\s+)?file\\s+(.+?)\\s+to\\s+(?:the\\s+)?folder\\s+(.+)$").matcher(raw);
+        if (move.matches()) {
+            moveDataFile(move.group(1).trim(), move.group(2).trim());
+            return "";
+        }
+        Matcher copyTo = Pattern.compile("(?i)^copy\\s+(?:the\\s+)?file\\s+(.+?)\\s+to\\s+(?:the\\s+)?folder\\s+(.+)$").matcher(raw);
+        if (copyTo.matches()) {
+            copyDataFile(copyTo.group(1).trim(), copyTo.group(2).trim());
+            return "";
+        }
+        Matcher rename = Pattern.compile("(?i)^rename\\s+(?:the\\s+)?file\\s+(.+?)\\s+to\\s+(.+)$").matcher(raw);
+        if (rename.matches()) {
+            renameDataFile(rename.group(1).trim(), rename.group(2).trim());
+            return "";
+        }
+        Matcher create = Pattern.compile("(?i)^(?:create|make)\\s+(?:a\\s+)?(?:text\\s+)?(?:file|note)\\s+(.+)$").matcher(raw);
+        if (create.matches()) {
+            String name = create.group(1).trim();
+            if (!name.contains(".")) name += ".txt";
+            promptCreateDataFile(name);
+            return "";
+        }
+        Matcher read = Pattern.compile("(?i)^(?:read|summarize|summary of)\\s+(?:the\\s+)?(?:file|document)\\s+(.+)$").matcher(raw);
+        if (read.matches()) {
+            readDataFile(read.group(1).trim());
+            return "";
+        }
+        Matcher open = Pattern.compile("(?i)^open\\s+(?:the\\s+)?(?:file|document)\\s+(.+)$").matcher(raw);
+        if (open.matches()) {
+            findDataFiles(open.group(1).trim(), false, entries ->
+                    chooseDataEntry("OPEN FILE", entries, entry -> openDocumentWithWps(entry.asUri(JarvisDataCore.savedTree(this)))));
+            return "";
+        }
+        Matcher copy = Pattern.compile("(?i)^copy\\s+(?:the\\s+)?file\\s+(.+)$").matcher(raw);
+        if (copy.matches()) {
+            copyDataFile(copy.group(1).trim(), null);
+            return "";
+        }
+        Matcher search = Pattern.compile("(?i)^(?:find|search|locate)\\s+(?:for\\s+)?(?:the\\s+)?files?\\s+(?:for\\s+)?(.+)$").matcher(raw);
+        if (search.matches()) {
+            findDataFiles(search.group(1).trim(), true, entries ->
+                    chooseDataEntry("SEARCH RESULTS", entries, entry -> {
+                        Uri tree = JarvisDataCore.savedTree(this);
+                        if (entry.directory) showFolderContents(tree, entry.id, entry.name);
+                        else openDocumentWithWps(entry.asUri(tree));
+                    }));
+            return "";
+        }
+        Matcher find = Pattern.compile("(?i)^(?:find|locate)\\s+(?:the\\s+)?file\\s+(.+)$").matcher(raw);
+        if (find.matches()) {
+            findDataFiles(find.group(1).trim(), false, entries ->
+                    chooseDataEntry("FILE SEARCH RESULTS", entries, entry ->
+                            openDocumentWithWps(entry.asUri(JarvisDataCore.savedTree(this)))));
+            return "";
+        }
+        return null;
+    }
+
+    private void findDataFiles(String query, boolean includeDirectories,
+                               Consumer<ArrayList<JarvisDataCore.Entry>> callback) {
+        Uri tree = JarvisDataCore.savedTree(this);
+        if (tree == null) {
+            reply("Choose a folder first. I can search only locations that you have explicitly shared with JARVIS.");
+            openFolderPicker();
+            return;
+        }
+        setStatus("SEARCHING SHARED STORAGE");
+        new Thread(() -> {
+            try {
+                ArrayList<JarvisDataCore.Entry> entries =
+                        JarvisDataCore.search(this, tree, query, includeDirectories, 24);
+                runOnUiThread(() -> {
+                    setStatus("DATA SEARCH COMPLETE");
+                    if (entries.isEmpty()) reply("I couldn't find a matching item named " + query
+                            + " in the selected folder. The search is limited to the shared folder and its accessible subfolders.");
+                    else callback.accept(entries);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    setStatus("DATA SEARCH UNAVAILABLE");
+                    reply("I couldn't search that folder. " + safeDataError(error));
+                });
+            }
+        }, "JarvisDataSearch").start();
+    }
+
+    private void chooseDataEntry(String title, ArrayList<JarvisDataCore.Entry> entries,
+                                 Consumer<JarvisDataCore.Entry> onChosen) {
+        if (entries == null || entries.isEmpty()) return;
+        String[] labels = new String[entries.size()];
+        for (int i = 0; i < entries.size(); i++) {
+            JarvisDataCore.Entry entry = entries.get(i);
+            labels[i] = (entry.directory ? "FOLDER  •  " : "FILE  •  ") + entry.name;
+        }
+        new AlertDialog.Builder(this).setTitle(title).setItems(labels,
+                (dialog, which) -> onChosen.accept(entries.get(which)))
+                .setNegativeButton("CANCEL", null).show();
+    }
+
+    private void readDataFile(String query) {
+        findDataFiles(query, false, entries -> chooseDataEntry("READ FILE", entries,
+                entry -> readDataEntry(entry, JarvisDataCore.savedTree(this))));
+    }
+
+    private void readDataEntry(JarvisDataCore.Entry entry, Uri tree) {
+        setStatus("READING DOCUMENT");
+        new Thread(() -> {
+            try {
+                String contents = JarvisDataCore.readText(this, entry.asUri(tree));
+                runOnUiThread(() -> showDataTextPreview(entry.name, contents));
+            } catch (UnsupportedOperationException unsupported) {
+                runOnUiThread(() -> {
+                    reply("I found " + entry.name + ", but this format cannot currently be extracted as text. Opening it in a compatible viewer instead.");
+                    openDocumentWithWps(entry.asUri(tree));
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> reply("I couldn't read " + entry.name + ". " + safeDataError(error)));
+            }
+        }, "JarvisDocumentReader").start();
+    }
+
+    private void showDataTextPreview(String fileName, String contents) {
+        setStatus("DOCUMENT READY");
+        ScrollView scroll = new ScrollView(this);
+        TextView body = text(contents == null || contents.isEmpty() ? "(This file is empty.)" : contents, 13, WHITE);
+        body.setTextIsSelectable(true);
+        body.setPadding(dp(12), dp(10), dp(12), dp(10));
+        scroll.addView(body);
+        new AlertDialog.Builder(this).setTitle(fileName).setView(scroll)
+                .setPositiveButton("ASK JARVIS TO SUMMARIZE", (dialog, which) -> {
+                    String excerpt = contents == null ? "" : contents;
+                    if (excerpt.length() > 4200) excerpt = excerpt.substring(0, 4200);
+                    sendMessage("Summarize this file in clear points. File: " + fileName
+                            + "\n\nContent:\n" + excerpt);
+                })
+                .setNegativeButton("CLOSE", null).show();
+        reply("I read the text file and opened its preview. You can ask me to summarize it from the preview.");
+    }
+
+    private boolean ensureDataWriteAccess(Uri tree) {
+        if (tree == null) {
+            reply("Choose a folder first and grant JARVIS access.");
+            openFolderPicker();
+            return false;
+        }
+        if (!JarvisDataCore.hasWriteGrant(this, tree)) {
+            reply("JARVIS has no saved write permission for this folder. Choose the folder again and allow modification access.");
+            openFolderPicker();
+            return false;
+        }
+        return true;
+    }
+
+    private void promptCreateDataFile(String fileName) {
+        Uri tree = JarvisDataCore.savedTree(this);
+        if (!ensureDataWriteAccess(tree)) return;
+        EditText editor = new EditText(this);
+        editor.setHint("Write the text to save in this file");
+        editor.setGravity(Gravity.TOP | Gravity.START);
+        editor.setMinLines(5);
+        editor.setPadding(dp(12), dp(10), dp(12), dp(10));
+        new AlertDialog.Builder(this).setTitle("CREATE " + fileName)
+                .setMessage("The file will be created inside your selected JARVIS folder.")
+                .setView(editor)
+                .setPositiveButton("CREATE FILE", (dialog, which) ->
+                        createDataFile(tree, fileName, editor.getText().toString()))
+                .setNegativeButton("CANCEL", null).show();
+    }
+
+    private void createDataFile(Uri tree, String fileName, String contents) {
+        setStatus("CREATING FILE");
+        new Thread(() -> {
+            try {
+                Uri created = JarvisDataCore.createTextFile(this, tree, fileName, contents);
+                runOnUiThread(() -> reply("Created " + fileName + " in your selected JARVIS folder."));
+            } catch (Exception error) {
+                runOnUiThread(() -> reply("I couldn't create that file. " + safeDataError(error)));
+            }
+        }, "JarvisFileCreator").start();
+    }
+
+    private void renameDataFile(String oldName, String newName) {
+        Uri tree = JarvisDataCore.savedTree(this);
+        if (!ensureDataWriteAccess(tree)) return;
+        findDataFiles(oldName, false, entries -> chooseDataEntry("CHOOSE FILE TO RENAME", entries,
+                entry -> promptRenameDataFile(tree, entry, newName)));
+    }
+
+    private void promptRenameDataFile(Uri tree, JarvisDataCore.Entry entry, String requestedName) {
+        EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setText(requestedName);
+        new AlertDialog.Builder(this).setTitle("CONFIRM FILE NAME")
+                .setMessage("Rename " + entry.name + " to:")
+                .setView(name)
+                .setPositiveButton("RENAME", (dialog, which) -> {
+                    String newName = name.getText().toString().trim();
+                    new AlertDialog.Builder(this).setTitle("RENAME FILE")
+                            .setMessage(entry.name + "  →  " + newName)
+                            .setPositiveButton("CONFIRM", (d, w) -> {
+                                new Thread(() -> {
+                                    try {
+                                        Uri renamed = JarvisDataCore.rename(this, tree, entry, newName);
+                                        runOnUiThread(() -> reply("Renamed the file to " + newName + "."));
+                                    } catch (Exception error) {
+                                        runOnUiThread(() -> reply("I couldn't rename that file. " + safeDataError(error)));
+                                    }
+                                }, "JarvisFileRename").start();
+                            }).setNegativeButton("CANCEL", null).show();
+                }).setNegativeButton("CANCEL", null).show();
+    }
+
+    private void copyDataFile(String sourceName, String destinationFolderName) {
+        Uri tree = JarvisDataCore.savedTree(this);
+        if (!ensureDataWriteAccess(tree)) return;
+        findDataFiles(sourceName, false, entries -> chooseDataEntry("CHOOSE FILE TO COPY", entries, source -> {
+            if (destinationFolderName == null) {
+                confirmCopyDataFile(tree, source, DocumentsContract.getTreeDocumentId(tree), "selected folder");
+            } else {
+                findDataFiles(destinationFolderName, true, folders -> {
+                    ArrayList<JarvisDataCore.Entry> onlyFolders = new ArrayList<>();
+                    for (JarvisDataCore.Entry item : folders) if (item.directory) onlyFolders.add(item);
+                    chooseDataEntry("CHOOSE DESTINATION FOLDER", onlyFolders, folder ->
+                            confirmCopyDataFile(tree, source, folder.id, folder.name));
+                });
+            }
+        }));
+    }
+
+    private void confirmCopyDataFile(Uri tree, JarvisDataCore.Entry source,
+                                     String destinationId, String destinationName) {
+        new AlertDialog.Builder(this).setTitle("COPY FILE")
+                .setMessage("Copy " + source.name + " to " + destinationName + "?")
+                .setPositiveButton("COPY", (dialog, which) -> new Thread(() -> {
+                    try {
+                        Uri copied = JarvisDataCore.copyToFolder(this, tree, source, destinationId);
+                        runOnUiThread(() -> reply(copied == null
+                                ? "The selected storage provider did not complete the copy."
+                                : "Copied " + source.name + " to " + destinationName + "."));
+                    } catch (Exception error) {
+                        runOnUiThread(() -> reply("I couldn't copy that file. " + safeDataError(error)));
+                    }
+                }, "JarvisFileCopy").start())
+                .setNegativeButton("CANCEL", null).show();
+    }
+
+    private void moveDataFile(String sourceName, String destinationFolderName) {
+        Uri tree = JarvisDataCore.savedTree(this);
+        if (!ensureDataWriteAccess(tree)) return;
+        findDataFiles(sourceName, false, entries -> chooseDataEntry("CHOOSE FILE TO MOVE", entries, source ->
+                findDataFiles(destinationFolderName, true, folders -> {
+                    ArrayList<JarvisDataCore.Entry> onlyFolders = new ArrayList<>();
+                    for (JarvisDataCore.Entry item : folders) if (item.directory) onlyFolders.add(item);
+                    chooseDataEntry("CHOOSE DESTINATION FOLDER", onlyFolders, folder ->
+                            confirmMoveDataFile(tree, source, folder));
+                })));
+    }
+
+    private void confirmMoveDataFile(Uri tree, JarvisDataCore.Entry source,
+                                     JarvisDataCore.Entry destination) {
+        new AlertDialog.Builder(this).setTitle("MOVE FILE")
+                .setMessage("Move " + source.name + " into " + destination.name + "?")
+                .setPositiveButton("MOVE", (dialog, which) -> new Thread(() -> {
+                    try {
+                        Uri moved = JarvisDataCore.moveToFolder(this, tree, source, destination.id);
+                        runOnUiThread(() -> reply(moved == null
+                                ? "The selected storage provider did not complete the move."
+                                : "Moved " + source.name + " into " + destination.name + "."));
+                    } catch (Exception error) {
+                        runOnUiThread(() -> reply("I couldn't move that file. " + safeDataError(error)));
+                    }
+                }, "JarvisFileMove").start())
+                .setNegativeButton("CANCEL", null).show();
+    }
+
+    private String safeDataError(Exception error) {
+        if (error == null) return "Android did not provide further details.";
+        String message = error.getMessage();
+        if (message == null || message.trim().isEmpty()) return "The file provider may not support this operation.";
+        return message.length() > 180 ? message.substring(0, 180) : message;
+    }
+
     private String handleLocalCommand(String input) {
         String value = input.toLowerCase(Locale.ROOT).trim();
 
@@ -1485,6 +1777,8 @@ public class MainActivity extends FragmentActivity {
             browseSavedFolder();
             return "";
         }
+        String dataCommand = handleDataCommand(input, value);
+        if (dataCommand != null) return dataCommand;
         if (value.equals("permissions") || value.equals("app permissions")) {
             showPermissionCenter();
             return "";
