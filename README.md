@@ -1,4 +1,4 @@
-# J.A.R.V.I.S. Native Android · v1.13
+# J.A.R.V.I.S. Native Android · v1.14
 
 A native Android assistant for Raushan. The app is organised into separate Home, Chat, Inbox, Tools and Settings workspaces. Conversational AI uses the configured Cloudflare Worker; device actions and Inbox storage are handled locally.
 
@@ -29,13 +29,20 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 - Device controls and permission settings are separated from the conversation.
 - Home has quick navigation to the main workspaces.
 
+## Data and storage core · v1.14
+- Voice commands search filenames within a folder explicitly selected by the owner.
+- JARVIS can preview UTF-8 text, Markdown, CSV, JSON, XML, HTML, logs and YAML files, and extract selectable text from PDFs (up to 25 pages / 160 KB per preview).
+- It can create text files and, where the selected provider grants write access, rename, copy and move files. Every modification requires an on-screen confirmation.
+- Shared storage capacity can be queried without granting broad file access.
+- Scans are bounded to 1,800 folders and 10 levels of depth. Image OCR and unrestricted device-wide file search are not included.
+
 ## Existing native features
 - Animated Arc Reactor home screen and dedicated voice orb.
 - Cloudflare Worker AI chat integration with locally persisted bounded conversation history.
 - Explicit on-device memory: `remember that ...`, `show memories`, `forget ...`.
 - Local commands for flashlight, battery, Wi-Fi/Bluetooth/display settings, app launch, alarms and media controls.
 - Calls open the Android dialer for review. SMS opens a prefilled composer. WhatsApp opens a share/recipient selection flow; the user confirms sending.
-- Android Storage Access Framework file and folder pickers, selected-document handoff to WPS Office or another compatible viewer.
+- Android Storage Access Framework file and folder pickers, voice-driven search and text/PDF reading, file creation, rename/copy/move (provider and write-grant permitting), storage usage reporting, and handoff to compatible viewers.
 - User-started foreground Live Mode with "Hey JARVIS" wake phrase and persistent Pause/Resume/Stop controls.
 - Floating Arc Reactor overlay and permission centre.
 
