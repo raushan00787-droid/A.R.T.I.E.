@@ -66,7 +66,7 @@ public class JarvisNotificationReceiver extends BroadcastReceiver {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID, "A.R.T.I.E. Personal Alerts", NotificationManager.IMPORTANCE_DEFAULT);
-            channel.setDescription("Reminders and important device alerts created by A.R.T.I.E..");
+            channel.setDescription("Reminders and important device alerts created by A.R.T.I.E.");
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) manager.createNotificationChannel(channel);
         }
