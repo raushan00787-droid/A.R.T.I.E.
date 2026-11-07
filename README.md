@@ -1,8 +1,8 @@
-# A.R.T.I.E. · Native Android Assistant · v1.20
+# A.R.T.I.E. · Native Android Assistant · v1.21
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
-This is the native Android application for A.R.T.I.E. The voice wake phrase is “Hey Artie”, and GitHub Actions publishes the debug APK as `ARTIE-v1.20-apk`.
+This is the native Android application for A.R.T.I.E. The voice wake phrase is “Hey Artie”, and GitHub Actions publishes the debug APK as `ARTIE-v1.21-apk`.
 
 ## v1.13 integrated update
 
@@ -86,10 +86,13 @@ This is the native Android application for A.R.T.I.E. The voice wake phrase is �
 - Android Notification Access can mirror non-ongoing external app notifications into the local A.R.T.I.E. Inbox.
 
 
-## v1.18 · Local Neural Core connection
+## v1.21 · Full Neural Core chat pipeline
 
-- A.R.T.I.E. can pair with the Python Neural Core running in Termux on the same tablet.
-- In Settings, use **LOCAL NEURAL CORE → PAIR / TEST**. Start `python run_bridge.py` from the Neural Core folder in Termux and paste the token printed by the bridge.
-- The token is encrypted at rest with Android Keystore. The app connects only to `127.0.0.1:8767`; the network security configuration keeps cleartext traffic disabled for every other host.
-- For each chat turn, the app submits the latest user message to `/v1/context` and adds the returned local context snapshot to the Cloud AI request. The Cloud AI remains the language-generation layer.
-- If Termux is stopped, the bridge is unavailable, or pairing has not been completed, A.R.T.I.E. falls back to the existing Cloud AI chat path. It does not claim that the local Neural Core completed device actions.
+- A.R.T.I.E. pairs with the original Python Neural Core running in Termux on the same tablet. In Settings, use **LOCAL NEURAL CORE → PAIR / TEST**. Start `python run_bridge.py` from the Neural Core folder and pair with the printed bearer token.
+- The token is encrypted at rest with Android Keystore. The app connects only to `127.0.0.1:8767`; cleartext traffic remains disabled for every other host.
+- Every paired chat turn enters the local ContextEngine and receives a structured information-readiness analysis from the original ReasoningEngine. Relevant saved preferences and recent episodic records are supplied as known context.
+- Clear plan requests receive a structured outline from Cloud AI, which the local Planner validates and converts into numbered pending steps. Comparison requests receive explicit options and estimated criterion scores from Cloud AI; the local DecisionEngine performs the weighted calculation. The generated scores are estimates, not verified facts.
+- Completed paired chat exchanges are recorded in local episodic memory on Termux. Explicit `remember that ...` commands are submitted to FeedbackEngine and approved as long-term preferences. Ordinary conversation does not silently rewrite preferences.
+- `forget ...` and `forget all memories` are synchronized to the paired Neural Core. Clearing all Neural Core memory also removes its episodic history and pending feedback records.
+- The Cloud AI remains the language-generation and structured-proposal layer. The local Neural Core supplies context, information-readiness analysis, plan validation, weighted decision calculations, persistent experience records and approved preference adaptation. It is not a standalone language model.
+- When Termux is stopped, the bridge is offline, or pairing is absent, A.R.T.I.E. falls back to the existing Cloud AI chat path. Local-only memory and reasoning functions require the bridge to be running.
