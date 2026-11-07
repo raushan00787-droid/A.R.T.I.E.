@@ -1,7 +1,7 @@
 name: Build A.R.T.I.E. APK
 on:
   push:
-    branches: [ main, 'artie/**' ]
+    branches: [ main, 'artie/**', 'rebrand/**' ]
   workflow_dispatch:
 permissions:
   contents: read
