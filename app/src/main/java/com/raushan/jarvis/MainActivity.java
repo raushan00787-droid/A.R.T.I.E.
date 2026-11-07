@@ -3011,13 +3011,16 @@ public class MainActivity extends FragmentActivity {
         boolean contacts = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED;
         String folder = getSharedPreferences("jarvis_settings", MODE_PRIVATE).getString("document_tree_uri", "");
         boolean notifications = Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+        Uri selectedTree = JarvisDataCore.savedTree(this);
+        boolean folderWrite = JarvisDataCore.hasWriteGrant(this, selectedTree);
         String message = "MICROPHONE: " + (microphone ? "GRANTED" : "NOT GRANTED")
                 + "\nCAMERA / FLASHLIGHT: " + (cameraPermission ? "GRANTED" : "NOT GRANTED")
                 + "\nCONTACTS: " + (contacts ? "GRANTED" : "NOT GRANTED")
                 + "\nNOTIFICATIONS: " + (notifications ? "GRANTED" : "NOT GRANTED")
                 + "\nDOCUMENTS: selected files only"
                 + "\nFOLDER ACCESS: " + (folder.isEmpty() ? "NOT SELECTED" : "USER-SELECTED FOLDER")
-                + "\n\nCalls open the dialer for your confirmation. Android does not allow JARVIS to silently grant protected permissions or read another app's private files.";
+                + "\nFOLDER MODIFY: " + (folderWrite ? "GRANTED" : "NOT GRANTED")
+                + "\n\nFile access is limited to locations selected in Android's picker. Some providers may not support every create, rename, copy or move action. JARVIS cannot read another app's private files.";
         new AlertDialog.Builder(this).setTitle("JARVIS PERMISSION CENTER").setMessage(message)
                 .setPositiveButton("GRANT CORE", (dialog, which) -> requestCorePermissions())
                 .setNeutralButton("ANDROID APP SETTINGS", (dialog, which) -> {
