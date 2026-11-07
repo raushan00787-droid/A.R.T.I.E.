@@ -2653,8 +2653,12 @@ public class MainActivity extends FragmentActivity {
             Intent intent = new Intent(Intent.ACTION_VIEW, chatUri);
             intent.setPackage("com.whatsapp");
             if (intent.resolveActivity(getPackageManager()) == null) {
-                setAutonomyStage(0, "WHATSAPP UNAVAILABLE");
-                return "WhatsApp is not available to open this chat on the device.";
+                // Some Android builds route the official wa.me app link through Android's link resolver.
+                intent.setPackage(null);
+                if (intent.resolveActivity(getPackageManager()) == null) {
+                    setAutonomyStage(0, "WHATSAPP UNAVAILABLE");
+                    return "WhatsApp is not available to open this chat on the device.";
+                }
             }
             startActivity(intent);
             setAutonomyStage(3, "DRAFT READY  ·  REVIEW AND TAP SEND");
@@ -3703,7 +3707,7 @@ public class MainActivity extends FragmentActivity {
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            float radius = Math.min(getWidth(), getHeight()) * .365f;
+            float radius = Math.min(getWidth(), getHeight()) * .345f;
             float time = (System.currentTimeMillis() - started) / 1000f;
             float pulse = 1f + (mode == 1 ? .034f : mode == 2 ? .024f : mode == 3 ? .052f : .014f)
                     * (float)Math.sin(time * (mode == 3 ? 8.4f : 2.4f));
