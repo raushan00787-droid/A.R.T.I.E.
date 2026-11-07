@@ -1909,7 +1909,7 @@ public class MainActivity extends FragmentActivity {
                     reply("I couldn't search that folder. " + safeDataError(error));
                 });
             }
-        }, "JarvisDataSearch").start();
+        }, "ArtieDataSearch").start();
     }
 
     private void chooseDataEntry(String title, ArrayList<JarvisDataCore.Entry> entries,
@@ -1944,7 +1944,7 @@ public class MainActivity extends FragmentActivity {
             } catch (Exception error) {
                 runOnUiThread(() -> reply("I couldn't read " + entry.name + ". " + safeDataError(error)));
             }
-        }, "JarvisDocumentReader").start();
+        }, "ArtieDocumentReader").start();
     }
 
     private void showDataTextPreview(String fileName, String contents) {
@@ -2004,7 +2004,7 @@ public class MainActivity extends FragmentActivity {
             } catch (Exception error) {
                 runOnUiThread(() -> reply("I couldn't create that file. " + safeDataError(error)));
             }
-        }, "JarvisFileCreator").start();
+        }, "ArtieFileCreator").start();
     }
 
     private void renameDataFile(String oldName, String newName) {
@@ -2033,7 +2033,7 @@ public class MainActivity extends FragmentActivity {
                                     } catch (Exception error) {
                                         runOnUiThread(() -> reply("I couldn't rename that file. " + safeDataError(error)));
                                     }
-                                }, "JarvisFileRename").start();
+                                }, "ArtieFileRename").start();
                             }).setNegativeButton("CANCEL", null).show();
                 }).setNegativeButton("CANCEL", null).show();
     }
@@ -2068,7 +2068,7 @@ public class MainActivity extends FragmentActivity {
                     } catch (Exception error) {
                         runOnUiThread(() -> reply("I couldn't copy that file. " + safeDataError(error)));
                     }
-                }, "JarvisFileCopy").start())
+                }, "ArtieFileCopy").start())
                 .setNegativeButton("CANCEL", null).show();
     }
 
@@ -2097,7 +2097,7 @@ public class MainActivity extends FragmentActivity {
                     } catch (Exception error) {
                         runOnUiThread(() -> reply("I couldn't move that file. " + safeDataError(error)));
                     }
-                }, "JarvisFileMove").start())
+                }, "ArtieFileMove").start())
                 .setNegativeButton("CANCEL", null).show();
     }
 
@@ -2921,7 +2921,7 @@ public class MainActivity extends FragmentActivity {
             if (hindiSpeech && hindiVoice != null) tts.setVoice(hindiVoice);
             else if (defaultSystemVoice != null) tts.setVoice(defaultSystemVoice);
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
-                    "jarvis-" + System.currentTimeMillis());
+                    "artie-" + System.currentTimeMillis());
             if (result == TextToSpeech.ERROR) {
                 setStatus("SYSTEM VOICE OUTPUT ERROR");
                 scheduleListeningRestart(700);
@@ -3181,7 +3181,7 @@ public class MainActivity extends FragmentActivity {
                 if (!triggered && clapRecorder == recorder) releaseClapRecorder(recorder);
                 if (clapThread == Thread.currentThread()) clapThread = null;
             }
-        }, "JARVIS-Clap-Wake");
+        }, "ARTIE-Clap-Wake");
         clapThread.start();
     }
 
