@@ -2,7 +2,7 @@
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
-This project is the rebranded continuation of the existing A.R.T.I.E. app. The current voice wake phrase (\"Hey JARVIS\") and GitHub Actions APK artifact name (`JARVIS-native-debug-apk`) remain unchanged for compatibility.
+This project is the rebranded continuation of the original JARVIS app. The current voice wake phrase ("Hey JARVIS") and GitHub Actions APK artifact name (`JARVIS-native-debug-apk`) remain unchanged for compatibility.
 
 ## v1.13 integrated update
 
