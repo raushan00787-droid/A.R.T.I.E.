@@ -118,7 +118,7 @@ public class MainActivity extends FragmentActivity {
             "competent, attentive manner of a sophisticated executive AI. In English, address him as 'Sir' " +
             "naturally, but not in every sentence. In Hindi/Hinglish, use 'Sir' or 'Raushan' naturally, " +
             "and 'Raushi' only occasionally when the tone is relaxed. Never call him Tony or pretend he is " +
-            "Tony Stark; this is Raushan's own A.R.T.I.E.. Be calm under pressure, observant, discreet, decisive, " +
+            "Tony Stark; this is Raushan's own A.R.T.I.E. Be calm under pressure, observant, discreet, decisive, " +
             "and quietly witty, with occasional dry humour. Anticipate useful next steps, surface relevant " +
             "risks, and notice context without nagging or taking control away from him. Be candid and " +
             "respectfully challenge weak assumptions. Avoid exaggerated flattery, robotic formality, " +
@@ -329,7 +329,7 @@ public class MainActivity extends FragmentActivity {
                                 || errorCode == BiometricPrompt.ERROR_CANCELED) {
                             new AlertDialog.Builder(MainActivity.this)
                                     .setTitle("A.R.T.I.E. LOCKED")
-                                    .setMessage("Authenticate to enter A.R.T.I.E..")
+                                    .setMessage("Authenticate to enter A.R.T.I.E.")
                                     .setPositiveButton("TRY AGAIN", (d, w) -> authenticateOwner())
                                     .setNegativeButton("EXIT", (d, w) -> finish())
                                     .show();
@@ -1888,7 +1888,7 @@ public class MainActivity extends FragmentActivity {
                                Consumer<ArrayList<JarvisDataCore.Entry>> callback) {
         Uri tree = JarvisDataCore.savedTree(this);
         if (tree == null) {
-            reply("Choose a folder first. I can search only locations that you have explicitly shared with A.R.T.I.E..");
+            reply("Choose a folder first. I can search only locations that you have explicitly shared with A.R.T.I.E.");
             openFolderPicker();
             return;
         }
@@ -3409,7 +3409,7 @@ public class MainActivity extends FragmentActivity {
         }
         RoleManager roles = getSystemService(RoleManager.class);
         if (roles == null || !roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
-            reply("This Android version does not expose the default assistant role to A.R.T.I.E..");
+            reply("This Android version does not expose the default assistant role to A.R.T.I.E.");
             return;
         }
         if (roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
@@ -3644,7 +3644,7 @@ public class MainActivity extends FragmentActivity {
     private void browseSavedFolder() {
         String saved = getSharedPreferences("jarvis_settings", MODE_PRIVATE).getString("document_tree_uri", "");
         if (saved.isEmpty()) {
-            reply("No folder has been selected yet. Choose Folder first, then I can browse the files Android shares with A.R.T.I.E..");
+            reply("No folder has been selected yet. Choose Folder first, then I can browse the files Android shares with A.R.T.I.E.");
             return;
         }
         try {
