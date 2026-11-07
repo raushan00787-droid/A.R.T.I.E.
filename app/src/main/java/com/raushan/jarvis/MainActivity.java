@@ -226,7 +226,8 @@ public class MainActivity extends FragmentActivity {
         super.onCreate(state);
         Intent launchIntent = getIntent();
         assistantLaunchPending = launchIntent != null
-                && launchIntent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false);
+                && (launchIntent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)
+                || Intent.ACTION_ASSIST.equals(launchIntent.getAction()));
         pendingInboxOpen = launchIntent != null
                 && launchIntent.getBooleanExtra(EXTRA_OPEN_INBOX, false);
         Window window = getWindow();
@@ -3202,7 +3203,8 @@ public class MainActivity extends FragmentActivity {
                 selectSection("INBOX");
             }
         }
-        if (intent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)) {
+        if (intent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)
+                || Intent.ACTION_ASSIST.equals(intent.getAction())) {
             assistantLaunchPending = true;
             if (ownerAuthenticated) startAssistantVoiceSession();
             else if (!lockPromptStarted) authenticateOwner();
