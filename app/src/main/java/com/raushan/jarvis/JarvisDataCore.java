@@ -149,7 +149,7 @@ public final class JarvisDataCore {
         String mime = context.getContentResolver().getType(fileUri);
         if (isPdf(name, mime)) return readPdfText(context, fileUri);
         if (!isReadableText(name, mime)) {
-            throw new UnsupportedOperationException("This file format cannot be extracted as text by the current JARVIS build.");
+            throw new UnsupportedOperationException("This file format cannot be extracted as text by the current A.R.T.I.E. build.");
         }
 
         InputStream input = null;
@@ -248,7 +248,7 @@ public final class JarvisDataCore {
 
     private static void requireWriteGrant(Context context, Uri treeUri) {
         if (!hasWriteGrant(context, treeUri)) {
-            throw new SecurityException("JARVIS has read access but not write access to this selected folder. Re-select the folder and grant modification access.");
+            throw new SecurityException("A.R.T.I.E. has read access but not write access to this selected folder. Re-select the folder and grant modification access.");
         }
     }
 
