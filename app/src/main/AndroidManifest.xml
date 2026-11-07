@@ -37,7 +37,8 @@
         android:label="J.A.R.V.I.S. 1.17"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config">
 
         <service
             android:name="com.raushan.jarvis.JarvisLiveService"
