@@ -22,7 +22,16 @@ public final class JarvisInboxStore {
     }
 
     private static void write(Context context, JSONArray items) {
-        while (items.length() > MAX_ITEMS) items.remove(0);
+        while (items.length() > MAX_ITEMS) {
+            JSONObject oldest = items.optJSONObject(0);
+            if (oldest != null) {
+                String status = oldest.optString("status", "");
+                if ("SCHEDULED".equals(status) || "SNOOZED".equals(status)) {
+                    cancelReminder(context, oldest.optLong("id", 0L));
+                }
+            }
+            items.remove(0);
+        }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(KEY, items.toString()).apply();
     }
@@ -39,8 +48,13 @@ public final class JarvisInboxStore {
 
     public static long add(Context context, String type, String title, String message,
                            long dueAt, String status, boolean unread) {
-        long id = System.currentTimeMillis();
         JSONArray items = read(context);
+        // IDs remain unique even when multiple alerts are created in the same millisecond.
+        long id = Math.max(1L, System.currentTimeMillis());
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject existing = items.optJSONObject(i);
+            if (existing != null) id = Math.max(id, existing.optLong("id", 0L) + 1L);
+        }
         try {
             JSONObject item = new JSONObject();
             item.put("id", id);
@@ -181,8 +195,13 @@ public final class JarvisInboxStore {
         JSONArray items = read(context);
         for (int i = 0; i < items.length(); i++) {
             JSONObject item = items.optJSONObject(i);
-            if (item == null || !"REMINDER".equals(item.optString("type", ""))
-                    || !"SCHEDULED".equals(item.optString("status", ""))) continue;
+            if (item == null) continue;
+            String type = item.optString("type", "");
+            String status = item.optString("status", "");
+            // Normal reminders are restored while SCHEDULED; any item can be snoozed.
+            boolean pendingReminder = "REMINDER".equals(type) && "SCHEDULED".equals(status);
+            boolean snoozedItem = "SNOOZED".equals(status);
+            if (!pendingReminder && !snoozedItem) continue;
             long id = item.optLong("id", 0L);
             long dueAt = item.optLong("dueAt", 0L);
             if (id > 0 && dueAt > 0) {
