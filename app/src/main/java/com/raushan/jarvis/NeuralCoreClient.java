@@ -103,6 +103,84 @@ public final class NeuralCoreClient {
         return result;
     }
 
+
+    /** Runs the original local ReasoningEngine against the supplied request and known context. */
+    public static JSONObject analyze(Context context, String problem, org.json.JSONArray knownFacts) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("problem", problem == null ? "" : problem);
+        payload.put("known_facts", knownFacts == null ? new org.json.JSONArray() : knownFacts);
+        return postResult(context, "/v1/analyze", payload);
+    }
+
+    /** Creates a structured plan in the local Planner. */
+    public static JSONObject createPlan(Context context, String goal, org.json.JSONArray steps) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("goal", goal == null ? "" : goal);
+        payload.put("steps", steps == null ? new org.json.JSONArray() : steps);
+        return postResult(context, "/v1/plan", payload);
+    }
+
+    /** Runs the local weighted DecisionEngine. */
+    public static JSONObject decide(Context context, org.json.JSONArray options,
+                                    org.json.JSONArray criteria, JSONObject scores,
+                                    JSONObject weights) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("options", options == null ? new org.json.JSONArray() : options);
+        payload.put("criteria", criteria == null ? new org.json.JSONArray() : criteria);
+        if (scores != null) payload.put("scores", scores);
+        if (weights != null) payload.put("weights", weights);
+        return postResult(context, "/v1/decide", payload);
+    }
+
+    /** Submits an explicit owner preference for approval by the local FeedbackEngine. */
+    public static JSONObject submitFeedback(Context context, String feedback) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("feedback", feedback == null ? "" : feedback);
+        return postResult(context, "/v1/feedback", payload);
+    }
+
+    /** Approves explicitly requested feedback so it becomes a long-term preference. */
+    public static JSONObject approveFeedback(Context context, long feedbackId) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("feedback_id", feedbackId);
+        return postResult(context, "/v1/feedback/approve", payload);
+    }
+
+    /** Stores a completed chat exchange in local episodic memory on Termux. */
+    public static JSONObject recordExperience(Context context, String task,
+                                               String outcome, String lesson) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("task", task == null ? "" : task);
+        payload.put("outcome", outcome == null ? "" : outcome);
+        payload.put("lesson", lesson == null ? "" : lesson);
+        return postResult(context, "/v1/experience", payload);
+    }
+
+    /** Removes one exact owner-approved preference from the local Neural Core. */
+    public static JSONObject forgetPreference(Context context, String content) throws Exception {
+        JSONObject payload = new JSONObject();
+        payload.put("category", "preference");
+        payload.put("content", content == null ? "" : content);
+        return postResult(context, "/v1/memory/forget", payload);
+    }
+
+    /** Clears long-term Neural Core records after an explicit owner request. */
+    public static JSONObject clearNeuralMemory(Context context) throws Exception {
+        return postResult(context, "/v1/memory/clear", new JSONObject());
+    }
+
+    private static JSONObject postResult(Context context, String path, JSONObject payload) throws Exception {
+        String token = loadToken(context);
+        if (token.isEmpty()) return null;
+        JSONObject response = request(token, "POST", path, payload);
+        if (!response.optBoolean("success", false)) {
+            throw new IOException("The Neural Core did not accept " + path + ".");
+        }
+        JSONObject result = response.optJSONObject("result");
+        if (result == null) throw new IOException("The Neural Core returned an empty result for " + path + ".");
+        return result;
+    }
+
     private static String loadToken(Context context) throws Exception {
         String stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString(TOKEN_PREF, "");
