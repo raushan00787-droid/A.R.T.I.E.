@@ -41,9 +41,11 @@ import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.Voice;
 import android.speech.tts.UtteranceProgressListener;
+import android.telephony.PhoneNumberUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.WindowInsets;
@@ -123,7 +125,7 @@ public class MainActivity extends FragmentActivity {
             "register Raushan uses, including natural Hinglish. Maintain continuity using only the current " +
             "conversation and user-approved memories available in the app; never invent memories or claim " +
             "to know something you cannot access. Explain difficult topics clearly without talking down to " +
-            "him. Be protective of privacy and safety without being patronising. Never claim you can control " +
+            "him. For multi-step goals, make a concise plan, use only capabilities the app actually exposes, track the sequence, verify completed actions, and plainly identify any step that still needs owner input. Never claim a task or message was completed unless the app confirms it. Be protective of privacy and safety without being patronising. Never claim you can control " +
             "the Android device, access files, or perform actions unless the connected app features actually " +
             "support it; clearly distinguish an action completed by the app from one that still needs Sir's " +
             "confirmation. Keep the relationship professional, trusted, and non-romantic.";
@@ -180,6 +182,9 @@ public class MainActivity extends FragmentActivity {
     private boolean suppressSpeechForCurrentCommand = false;
     private String pendingMessageContact;
     private String pendingMessageBody;
+    private boolean pendingMessageIsWhatsApp = false;
+    private TextView autonomyStatusView;
+    private AutonomyRailView autonomyRailView;
     private boolean ownerAuthenticated = false;
     private boolean welcomePending = false;
     private boolean lockPromptStarted = false;
@@ -605,9 +610,10 @@ public class MainActivity extends FragmentActivity {
     private void buildUI() {
         ScrollView page = new ScrollView(this);
         page.setFillViewport(true);
-        page.setBackgroundColor(BG);
+        page.setBackgroundColor(Color.TRANSPARENT);
 
         root = column();
+        root.setBackgroundColor(Color.TRANSPARENT);
         root.setPadding(dp(18), dp(18), dp(18), dp(22));
         page.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -626,6 +632,7 @@ public class MainActivity extends FragmentActivity {
         });
 
         appFrame = new FrameLayout(this);
+        appFrame.addView(new NebulaBackgroundView(this), new FrameLayout.LayoutParams(-1, -1));
         appFrame.addView(page, new FrameLayout.LayoutParams(-1, -1));
         voiceOrbPanel = column();
         voiceOrbPanel.setGravity(Gravity.CENTER);
@@ -702,19 +709,40 @@ public class MainActivity extends FragmentActivity {
 
     private void selectSection(String section) {
         activeSection = section == null ? "HOME" : section;
-        if (homeSection != null) homeSection.setVisibility("HOME".equals(activeSection) ? View.VISIBLE : View.GONE);
-        if (chatSection != null) chatSection.setVisibility("CHAT".equals(activeSection) ? View.VISIBLE : View.GONE);
-        if (inboxSection != null) inboxSection.setVisibility("INBOX".equals(activeSection) ? View.VISIBLE : View.GONE);
-        if (toolsSection != null) toolsSection.setVisibility("TOOLS".equals(activeSection) ? View.VISIBLE : View.GONE);
-        if (settingsSection != null) settingsSection.setVisibility("SETTINGS".equals(activeSection) ? View.VISIBLE : View.GONE);
+        View incoming = "HOME".equals(activeSection) ? homeSection
+                : "CHAT".equals(activeSection) ? chatSection
+                : "INBOX".equals(activeSection) ? inboxSection
+                : "TOOLS".equals(activeSection) ? toolsSection : settingsSection;
+        if (homeSection != null) homeSection.setVisibility(incoming == homeSection ? View.VISIBLE : View.GONE);
+        if (chatSection != null) chatSection.setVisibility(incoming == chatSection ? View.VISIBLE : View.GONE);
+        if (inboxSection != null) inboxSection.setVisibility(incoming == inboxSection ? View.VISIBLE : View.GONE);
+        if (toolsSection != null) toolsSection.setVisibility(incoming == toolsSection ? View.VISIBLE : View.GONE);
+        if (settingsSection != null) settingsSection.setVisibility(incoming == settingsSection ? View.VISIBLE : View.GONE);
+        if (incoming != null) animateSectionIn(incoming);
         for (TextView tab : navigationTabs) {
             boolean selected = activeSection.equals(String.valueOf(tab.getTag()));
             tab.setTextColor(selected ? CYAN : MUTED);
             tab.setBackground(shape(selected ? Color.rgb(13, 43, 59) : Color.TRANSPARENT,
                     selected ? Color.rgb(44, 118, 145) : Color.TRANSPARENT, 5));
+            tab.animate().alpha(selected ? 1f : .72f).setDuration(160).start();
         }
         refreshNavigationBadges();
         if ("INBOX".equals(activeSection)) renderInbox();
+    }
+
+    private void animateSectionIn(View view) {
+        view.animate().cancel();
+        view.setAlpha(0f);
+        view.setTranslationY(dp(11));
+        view.setScaleX(.992f);
+        view.setScaleY(.992f);
+        view.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+                .setDuration(260).setInterpolator(new DecelerateInterpolator()).start();
+    }
+
+    private void setAutonomyStage(int step, String status) {
+        if (autonomyRailView != null) autonomyRailView.setStage(step);
+        if (autonomyStatusView != null) autonomyStatusView.setText(status == null ? "READY" : status);
     }
 
     private void refreshNavigationBadges() {
@@ -725,13 +753,44 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void buildHomeQuickAccess() {
+        LinearLayout engine = column();
+        engine.setPadding(dp(15), dp(13), dp(15), dp(12));
+        GradientDrawable engineBg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.rgb(10, 33, 49), Color.rgb(5, 15, 26), Color.rgb(8, 24, 37)});
+        engineBg.setCornerRadius(dp(9));
+        engineBg.setStroke(dp(1), Color.rgb(45, 120, 148));
+        engine.setBackground(engineBg);
+
+        LinearLayout engineHeader = row();
+        TextView engineTitle = text("AUTONOMY ENGINE", 10, CYAN);
+        engineTitle.setLetterSpacing(.15f);
+        engineHeader.addView(engineTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView ready = text("●  READY", 8, Color.rgb(137, 224, 187));
+        ready.setLetterSpacing(.08f);
+        engineHeader.addView(ready);
+        engine.addView(engineHeader);
+
+        TextView engineSub = text("GOAL  →  PLAN  →  EXECUTE  →  VERIFY", 8, MUTED);
+        engineSub.setLetterSpacing(.10f);
+        engineSub.setPadding(0, dp(5), 0, dp(7));
+        engine.addView(engineSub);
+
+        autonomyRailView = new AutonomyRailView(this);
+        engine.addView(autonomyRailView, new LinearLayout.LayoutParams(-1, dp(34)));
+        autonomyStatusView = text("STANDBY  ·  AWAITING YOUR GOAL", 8, Color.rgb(164, 202, 218));
+        autonomyStatusView.setLetterSpacing(.08f);
+        autonomyStatusView.setPadding(0, dp(5), 0, 0);
+        engine.addView(autonomyStatusView);
+        root.addView(engine, new LinearLayout.LayoutParams(-1, -2));
+
+        addGap(root, 10);
         LinearLayout card = column();
         card.setPadding(dp(15), dp(13), dp(15), dp(13));
         card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
-        TextView title = text("QUICK ACCESS", 9, CYAN);
+        TextView title = text("MISSION CONTROL", 9, CYAN);
         title.setLetterSpacing(0.16f);
         card.addView(title);
-        TextView note = text("Your assistant, organised into focused workspaces.", 11, MUTED);
+        TextView note = text("Your workspaces, one tap away.", 11, MUTED);
         note.setPadding(0, dp(5), 0, dp(11));
         card.addView(note);
         LinearLayout first = row();
@@ -750,7 +809,12 @@ public class MainActivity extends FragmentActivity {
         button.setGravity(Gravity.CENTER);
         button.setPadding(dp(7), dp(15), dp(7), dp(15));
         button.setBackground(shape(Color.rgb(10, 29, 43), Color.rgb(39, 92, 113), 6));
-        button.setOnClickListener(v -> action.run());
+        button.setOnClickListener(v -> {
+            v.animate().scaleX(.97f).scaleY(.97f).setDuration(85).withEndAction(() -> {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(120).start();
+                action.run();
+            }).start();
+        });
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
         lp.setMargins(dp(3), dp(3), dp(3), dp(3));
         parent.addView(button, lp);
@@ -1283,7 +1347,9 @@ public class MainActivity extends FragmentActivity {
             if (voiceOrbView != null) voiceOrbView.setState(message);
         }
         if (reactorView != null) {
-            reactorView.setMode(message.contains("LISTEN") ? 1 : message.contains("THINK") ? 2 : 0);
+            reactorView.setMode(message.contains("LISTEN") ? 1
+                    : (message.contains("THINK") || message.contains("PROCESS")) ? 2
+                    : message.contains("SPEAK") ? 3 : 0);
         }
     }
 
@@ -1318,6 +1384,10 @@ public class MainActivity extends FragmentActivity {
         line.addView(bubble, bubbleLp);
 
         chatList.addView(line, new LinearLayout.LayoutParams(-1, -2));
+        line.setAlpha(0f);
+        line.setTranslationY(dp(7));
+        line.animate().alpha(1f).translationY(0f).setDuration(190)
+                .setInterpolator(new DecelerateInterpolator()).start();
         while (chatList.getChildCount() > 20) chatList.removeViewAt(0);
         chatScroll.post(() -> chatScroll.fullScroll(View.FOCUS_DOWN));
     }
@@ -2451,6 +2521,21 @@ public class MainActivity extends FragmentActivity {
 
     private String handleMessageCommand(String input) {
         String raw = input == null ? "" : input.trim();
+
+        // Natural Hinglish: "WhatsApp pe mummy ko hi bhej do".
+        Matcher hinglishWhatsApp = Pattern.compile(
+                "(?iu)^(?:please\\s+)?whatsapp\\s+(?:pe|par)\\s+(.+?)\\s+ko\\s+(.+?)\\s+bhej\\s+(?:do|de|dijiye)[.!?]*$")
+                .matcher(raw);
+        if (hinglishWhatsApp.matches()) {
+            return openWhatsAppContact(hinglishWhatsApp.group(1).trim(), hinglishWhatsApp.group(2).trim());
+        }
+        Matcher hinglishWhatsAppAfterName = Pattern.compile(
+                "(?iu)^(?:please\\s+)?(.+?)\\s+ko\\s+whatsapp\\s+(?:pe|par)\\s+(.+?)\\s+bhej\\s+(?:do|de|dijiye)[.!?]*$")
+                .matcher(raw);
+        if (hinglishWhatsAppAfterName.matches()) {
+            return openWhatsAppContact(hinglishWhatsAppAfterName.group(1).trim(), hinglishWhatsAppAfterName.group(2).trim());
+        }
+
         Matcher sms = Pattern.compile("(?i)^(?:sms|text|message)\\s+(?:to\\s+)?(.+?)\\s*:\\s*(.+)$").matcher(raw);
         if (!sms.matches()) {
             sms = Pattern.compile("(?i)^(?:sms|text|message)\\s+(?:to\\s+)?(.+?)\\s+(?:saying|that)\\s+(.+)$").matcher(raw);
@@ -2463,18 +2548,122 @@ public class MainActivity extends FragmentActivity {
             if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
                 pendingMessageContact = target;
                 pendingMessageBody = body;
+                pendingMessageIsWhatsApp = false;
                 requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, PERMISSION_CONTACTS);
                 return "I need Contacts permission to find that recipient. Allow it and I will open the SMS draft for review.";
             }
             return openContactMessageComposer(target, body);
         }
+
+        Matcher whatsappVoice = Pattern.compile(
+                "(?i)^(?:please\\s+)?(?:whatsapp|send\\s+whatsapp)(?:\\s+message)?\\s+to\\s+(.+?)\\s+(?:saying|message|that)\\s+(.+)$")
+                .matcher(raw);
+        if (whatsappVoice.matches()) {
+            return openWhatsAppContact(whatsappVoice.group(1).trim(), whatsappVoice.group(2).trim());
+        }
+        Matcher sendWhatsApp = Pattern.compile(
+                "(?i)^(?:please\\s+)?send\\s+(?:a\\s+)?whatsapp\\s+(?:message\\s+)?to\\s+(.+?)\\s+(?:saying|with\\s+message|message)\\s+(.+)$")
+                .matcher(raw);
+        if (sendWhatsApp.matches()) {
+            return openWhatsAppContact(sendWhatsApp.group(1).trim(), sendWhatsApp.group(2).trim());
+        }
         Matcher whatsapp = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)\\s*:\\s*(.+)$").matcher(raw);
         if (whatsapp.matches()) return openWhatsAppShare(whatsapp.group(1).trim());
-        Matcher whatsappVoice = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)(?: message)?\\s+to\\s+(.+?)\\s+(?:saying|message)\\s+(.+)$").matcher(raw);
-        if (whatsappVoice.matches()) return openWhatsAppShare(whatsappVoice.group(2).trim());
         Matcher whatsappSimple = Pattern.compile("(?i)^(?:whatsapp|send whatsapp)\\s+(.+)$").matcher(raw);
         if (whatsappSimple.matches()) return openWhatsAppShare(whatsappSimple.group(1).trim());
         return null;
+    }
+
+    private String openWhatsAppContact(String query, String body) {
+        if (query == null || query.trim().isEmpty() || body == null || body.trim().isEmpty()) {
+            return "Please tell me both the WhatsApp contact and the message.";
+        }
+        setAutonomyStage(1, "LOCATING  ·  " + query.trim().toUpperCase(Locale.ROOT));
+        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            pendingMessageContact = query.trim();
+            pendingMessageBody = body.trim();
+            pendingMessageIsWhatsApp = true;
+            requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, PERMISSION_CONTACTS);
+            return "I need Contacts permission to identify " + query.trim() + ". No message has been sent.";
+        }
+        return resolveWhatsAppContact(query.trim(), body.trim());
+    }
+
+    private String resolveWhatsAppContact(String query, String body) {
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> numbers = new ArrayList<>();
+        Cursor cursor = null;
+        try {
+            Uri lookup = Uri.withAppendedPath(ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI, Uri.encode(query));
+            cursor = getContentResolver().query(lookup,
+                    new String[]{ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                            ContactsContract.CommonDataKinds.Phone.NUMBER},
+                    null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
+            if (cursor != null) while (cursor.moveToNext() && names.size() < 12) {
+                String name = cursor.getString(0), number = cursor.getString(1);
+                if (name != null && number != null && !number.trim().isEmpty()) {
+                    names.add(name.trim());
+                    numbers.add(number.trim());
+                }
+            }
+        } catch (Exception error) {
+            setAutonomyStage(0, "CONTACT LOOKUP FAILED");
+            return "I couldn't search that contact. Check Contacts permission and try again.";
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+        if (numbers.isEmpty()) {
+            setAutonomyStage(0, "RECIPIENT NOT FOUND");
+            return "I couldn't find a phone number for " + query + ". No message was opened.";
+        }
+        if (numbers.size() == 1) {
+            setAutonomyStage(2, "RECIPIENT VERIFIED  ·  " + names.get(0).toUpperCase(Locale.ROOT));
+            return openWhatsAppChat(names.get(0), numbers.get(0), body);
+        }
+        String[] labels = new String[numbers.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = names.get(i) + "  •  " + numbers.get(i);
+        new AlertDialog.Builder(this).setTitle("CHOOSE WHATSAPP RECIPIENT")
+                .setMessage("I found more than one matching contact. Select the intended person.")
+                .setItems(labels, (dialog, which) -> {
+                    setAutonomyStage(2, "RECIPIENT VERIFIED  ·  " + names.get(which).toUpperCase(Locale.ROOT));
+                    reply(openWhatsAppChat(names.get(which), numbers.get(which), body));
+                })
+                .setNegativeButton("CANCEL", (dialog, which) -> setAutonomyStage(0, "TASK CANCELLED"))
+                .show();
+        return "I found multiple matching contacts. Choose the correct recipient.";
+    }
+
+    private String openWhatsAppChat(String name, String rawPhone, String body) {
+        try {
+            String phone = rawPhone == null ? "" : rawPhone.trim();
+            String region = "IN";
+            try {
+                String configured = getResources().getConfiguration().getLocales().get(0).getCountry();
+                if (configured != null && !configured.trim().isEmpty()) region = configured;
+            } catch (Exception ignored) { }
+            String e164 = PhoneNumberUtils.formatNumberToE164(phone, region);
+            String digits = e164 == null ? phone.replaceAll("[^0-9]", "") : e164.replaceAll("[^0-9]", "");
+            if (digits.startsWith("0") && digits.length() == 11) digits = digits.substring(1);
+            if (digits.length() == 10 && "IN".equalsIgnoreCase(region)) digits = "91" + digits;
+            if (digits.length() < 10 || digits.length() > 15) {
+                setAutonomyStage(0, "INVALID CONTACT NUMBER");
+                return "That contact does not have a usable international phone number. No message was opened.";
+            }
+            Uri chatUri = Uri.parse("https://wa.me/" + digits + "?text=" + Uri.encode(body));
+            Intent intent = new Intent(Intent.ACTION_VIEW, chatUri);
+            intent.setPackage("com.whatsapp");
+            if (intent.resolveActivity(getPackageManager()) == null) {
+                setAutonomyStage(0, "WHATSAPP UNAVAILABLE");
+                return "WhatsApp is not available to open this chat on the device.";
+            }
+            startActivity(intent);
+            setAutonomyStage(3, "DRAFT READY  ·  REVIEW AND TAP SEND");
+            setStatus("WHATSAPP DRAFT READY");
+            return "Opening the WhatsApp chat with " + name + " and the message filled in. Please review it and tap Send. I have not sent it.";
+        } catch (Exception error) {
+            setAutonomyStage(0, "WHATSAPP HANDOFF FAILED");
+            return "I couldn't open that WhatsApp chat. No message was sent.";
+        }
     }
 
     private String openContactMessageComposer(String query, String body) {
@@ -3439,8 +3628,15 @@ public class MainActivity extends FragmentActivity {
                 String body = pendingMessageBody;
                 pendingMessageContact = null;
                 pendingMessageBody = null;
-                if (granted && body != null) reply(openContactMessageComposer(target, body));
-                else reply("Contacts permission was not granted. No message was opened.");
+                boolean useWhatsApp = pendingMessageIsWhatsApp;
+                pendingMessageIsWhatsApp = false;
+                if (granted && body != null) {
+                    reply(useWhatsApp ? resolveWhatsAppContact(target, body)
+                            : openContactMessageComposer(target, body));
+                } else {
+                    setAutonomyStage(0, "CONTACT ACCESS DENIED");
+                    reply("Contacts permission was not granted. No message was opened.");
+                }
             } else {
                 String requested = pendingCallContact;
                 pendingCallContact = null;
@@ -3489,76 +3685,202 @@ public class MainActivity extends FragmentActivity {
 
     private static class ReactorView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private int mode = 0;
         private final long started = System.currentTimeMillis();
+        private int mode = 0;
 
-        ReactorView(Context context) { super(context); setLayerType(View.LAYER_TYPE_SOFTWARE, null); }
-        void setMode(int value) { mode = value; invalidate(); }
+        ReactorView(Context context) {
+            super(context);
+            setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        }
+
+        void setMode(int value) {
+            if (mode != value) {
+                mode = value;
+                invalidate();
+            }
+        }
 
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            float radius = Math.min(getWidth(), getHeight()) * 0.39f;
-            float pulse = (float)(1.0 + 0.018 * Math.sin((System.currentTimeMillis() - started) / 450.0));
-            canvas.save();
-            canvas.rotate((System.currentTimeMillis() - started) / 90f % 360f, cx, cy);
+            float radius = Math.min(getWidth(), getHeight()) * .365f;
+            float time = (System.currentTimeMillis() - started) / 1000f;
+            float pulse = 1f + (mode == 1 ? .034f : mode == 2 ? .024f : mode == 3 ? .052f : .014f)
+                    * (float)Math.sin(time * (mode == 3 ? 8.4f : 2.4f));
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShader(new android.graphics.RadialGradient(cx, cy, radius * 1.95f,
+                    new int[]{Color.argb(62, 66, 190, 235), Color.argb(20, 12, 80, 130), Color.TRANSPARENT},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, radius * 1.95f, paint);
+            paint.setShader(null);
 
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), 1));
-            paint.setColor(Color.argb(90, 112, 229, 255));
-            canvas.drawCircle(cx, cy, radius * 1.24f, paint);
-
-            paint.setColor(Color.argb(150, 112, 229, 255));
-            paint.setStrokeWidth(dpStatic(getContext(), 2));
-            canvas.drawArc(new RectF(cx-radius*1.15f, cy-radius*1.15f, cx+radius*1.15f, cy+radius*1.15f),
-                    22, 112, false, paint);
-            canvas.drawArc(new RectF(cx-radius*1.15f, cy-radius*1.15f, cx+radius*1.15f, cy+radius*1.15f),
-                    205, 78, false, paint);
-
-            paint.setStrokeWidth(dpStatic(getContext(), 1));
-            paint.setColor(Color.argb(70, 112, 229, 255));
-            canvas.drawCircle(cx, cy, radius * .94f, paint);
-            canvas.drawCircle(cx, cy, radius * .72f, paint);
-            paint.setPathEffect(new android.graphics.DashPathEffect(new float[]{5, 7}, 0));
-            canvas.drawCircle(cx, cy, radius * 1.08f, paint);
+            paint.setStrokeWidth(dpStatic(getContext(), 1f));
+            paint.setColor(Color.argb(66, 112, 229, 255));
+            canvas.drawCircle(cx, cy, radius * 1.42f, paint);
+            canvas.drawCircle(cx, cy, radius * 1.17f, paint);
+            canvas.drawCircle(cx, cy, radius * .96f, paint);
+            paint.setPathEffect(new android.graphics.DashPathEffect(new float[]{3f, 8f}, (float)(time * 9f)));
+            canvas.drawCircle(cx, cy, radius * 1.31f, paint);
             paint.setPathEffect(null);
 
-            for (int i = 0; i < 48; i++) {
-                float angle = (float)(Math.PI * 2 * i / 48.0);
-                float inner = radius * (i % 4 == 0 ? 1.12f : 1.17f);
-                float outer = radius * 1.24f;
-                paint.setColor(i % 4 == 0 ? CYAN_STATIC : Color.argb(90, 112, 229, 255));
-                paint.setStrokeWidth(i % 4 == 0 ? 2.2f : 1f);
-                canvas.drawLine(cx + (float)Math.cos(angle)*inner, cy + (float)Math.sin(angle)*inner,
-                        cx + (float)Math.cos(angle)*outer, cy + (float)Math.sin(angle)*outer, paint);
+            canvas.save();
+            canvas.rotate(time * (mode == 2 ? 72f : 24f), cx, cy);
+            paint.setStrokeWidth(dpStatic(getContext(), 2f));
+            paint.setColor(Color.argb(mode == 1 ? 220 : 155, 112, 229, 255));
+            RectF outer = new RectF(cx - radius * 1.24f, cy - radius * 1.24f,
+                    cx + radius * 1.24f, cy + radius * 1.24f);
+            canvas.drawArc(outer, 18f, 88f, false, paint);
+            canvas.drawArc(outer, 164f, 54f, false, paint);
+            canvas.drawArc(outer, 254f, 46f, false, paint);
+            canvas.restore();
+
+            canvas.save();
+            canvas.rotate(-time * (mode == 2 ? 104f : 34f), cx, cy);
+            paint.setStrokeWidth(dpStatic(getContext(), 1.5f));
+            paint.setColor(Color.argb(150, 226, 184, 105));
+            RectF inner = new RectF(cx - radius * .83f, cy - radius * .83f,
+                    cx + radius * .83f, cy + radius * .83f);
+            canvas.drawArc(inner, 42f, 62f, false, paint);
+            canvas.drawArc(inner, 222f, 62f, false, paint);
+            for (int i = 0; i < 4; i++) {
+                double a = time * .42 + i * Math.PI / 2;
+                float x = cx + (float)Math.cos(a) * radius * 1.32f;
+                float y = cy + (float)Math.sin(a) * radius * 1.32f;
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(Color.rgb(119, 228, 255));
+                canvas.drawCircle(x, y, dpStatic(getContext(), 2.3f), paint);
+                paint.setStyle(Paint.Style.STROKE);
             }
             canvas.restore();
 
-            paint.setStyle(Paint.Style.FILL);
-            int glow = mode == 1 ? Color.rgb(255, 180, 125) : CYAN_STATIC;
-            paint.setColor(Color.argb(35, Color.red(glow), Color.green(glow), Color.blue(glow)));
-            canvas.drawCircle(cx, cy, radius * .72f * pulse, paint);
-            paint.setColor(Color.rgb(7, 30, 46));
-            canvas.drawCircle(cx, cy, radius * .61f, paint);
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), 3));
-            paint.setColor(Color.argb(190, 112, 229, 255));
-            canvas.drawCircle(cx, cy, radius * .53f, paint);
-            paint.setStrokeWidth(dpStatic(getContext(), 1));
-            paint.setColor(Color.argb(110, 160, 240, 255));
-            canvas.drawCircle(cx, cy, radius * .42f, paint);
+            for (int i = 0; i < 48; i++) {
+                float angle = (float)(Math.PI * 2 * i / 48.0);
+                float innerR = radius * (i % 4 == 0 ? 1.08f : 1.13f);
+                float outerR = radius * (i % 4 == 0 ? 1.25f : 1.19f);
+                paint.setColor(i % 4 == 0 ? Color.argb(205, 127, 235, 255)
+                        : Color.argb(82, 112, 229, 255));
+                paint.setStrokeWidth(dpStatic(getContext(), i % 4 == 0 ? 2f : 1f));
+                canvas.drawLine(cx + (float)Math.cos(angle) * innerR, cy + (float)Math.sin(angle) * innerR,
+                        cx + (float)Math.cos(angle) * outerR, cy + (float)Math.sin(angle) * outerR, paint);
+            }
+
+            int core = mode == 1 ? Color.rgb(222, 176, 102)
+                    : mode == 3 ? Color.rgb(147, 235, 255) : Color.rgb(112, 229, 255);
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.rgb(24, 127, 165));
-            canvas.drawCircle(cx, cy, radius * .32f, paint);
-            paint.setColor(Color.rgb(205, 250, 255));
-            canvas.drawCircle(cx, cy, radius * .12f, paint);
+            paint.setColor(Color.argb(mode == 3 ? 60 : 38, Color.red(core), Color.green(core), Color.blue(core)));
+            canvas.drawCircle(cx, cy, radius * .79f * pulse, paint);
+            paint.setColor(Color.rgb(5, 20, 34));
+            canvas.drawCircle(cx, cy, radius * .64f, paint);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpStatic(getContext(), 3f));
+            paint.setColor(Color.argb(210, Color.red(core), Color.green(core), Color.blue(core)));
+            canvas.drawCircle(cx, cy, radius * .55f * pulse, paint);
+            paint.setStrokeWidth(dpStatic(getContext(), 1f));
+            paint.setColor(Color.argb(115, 198, 245, 255));
+            canvas.drawCircle(cx, cy, radius * .43f, paint);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShader(new android.graphics.RadialGradient(cx - radius * .1f, cy - radius * .18f,
+                    radius * .52f, new int[]{Color.rgb(94, 214, 246), Color.rgb(20, 106, 143),
+                    Color.rgb(5, 29, 48)}, null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, radius * .34f, paint);
+            paint.setShader(null);
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
-            paint.setTextSize(radius * .18f);
-            paint.setColor(Color.WHITE);
-            canvas.drawText("R", cx, cy + radius * .065f, paint);
+            paint.setTextSize(radius * .48f);
+            paint.setColor(Color.rgb(236, 250, 255));
+            paint.setShadowLayer(dpStatic(getContext(), 9), 0, 0, Color.argb(155, 49, 202, 244));
+            canvas.drawText("R", cx, cy + radius * .165f, paint);
+            paint.clearShadowLayer();
+            postInvalidateDelayed(38);
+        }
+    }
 
-            postInvalidateDelayed(40);
+    private static class NebulaBackgroundView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final long started = System.currentTimeMillis();
+        private boolean active = true;
+
+        NebulaBackgroundView(Context context) { super(context); }
+
+        @Override protected void onWindowVisibilityChanged(int visibility) {
+            super.onWindowVisibilityChanged(visibility);
+            active = visibility == View.VISIBLE;
+            if (active) invalidate();
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float w = getWidth(), h = getHeight();
+            paint.setShader(new android.graphics.LinearGradient(0, 0, w, h,
+                    new int[]{Color.rgb(3, 10, 19), Color.rgb(6, 20, 32), Color.rgb(3, 9, 17)},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, w, h, paint);
+            paint.setShader(null);
+            float t = (System.currentTimeMillis() - started) / 1000f;
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpStatic(getContext(), .6f));
+            paint.setColor(Color.argb(13, 99, 191, 225));
+            float grid = dpStatic(getContext(), 42);
+            float drift = (t * dpStatic(getContext(), 2.2f)) % grid;
+            for (float x = -grid + drift; x < w; x += grid) canvas.drawLine(x, 0, x, h, paint);
+            for (float y = -grid + drift; y < h; y += grid) canvas.drawLine(0, y, w, y, paint);
+
+            paint.setStyle(Paint.Style.FILL);
+            for (int i = 0; i < 26; i++) {
+                float px = ((i * 73.7f + (float)Math.sin(t * .18f + i) * 5f) % Math.max(1f, w));
+                float py = ((i * 137.3f + (float)Math.cos(t * .14f + i * .7f) * 7f) % Math.max(1f, h));
+                int alpha = 18 + (int)(22 * (.5f + .5f * (float)Math.sin(t * .8f + i)));
+                paint.setColor(Color.argb(alpha, 105, 210, 242));
+                canvas.drawCircle(px, py, dpStatic(getContext(), i % 5 == 0 ? 1.5f : .8f), paint);
+            }
+            if (active) postInvalidateDelayed(82);
+        }
+    }
+
+    private static class AutonomyRailView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final long started = System.currentTimeMillis();
+        private int stage = 0;
+
+        AutonomyRailView(Context context) { super(context); }
+        void setStage(int value) { stage = Math.max(0, Math.min(4, value)); invalidate(); }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float w = getWidth(), h = getHeight();
+            float left = dpStatic(getContext(), 14), right = w - left;
+            float y = h * .48f, span = (right - left) / 3f;
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpStatic(getContext(), 2f));
+            paint.setColor(Color.rgb(35, 66, 81));
+            canvas.drawLine(left, y, right, y, paint);
+            paint.setColor(Color.argb(225, 94, 214, 240));
+            if (stage > 0) canvas.drawLine(left, y, left + span * Math.min(3, stage - 1), y, paint);
+
+            float t = (System.currentTimeMillis() - started) / 1000f;
+            if (stage > 0 && stage < 4) {
+                float bx = left + span * (stage - 1) + span * (.5f + .5f * (float)Math.sin(t * 3.1f));
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(Color.argb(80, 112, 229, 255));
+                canvas.drawCircle(bx, y, dpStatic(getContext(), 8f), paint);
+            }
+            for (int i = 0; i < 4; i++) {
+                float x = left + i * span;
+                boolean done = i < stage;
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(done ? Color.rgb(96, 219, 242) : Color.rgb(20, 43, 57));
+                canvas.drawCircle(x, y, dpStatic(getContext(), done ? 5.2f : 4.2f), paint);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(dpStatic(getContext(), 1.2f));
+                paint.setColor(done ? Color.rgb(188, 249, 255) : Color.rgb(71, 112, 132));
+                canvas.drawCircle(x, y, dpStatic(getContext(), 7.2f), paint);
+            }
+            postInvalidateDelayed(70);
         }
     }
 
