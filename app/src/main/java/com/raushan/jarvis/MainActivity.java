@@ -1986,6 +1986,12 @@ public class MainActivity extends FragmentActivity {
             return "Android could not schedule that reminder. Check battery and notification settings, then try again.";
         }
         refreshNavigationBadges();
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_NOTIFICATIONS);
+            return "Reminder saved in JARVIS Inbox and scheduled for " + amount + " " + unit + ": "
+                    + task + ". Please allow notifications so Android can show the reminder alert.";
+        }
         return "Reminder saved in JARVIS Inbox and scheduled for " + amount + " " + unit + ": " + task + ".";
     }
 
