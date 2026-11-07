@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 
 /**
  * User-started foreground voice session.
- * The recognizer waits for "Hey JARVIS", then accepts follow-up turns for a short session.
+ * The recognizer waits for "Hey Artie", then accepts follow-up turns for a short session.
  */
 public class JarvisLiveService extends Service {
     public static final String ACTION_START = "com.raushan.jarvis.live.START";
@@ -81,7 +81,7 @@ public class JarvisLiveService extends Service {
         if (ACTION_HOLD.equals(action)) {
             speakingHold = true;
             stopListening();
-            updateNotification("JARVIS is speaking. Listening resumes after the reply.", false);
+            updateNotification("A.R.T.I.E. is speaking. Listening resumes after the reply.", false);
             return START_STICKY;
         }
         if (ACTION_PAUSE.equals(action)) {
@@ -110,7 +110,7 @@ public class JarvisLiveService extends Service {
             publishState(true, false);
             ensureRecognizer();
             startListening();
-            updateNotification(sessionActive ? "Live conversation active" : "Listening for Hey JARVIS", false);
+            updateNotification(sessionActive ? "Live conversation active" : "Listening for Hey Artie", false);
         } else {
             updateNotification("Paused. Tap Resume to listen again.", true);
         }
@@ -128,7 +128,7 @@ public class JarvisLiveService extends Service {
             recognizer.setRecognitionListener(new RecognitionListener() {
                 @Override public void onReadyForSpeech(android.os.Bundle params) {
                     listening = true;
-                    updateNotification(sessionActive ? "Live conversation active" : "Listening for Hey JARVIS", false);
+                    updateNotification(sessionActive ? "Live conversation active" : "Listening for Hey Artie", false);
                 }
                 @Override public void onBeginningOfSpeech() { }
                 @Override public void onRmsChanged(float rmsdB) { }
@@ -138,7 +138,7 @@ public class JarvisLiveService extends Service {
                     listening = false;
                     if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
                         userPaused = true;
-                        updateNotification("Microphone permission is required. Open JARVIS to fix it.", true);
+                        updateNotification("Microphone permission is required. Open A.R.T.I.E. to fix it.", true);
                         return;
                     }
                     updateNotification("Speech recognition error " + error + ". Retrying voice input…", false);
@@ -166,7 +166,7 @@ public class JarvisLiveService extends Service {
         }
         String command = spoken.trim();
         if (!sessionActive) {
-            Matcher wake = Pattern.compile("(?i)\\b(?:(?:hey|hello|hi)\\s+)?jarvis\\b").matcher(spoken);
+            Matcher wake = Pattern.compile("(?i)\\b(?:(?:hey|hello|hi)\\s+)?artie\\b").matcher(spoken);
             if (!wake.find()) {
                 restartAfter(450);
                 return;
@@ -175,7 +175,7 @@ public class JarvisLiveService extends Service {
             sessionActive = true;
         }
         if (sessionTimeout != null) handler.removeCallbacks(sessionTimeout);
-        if (command.isEmpty()) command = "__JARVIS_WAKE__";
+        if (command.isEmpty()) command = "__ARTIE_WAKE__";
         deliverCommand(command);
         updateNotification("Heard you. Processing command…", false);
     }
@@ -234,7 +234,7 @@ public class JarvisLiveService extends Service {
         sessionTimeout = () -> {
             sessionActive = false;
             startListening();
-            updateNotification("Listening for Hey JARVIS", false);
+            updateNotification("Listening for Hey Artie", false);
         };
         handler.postDelayed(sessionTimeout, SESSION_TIMEOUT_MS);
     }
@@ -250,8 +250,8 @@ public class JarvisLiveService extends Service {
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "JARVIS Live Mode", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Persistent controls for the user-started JARVIS microphone session.");
+                    CHANNEL_ID, "A.R.T.I.E. Live Mode", NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription("Persistent controls for the user-started A.R.T.I.E. microphone session.");
             channel.setShowBadge(false);
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) manager.createNotificationChannel(channel);
@@ -272,7 +272,7 @@ public class JarvisLiveService extends Service {
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
         builder.setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("J.A.R.V.I.S.  •  LIVE MODE")
+                .setContentTitle("A.R.T.I.E.  •  LIVE MODE")
                 .setContentText(status)
                 .setContentIntent(content)
                 .setOngoing(true)
