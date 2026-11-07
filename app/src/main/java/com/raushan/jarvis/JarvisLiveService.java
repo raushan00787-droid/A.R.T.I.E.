@@ -17,6 +17,8 @@ import android.speech.SpeechRecognizer;
 
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * User-started foreground voice session.
@@ -139,7 +141,8 @@ public class JarvisLiveService extends Service {
                         updateNotification("Microphone permission is required. Open JARVIS to fix it.", true);
                         return;
                     }
-                    restartAfter(1100);
+                    updateNotification("Speech recognition error " + error + ". Retrying voice input…", false);
+                    restartAfter(error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1600 : 1000);
                 }
                 @Override public void onResults(android.os.Bundle results) {
                     listening = false;
@@ -161,15 +164,14 @@ public class JarvisLiveService extends Service {
             restartAfter(450);
             return;
         }
-        String lower = spoken.toLowerCase(Locale.ROOT);
         String command = spoken.trim();
         if (!sessionActive) {
-            int wake = lower.indexOf("hey jarvis");
-            if (wake < 0) {
+            Matcher wake = Pattern.compile("(?i)\\b(?:(?:hey|hello|hi)\\s+)?jarvis\\b").matcher(spoken);
+            if (!wake.find()) {
                 restartAfter(450);
                 return;
             }
-            command = spoken.substring(Math.min(spoken.length(), wake + "hey jarvis".length())).trim();
+            command = spoken.substring(wake.end()).trim();
             sessionActive = true;
         }
         if (sessionTimeout != null) handler.removeCallbacks(sessionTimeout);
@@ -209,7 +211,6 @@ public class JarvisLiveService extends Service {
             Intent request = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             request.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             request.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
-            request.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
             request.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1600);
             request.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900);
             int languageMode = prefs().getInt("speech_language_mode", 0);

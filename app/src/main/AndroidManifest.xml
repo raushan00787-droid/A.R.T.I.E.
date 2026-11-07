@@ -14,6 +14,7 @@
         <package android:name="cn.wps.moffice_i18n" />
     </queries>
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.FLASHLIGHT" />
@@ -33,7 +34,7 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="J.A.R.V.I.S. 1.15"
+        android:label="J.A.R.V.I.S. 1.16"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="false">
@@ -42,6 +43,16 @@
             android:name="com.raushan.jarvis.JarvisLiveService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <service
+            android:name="com.raushan.jarvis.JarvisNotificationListenerService"
+            android:label="JARVIS Notification Inbox"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <service
             android:name="com.raushan.jarvis.JarvisVoiceInteractionService"

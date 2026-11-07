@@ -1,4 +1,4 @@
-# J.A.R.V.I.S. Native Android · v1.15
+# J.A.R.V.I.S. Native Android · v1.16
 
 A native Android assistant for Raushan. The app is organised into separate Home, Chat, Inbox, Tools and Settings workspaces. Conversational AI uses the configured Cloudflare Worker; device actions and Inbox storage are handled locally.
 
@@ -65,3 +65,12 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 - Typed links and links shared from a browser are read before AI analysis. Supported sources include public HTML, XHTML, plain text and selectable-text PDFs.
 - Fetching is bounded by redirect, download, page and text limits. Private/local destinations and unsafe redirects are blocked. Login-only, script-rendered pages and scanned PDFs may not expose readable text.
 - GitHub Actions now builds the JARVIS integration branch as well as main, so the candidate APK is checked before merge.
+
+
+## v1.16 stability fixes
+- Typed messages now receive text-only replies; speech-originated commands can receive spoken replies.
+- Live speech recognition no longer forces offline-only recognition and accepts common JARVIS wake-phrase variants.
+- Reminder parsing accepts both task-first and time-first phrasing, including “remind me to study after 2 minutes”.
+- Device queries include Android release/API level, Wi-Fi enabled state, and flexible shared-storage questions.
+- Webpage analysis truncates extracted text to the chat request limit and accepts bare public domain links by adding HTTPS.
+- Android Notification Access can mirror non-ongoing external app notifications into the local JARVIS Inbox.
