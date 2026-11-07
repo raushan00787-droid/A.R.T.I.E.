@@ -1624,7 +1624,8 @@ public class MainActivity extends FragmentActivity {
                 } catch (Exception error) {
                     answer = "I couldn't reach the AI service. " + safeMessage(error);
                 }
-                if (neuralConnected && !answer.startsWith("I couldn't reach")) {
+                if (neuralConnected && !answer.startsWith("I couldn't reach")
+                        && !containsNeuralCredentialTerm(message)) {
                     try {
                         NeuralCoreClient.recordExperience(
                                 MainActivity.this,
@@ -2717,9 +2718,11 @@ public class MainActivity extends FragmentActivity {
             refreshSystemPrompt();
             persistConversation();
             syncNeuralPreference(note);
-            return "Saved to A.R.T.I.E. memory on this device" 
-                    + (NeuralCoreClient.hasSavedToken(this) ? " and queued for Neural Core sync" : "")
-                    + ": " + note + ". Relevant preferences may personalize future replies.";
+            return "Saved to A.R.T.I.E. memory on this device. "
+                    + (NeuralCoreClient.hasSavedToken(this)
+                        ? "The preference will also sync to Neural Core when its Termux bridge is online. "
+                        : "Pair Neural Core to share this preference with the Termux brain. ")
+                    + "Relevant preferences may personalize future replies.";
         }
 
         if (value.equals("forget all memories") || value.equals("clear all memories")
@@ -2738,11 +2741,13 @@ public class MainActivity extends FragmentActivity {
             JSONArray notes = getSavedMemories();
             JSONArray kept = new JSONArray();
             boolean removed = false;
+            String removedNote = "";
             for (int i = 0; i < notes.length(); i++) {
                 String note = notes.optString(i, "");
                 if (!removed && (note.equalsIgnoreCase(target)
                         || note.toLowerCase(Locale.ROOT).contains(target.toLowerCase(Locale.ROOT)))) {
                     removed = true;
+                    removedNote = note;
                 } else {
                     kept.put(note);
                 }
@@ -2752,7 +2757,7 @@ public class MainActivity extends FragmentActivity {
                     .putString("saved_memories", kept.toString()).apply();
             refreshSystemPrompt();
             persistConversation();
-            forgetNeuralPreference(target);
+            forgetNeuralPreference(removedNote);
             return "That saved note has been removed from A.R.T.I.E. memory; Neural Core removal was requested when paired.";
         }
         return null;
