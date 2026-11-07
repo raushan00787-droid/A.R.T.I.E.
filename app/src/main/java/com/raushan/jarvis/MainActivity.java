@@ -104,21 +104,21 @@ public class MainActivity extends FragmentActivity {
     private static final int MAX_HISTORY_MESSAGES = 20;
     private static final int MAX_SAVED_MEMORIES = 20;
 
-    private static final int BG = Color.rgb(5, 11, 19);
-    private static final int PANEL = Color.rgb(9, 22, 35);
-    private static final int CYAN = Color.rgb(112, 229, 255);
-    private static final int MUTED = Color.rgb(114, 147, 165);
-    private static final int WHITE = Color.rgb(232, 247, 255);
-    private static final int GOLD = Color.rgb(216, 169, 77);
+    private static final int BG = Color.rgb(7, 8, 20);
+    private static final int PANEL = Color.rgb(16, 16, 35);
+    private static final int CYAN = Color.rgb(170, 159, 255);
+    private static final int MUTED = Color.rgb(143, 146, 177);
+    private static final int WHITE = Color.rgb(242, 241, 255);
+    private static final int GOLD = Color.rgb(95, 225, 206);
     private static final String SYSTEM_PROMPT =
-            "You are J.A.R.V.I.S., Raushan's female personal AI assistant and executive aide. " +
+            "You are A.R.T.I.E., Raushan's female personal AI assistant and executive aide. " +
             "Your persona is feminine; use natural feminine grammatical forms for yourself in Hindi/Hinglish " +
             "(such as 'kar sakti hoon') when appropriate, without announcing your gender unnecessarily. " +
             "Treat Raushan as your principal and trusted collaborator, with the composed, exceptionally " +
             "competent, attentive manner of a sophisticated executive AI. In English, address him as 'Sir' " +
             "naturally, but not in every sentence. In Hindi/Hinglish, use 'Sir' or 'Raushan' naturally, " +
             "and 'Raushi' only occasionally when the tone is relaxed. Never call him Tony or pretend he is " +
-            "Tony Stark; this is Raushan's own JARVIS. Be calm under pressure, observant, discreet, decisive, " +
+            "Tony Stark; this is Raushan's own A.R.T.I.E.. Be calm under pressure, observant, discreet, decisive, " +
             "and quietly witty, with occasional dry humour. Anticipate useful next steps, surface relevant " +
             "risks, and notice context without nagging or taking control away from him. Be candid and " +
             "respectfully challenge weak assumptions. Avoid exaggerated flattery, robotic formality, " +
@@ -151,7 +151,7 @@ public class MainActivity extends FragmentActivity {
     private TextView micButton;
     private TextView voiceButton;
     private TextView languageButton;
-    private ReactorView reactorView;
+    private ArtieCoreView artieCoreView;
     private FrameLayout appFrame;
     private LinearLayout voiceOrbPanel;
     private VoiceOrbView voiceOrbView;
@@ -328,8 +328,8 @@ public class MainActivity extends FragmentActivity {
                                 || errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON
                                 || errorCode == BiometricPrompt.ERROR_CANCELED) {
                             new AlertDialog.Builder(MainActivity.this)
-                                    .setTitle("J.A.R.V.I.S. LOCKED")
-                                    .setMessage("Authenticate to enter JARVIS.")
+                                    .setTitle("A.R.T.I.E. LOCKED")
+                                    .setMessage("Authenticate to enter A.R.T.I.E..")
                                     .setPositiveButton("TRY AGAIN", (d, w) -> authenticateOwner())
                                     .setNegativeButton("EXIT", (d, w) -> finish())
                                     .show();
@@ -341,7 +341,7 @@ public class MainActivity extends FragmentActivity {
             };
             biometricPrompt = new BiometricPrompt(this, ContextCompat.getMainExecutor(this), callback);
             BiometricPrompt.PromptInfo.Builder promptBuilder = new BiometricPrompt.PromptInfo.Builder()
-                    .setTitle("J.A.R.V.I.S. ACCESS")
+                    .setTitle("A.R.T.I.E. ACCESS")
                     .setSubtitle("Verify your identity to continue");
             if (Build.VERSION.SDK_INT >= 30) {
                 promptBuilder.setAllowedAuthenticators(authenticators);
@@ -358,7 +358,7 @@ public class MainActivity extends FragmentActivity {
         if (keyguard != null && keyguard.isDeviceSecure()) {
             try {
                 Intent credential = keyguard.createConfirmDeviceCredentialIntent(
-                        "Unlock J.A.R.V.I.S.", "Confirm your device screen lock");
+                        "Unlock A.R.T.I.E.", "Confirm your device screen lock");
                 if (credential != null) {
                     startActivityForResult(credential, REQUEST_DEVICE_CREDENTIAL);
                     return;
@@ -369,7 +369,7 @@ public class MainActivity extends FragmentActivity {
         lockPromptStarted = false;
         new AlertDialog.Builder(this)
                 .setTitle("DEVICE LOCK REQUIRED")
-                .setMessage("Set up a fingerprint or secure screen lock in Android Settings first. JARVIS will use the device's system authentication and will not store your fingerprint.")
+                .setMessage("Set up a fingerprint or secure screen lock in Android Settings first. A.R.T.I.E. will use the device's system authentication and will not store your fingerprint.")
                 .setPositiveButton("OPEN SECURITY SETTINGS", (d, w) -> {
                     securitySettingsOpened = true;
                     try { startActivity(new Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)); }
@@ -788,7 +788,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 10);
         LinearLayout card = column();
         card.setPadding(dp(15), dp(13), dp(15), dp(13));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
         TextView title = text("MISSION CONTROL", 9, CYAN);
         title.setLetterSpacing(0.16f);
         card.addView(title);
@@ -797,7 +797,7 @@ public class MainActivity extends FragmentActivity {
         card.addView(note);
         LinearLayout first = row();
         addHomeAction(first, "OPEN CHAT", () -> selectSection("CHAT"));
-        addHomeAction(first, "JARVIS INBOX", () -> selectSection("INBOX"));
+        addHomeAction(first, "A.R.T.I.E. INBOX", () -> selectSection("INBOX"));
         card.addView(first);
         LinearLayout second = row();
         addHomeAction(second, "DEVICE TOOLS", () -> selectSection("TOOLS"));
@@ -825,7 +825,7 @@ public class MainActivity extends FragmentActivity {
     private void buildInboxScreen() {
         LinearLayout header = row();
         LinearLayout intro = column();
-        TextView title = text("JARVIS INBOX", 17, WHITE);
+        TextView title = text("A.R.T.I.E. INBOX", 17, WHITE);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         intro.addView(title);
         inboxSummary = text("REMINDERS AND SYSTEM ALERTS", 8, MUTED);
@@ -872,10 +872,10 @@ public class MainActivity extends FragmentActivity {
             addInboxCard(item);
         }
         if (visible == 0) {
-            TextView empty = text("You're all clear. Reminders, JARVIS alerts and notifications from apps you allow in Android Notification Access will appear here.", 12, MUTED);
+            TextView empty = text("You're all clear. Reminders, A.R.T.I.E. alerts and notifications from apps you allow in Android Notification Access will appear here.", 12, MUTED);
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(18), dp(44), dp(18), dp(44));
-            empty.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+            empty.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
             inboxItems.addView(empty, new LinearLayout.LayoutParams(-1, -2));
         }
         refreshNavigationBadges();
@@ -884,7 +884,7 @@ public class MainActivity extends FragmentActivity {
     private void addInboxCard(org.json.JSONObject item) {
         long id = item.optLong("id", 0L);
         String type = item.optString("type", "ALERT");
-        String title = item.optString("title", "JARVIS notification");
+        String title = item.optString("title", "A.R.T.I.E. notification");
         String message = item.optString("message", "");
         String status = item.optString("status", "NEW");
         boolean read = item.optBoolean("read", false);
@@ -938,16 +938,16 @@ public class MainActivity extends FragmentActivity {
     private void buildSettingsScreen() {
         LinearLayout card = column();
         card.setPadding(dp(15), dp(14), dp(15), dp(14));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
         TextView title = text("VOICE & ASSISTANT", 10, CYAN);
         title.setLetterSpacing(0.14f);
         card.addView(title);
-        TextView description = text("JARVIS prefers an installed Hindi voice marked as female by the active TTS engine. If no such marker is available, choose a Hindi voice in Android settings.", 11, MUTED);
+        TextView description = text("A.R.T.I.E. prefers an installed Hindi voice marked as female by the active TTS engine. If no such marker is available, choose a Hindi voice in Android settings.", 11, MUTED);
         description.setPadding(0, dp(7), 0, dp(12));
         card.addView(description);
         LinearLayout voiceRow = row();
         voiceRow.addView(chip("ANDROID VOICE SETTINGS", () -> openSystemTtsSettings()), new LinearLayout.LayoutParams(0, -2, 1));
-        voiceRow.addView(chip("TEST HINDI VOICE", () -> speak("नमस्ते सर। मैं JARVIS हूँ और आपकी सहायता के लिए तैयार हूँ।")), new LinearLayout.LayoutParams(0, -2, 1));
+        voiceRow.addView(chip("TEST HINDI VOICE", () -> speak("नमस्ते सर। मैं A.R.T.I.E. हूँ और आपकी सहायता के लिए तैयार हूँ।")), new LinearLayout.LayoutParams(0, -2, 1));
         card.addView(voiceRow);
         addGap(card, 8);
         card.addView(chip("CHANGE SPEECH LANGUAGE  ·  " + languageLabel(), () -> toggleLanguage()));
@@ -962,7 +962,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout neural = column();
         neural.setPadding(dp(15), dp(13), dp(15), dp(13));
-        neural.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+        neural.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
         TextView neuralTitle = text("LOCAL NEURAL CORE", 10, CYAN);
         neuralTitle.setLetterSpacing(0.13f);
         neural.addView(neuralTitle);
@@ -989,11 +989,11 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout privacy = column();
         privacy.setPadding(dp(15), dp(13), dp(15), dp(13));
-        privacy.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+        privacy.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
         TextView privacyTitle = text("PRIVACY & CONTROL", 10, GOLD);
         privacyTitle.setLetterSpacing(0.13f);
         privacy.addView(privacyTitle);
-        TextView privacyText = text("SMS and WhatsApp open drafts for your review. Reminders and JARVIS alerts are stored locally on this device. Protected Android permissions and other apps' private data remain under your control.", 11, MUTED);
+        TextView privacyText = text("SMS and WhatsApp open drafts for your review. Reminders and A.R.T.I.E. alerts are stored locally on this device. Protected Android permissions and other apps' private data remain under your control.", 11, MUTED);
         privacyText.setPadding(0, dp(7), 0, 0);
         privacy.addView(privacyText);
         root.addView(privacy, new LinearLayout.LayoutParams(-1, -2));
@@ -1099,7 +1099,7 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void buildVoiceOrbPanel() {
-        TextView close = text("‹   BACK TO J.A.R.V.I.S.", 11, Color.rgb(151, 207, 229));
+        TextView close = text("‹   BACK TO A.R.T.I.E.", 11, Color.rgb(151, 207, 229));
         close.setPadding(dp(8), dp(12), dp(8), dp(12));
         close.setOnClickListener(v -> hideVoiceOrb());
         voiceOrbPanel.addView(close, new LinearLayout.LayoutParams(-1, -2));
@@ -1109,7 +1109,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout.LayoutParams orbLp = new LinearLayout.LayoutParams(dp(330), dp(330));
         orbLp.gravity = Gravity.CENTER;
         voiceOrbPanel.addView(voiceOrbView, orbLp);
-        TextView name = text("J.A.R.V.I.S.", 21, Color.rgb(224, 246, 255));
+        TextView name = text("A.R.T.I.E.", 21, Color.rgb(224, 246, 255));
         name.setGravity(Gravity.CENTER);
         name.setLetterSpacing(0.22f);
         voiceOrbPanel.addView(name, new LinearLayout.LayoutParams(-1, -2));
@@ -1163,7 +1163,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout bar = row();
         LinearLayout identity = column();
 
-        TextView brand = text("J.A.R.V.I.S.", 17, CYAN);
+        TextView brand = text("A.R.T.I.E.", 17, CYAN);
         brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         brand.setLetterSpacing(0.12f);
         identity.addView(brand);
@@ -1196,12 +1196,12 @@ public class MainActivity extends FragmentActivity {
         hero.setPadding(dp(12), dp(18), dp(12), dp(16));
         GradientDrawable background = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(8, 28, 45), Color.rgb(3, 9, 17), Color.rgb(5, 16, 28)});
+                new int[]{Color.rgb(25, 20, 52), Color.rgb(5, 7, 18), Color.rgb(10, 10, 28)});
         background.setCornerRadius(dp(9));
-        background.setStroke(dp(1), Color.rgb(39, 103, 130));
+        background.setStroke(dp(1), Color.rgb(86, 76, 145));
         hero.setBackground(background);
 
-        TextView eyebrow = text("ARC REACTOR  //  CORE 01", 9, MUTED);
+        TextView eyebrow = text("ARTIE CORE  •  ACTIVE INTERFACE", 9, MUTED);
         eyebrow.setLetterSpacing(0.22f);
         eyebrow.setGravity(Gravity.CENTER);
         hero.addView(eyebrow);
@@ -1209,24 +1209,24 @@ public class MainActivity extends FragmentActivity {
         int screenWidthDp = (int) (getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
         int reactorSize = screenWidthDp >= 700 ? 340 : screenWidthDp >= 520 ? 316 : 286;
-        reactorView = new ReactorView(this);
+        artieCoreView = new ArtieCoreView(this);
         LinearLayout.LayoutParams reactorLp = new LinearLayout.LayoutParams(dp(reactorSize), dp(reactorSize));
         reactorLp.gravity = Gravity.CENTER;
         reactorLp.topMargin = dp(7);
         reactorLp.bottomMargin = dp(4);
-        reactorView.setClickable(true);
-        reactorView.setFocusable(true);
-        reactorView.setContentDescription("Open JARVIS voice orb");
-        reactorView.setOnClickListener(v -> showVoiceOrb("READY"));
-        hero.addView(reactorView, reactorLp);
+        artieCoreView.setClickable(true);
+        artieCoreView.setFocusable(true);
+        artieCoreView.setContentDescription("Open A.R.T.I.E. voice orb");
+        artieCoreView.setOnClickListener(v -> showVoiceOrb("READY"));
+        hero.addView(artieCoreView, reactorLp);
 
-        TextView title = text("J.A.R.V.I.S.", 22, WHITE);
+        TextView title = text("A.R.T.I.E.", 22, WHITE);
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
         title.setLetterSpacing(0.24f);
         title.setGravity(Gravity.CENTER);
         hero.addView(title);
 
-        TextView sub = text("PERSONAL AI  /  EXECUTIVE ASSISTANT", 8, CYAN);
+        TextView sub = text("PERSONAL AI  /  COMMAND INTERFACE", 8, CYAN);
         sub.setLetterSpacing(0.16f);
         sub.setGravity(Gravity.CENTER);
         sub.setPadding(0, dp(3), 0, dp(13));
@@ -1267,7 +1267,7 @@ public class MainActivity extends FragmentActivity {
     private void buildConversation() {
         LinearLayout card = column();
         card.setPadding(dp(13), dp(11), dp(13), dp(10));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 6));
+        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 6));
 
         LinearLayout header = row();
         TextView title = text("LIVE CONVERSATION", 8, CYAN);
@@ -1290,7 +1290,7 @@ public class MainActivity extends FragmentActivity {
         card.addView(chatScroll, chatLp);
 
         if (conversation.length() <= 1) {
-            addMessage("JARVIS", "Good day, Raushan. I am online.", false);
+            addMessage("A.R.T.I.E.", "Good day, Raushan. I am online.", false);
         } else {
             for (int i = 1; i < conversation.length(); i++) {
                 JSONObject item = conversation.optJSONObject(i);
@@ -1298,7 +1298,7 @@ public class MainActivity extends FragmentActivity {
                 String role = item.optString("role", "");
                 String content = item.optString("content", "");
                 if ("user".equals(role)) addMessage("YOU", content, false);
-                else if ("assistant".equals(role)) addMessage("JARVIS", content, false);
+                else if ("assistant".equals(role)) addMessage("A.R.T.I.E.", content, false);
             }
         }
         root.addView(card, new LinearLayout.LayoutParams(-1, -2));
@@ -1314,7 +1314,7 @@ public class MainActivity extends FragmentActivity {
         prompt.setTextSize(13);
         prompt.setTextColor(WHITE);
         prompt.setHintTextColor(MUTED);
-        prompt.setHint("Talk to JARVIS or type a command...");
+        prompt.setHint("Talk to A.R.T.I.E. or type a command...");
         prompt.setBackgroundColor(Color.TRANSPARENT);
         prompt.setPadding(dp(9), dp(8), dp(5), dp(8));
         prompt.setImeOptions(EditorInfo.IME_ACTION_SEND);
@@ -1397,7 +1397,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
         voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
         rowFour.addView(voiceSelectButton, voiceLp);
-        addControl(rowFour, "TEST VOICE", () -> speak("Good evening, Sir. JARVIS is online and ready."));
+        addControl(rowFour, "TEST VOICE", () -> speak("Good evening, Sir. A.R.T.I.E. is online and ready."));
         systemPanel.addView(rowFour);
 
         LinearLayout rowFive = row();
@@ -1427,7 +1427,7 @@ public class MainActivity extends FragmentActivity {
 
         LinearLayout rowEight = row();
         addControl(rowEight, "FLOATING ORB", () -> toggleFloatingOrb());
-        addControl(rowEight, "LOCK JARVIS", () -> lockAppNow());
+        addControl(rowEight, "LOCK A.R.T.I.E.", () -> lockAppNow());
         addControl(rowEight, "FOLDER ACCESS", () -> openFolderPicker());
         systemPanel.addView(rowEight);
 
@@ -1474,8 +1474,8 @@ public class MainActivity extends FragmentActivity {
             if (orbStatus != null) orbStatus.setText(message.replace("  •  ", " · "));
             if (voiceOrbView != null) voiceOrbView.setState(message);
         }
-        if (reactorView != null) {
-            reactorView.setMode(message.contains("LISTEN") ? 1
+        if (artieCoreView != null) {
+            artieCoreView.setMode(message.contains("LISTEN") ? 1
                     : (message.contains("THINK") || message.contains("PROCESS")) ? 2
                     : message.contains("SPEAK") ? 3 : 0);
         }
@@ -1494,7 +1494,7 @@ public class MainActivity extends FragmentActivity {
         bubble.setBackground(shape(
                 userMessage ? Color.rgb(13, 39, 54) : Color.rgb(10, 24, 36),
                 userMessage ? Color.rgb(44, 111, 137) : Color.rgb(35, 75, 93), 5));
-        TextView label = text(userMessage ? "RAUSHAN" : "J.A.R.V.I.S.",
+        TextView label = text(userMessage ? "RAUSHAN" : "A.R.T.I.E.",
                 7, userMessage ? GOLD : CYAN);
         label.setLetterSpacing(0.14f);
         bubble.addView(label);
@@ -1523,7 +1523,7 @@ public class MainActivity extends FragmentActivity {
     private void clearConversation() {
         if (chatList != null) {
             chatList.removeAllViews();
-            TextView welcome = text("Conversation cleared. JARVIS is ready for a fresh start.", 11, MUTED);
+            TextView welcome = text("Conversation cleared. A.R.T.I.E. is ready for a fresh start.", 11, MUTED);
             welcome.setPadding(0, dp(6), 0, dp(6));
             chatList.addView(welcome);
         }
@@ -1623,7 +1623,7 @@ public class MainActivity extends FragmentActivity {
                         connectionView.setText(failed ? "AI LINK ISSUE"
                                 : finalNeuralConnected ? "NEURAL CORE + AI READY" : "AI LINK READY");
                     }
-                    addMessage("JARVIS", finalAnswer, failed);
+                    addMessage("A.R.T.I.E.", finalAnswer, failed);
                     try {
                         JSONObject assistant = new JSONObject();
                         assistant.put("role", "assistant");
@@ -1639,7 +1639,7 @@ public class MainActivity extends FragmentActivity {
             busy = false;
             if (sendButton != null) sendButton.setAlpha(1f);
             if (connectionView != null) connectionView.setText("AI LINK UNAVAILABLE");
-            reply("The AI request could not be queued. Please close and reopen JARVIS, then try again.", speakResponse);
+            reply("The AI request could not be queued. Please close and reopen A.R.T.I.E., then try again.", speakResponse);
         }
     }
 
@@ -1888,7 +1888,7 @@ public class MainActivity extends FragmentActivity {
                                Consumer<ArrayList<JarvisDataCore.Entry>> callback) {
         Uri tree = JarvisDataCore.savedTree(this);
         if (tree == null) {
-            reply("Choose a folder first. I can search only locations that you have explicitly shared with JARVIS.");
+            reply("Choose a folder first. I can search only locations that you have explicitly shared with A.R.T.I.E..");
             openFolderPicker();
             return;
         }
@@ -1955,7 +1955,7 @@ public class MainActivity extends FragmentActivity {
         body.setPadding(dp(12), dp(10), dp(12), dp(10));
         scroll.addView(body);
         new AlertDialog.Builder(this).setTitle(fileName).setView(scroll)
-                .setPositiveButton("ASK JARVIS TO SUMMARIZE", (dialog, which) -> {
+                .setPositiveButton("ASK A.R.T.I.E. TO SUMMARIZE", (dialog, which) -> {
                     String excerpt = contents == null ? "" : contents;
                     if (excerpt.length() > 4200) excerpt = excerpt.substring(0, 4200);
                     sendMessage("Summarize this file in clear points. File: " + fileName
@@ -1967,12 +1967,12 @@ public class MainActivity extends FragmentActivity {
 
     private boolean ensureDataWriteAccess(Uri tree) {
         if (tree == null) {
-            reply("Choose a folder first and grant JARVIS access.");
+            reply("Choose a folder first and grant A.R.T.I.E. access.");
             openFolderPicker();
             return false;
         }
         if (!JarvisDataCore.hasWriteGrant(this, tree)) {
-            reply("JARVIS has no saved write permission for this folder. Choose the folder again and allow modification access.");
+            reply("A.R.T.I.E. has no saved write permission for this folder. Choose the folder again and allow modification access.");
             openFolderPicker();
             return false;
         }
@@ -1988,7 +1988,7 @@ public class MainActivity extends FragmentActivity {
         editor.setMinLines(5);
         editor.setPadding(dp(12), dp(10), dp(12), dp(10));
         new AlertDialog.Builder(this).setTitle("CREATE " + fileName)
-                .setMessage("The file will be created inside your selected JARVIS folder.")
+                .setMessage("The file will be created inside your selected A.R.T.I.E. folder.")
                 .setView(editor)
                 .setPositiveButton("CREATE FILE", (dialog, which) ->
                         createDataFile(tree, fileName, editor.getText().toString()))
@@ -2000,7 +2000,7 @@ public class MainActivity extends FragmentActivity {
         new Thread(() -> {
             try {
                 Uri created = JarvisDataCore.createTextFile(this, tree, fileName, contents);
-                runOnUiThread(() -> reply("Created " + fileName + " in your selected JARVIS folder."));
+                runOnUiThread(() -> reply("Created " + fileName + " in your selected A.R.T.I.E. folder."));
             } catch (Exception error) {
                 runOnUiThread(() -> reply("I couldn't create that file. " + safeDataError(error)));
             }
@@ -2159,7 +2159,7 @@ public class MainActivity extends FragmentActivity {
             return "";
         }
 
-        if (value.equals("default assistant") || value.equals("make jarvis default assistant")) {
+        if (value.equals("default assistant") || value.equals("make artie default assistant")) {
             requestAssistantRole();
             return "";
         }
@@ -2185,7 +2185,7 @@ public class MainActivity extends FragmentActivity {
         if (appCommand != null) return appCommand;
 
         if (value.equals("stop") || value.equals("bas") || value.equals("chup") ||
-                value.contains("stop speech") || value.contains("jarvis stop")) {
+                value.contains("stop speech") || value.contains("artie stop")) {
             stopSpeech();
             return "";
         }
@@ -2462,7 +2462,7 @@ public class MainActivity extends FragmentActivity {
                     .putString("saved_memories", notes.toString()).apply();
             refreshSystemPrompt();
             persistConversation();
-            return "Saved to JARVIS memory on this device: " + note + ". Relevant notes may be included in future AI requests to personalize replies.";
+            return "Saved to A.R.T.I.E. memory on this device: " + note + ". Relevant notes may be included in future AI requests to personalize replies.";
         }
 
         if (value.equals("forget all memories") || value.equals("clear all memories")
@@ -2471,7 +2471,7 @@ public class MainActivity extends FragmentActivity {
                     .remove("saved_memories").apply();
             refreshSystemPrompt();
             persistConversation();
-            return "All saved JARVIS notes have been cleared from this device.";
+            return "All saved A.R.T.I.E. notes have been cleared from this device.";
         }
 
         if (value.startsWith("forget ") || value.startsWith("bhool jao ")) {
@@ -2563,7 +2563,7 @@ public class MainActivity extends FragmentActivity {
             Intent intent = new Intent(AlarmClock.ACTION_SET_ALARM);
             intent.putExtra(AlarmClock.EXTRA_HOUR, hour);
             intent.putExtra(AlarmClock.EXTRA_MINUTES, minute);
-            intent.putExtra(AlarmClock.EXTRA_MESSAGE, "JARVIS alarm");
+            intent.putExtra(AlarmClock.EXTRA_MESSAGE, "A.R.T.I.E. alarm");
             intent.putExtra(AlarmClock.EXTRA_SKIP_UI, false);
             startActivity(intent);
             String time = String.format(Locale.getDefault(), "%02d:%02d", hour, minute);
@@ -2670,8 +2670,8 @@ public class MainActivity extends FragmentActivity {
         if (amount < 1 || amount > 1000 || task.isEmpty()) return "Please choose a reminder between 1 and 1000 minutes or hours, with a task.";
         long delay = amount * (unit.startsWith("h") ? 60L : 1L) * 60L * 1000L;
         long dueAt = System.currentTimeMillis() + delay;
-        long id = JarvisInboxStore.add(this, "REMINDER", "JARVIS reminder", task, dueAt, "SCHEDULED", false);
-        if (!JarvisInboxStore.scheduleReminder(this, id, "JARVIS reminder", task, dueAt)) {
+        long id = JarvisInboxStore.add(this, "REMINDER", "A.R.T.I.E. reminder", task, dueAt, "SCHEDULED", false);
+        if (!JarvisInboxStore.scheduleReminder(this, id, "A.R.T.I.E. reminder", task, dueAt)) {
             JarvisInboxStore.delete(this, id);
             return "Android could not schedule that reminder. Check battery and notification settings, then try again.";
         }
@@ -2679,10 +2679,10 @@ public class MainActivity extends FragmentActivity {
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_NOTIFICATIONS);
-            return "Reminder saved in JARVIS Inbox and scheduled for " + amount + " " + unit + ": "
+            return "Reminder saved in A.R.T.I.E. Inbox and scheduled for " + amount + " " + unit + ": "
                     + task + ". Please allow notifications so Android can show the reminder alert.";
         }
-        return "Reminder saved in JARVIS Inbox and scheduled for " + amount + " " + unit + ": " + task + ".";
+        return "Reminder saved in A.R.T.I.E. Inbox and scheduled for " + amount + " " + unit + ": " + task + ".";
     }
 
     private String handleMessageCommand(String input) {
@@ -2888,7 +2888,7 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void reply(String message) {
-        addMessage("JARVIS", message, false);
+        addMessage("A.R.T.I.E.", message, false);
         setStatus("RESPONSE READY");
         if (currentResponseShouldSpeak && !suppressSpeechForCurrentCommand) speak(message);
     }
@@ -3315,12 +3315,12 @@ public class MainActivity extends FragmentActivity {
         try {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
             if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
-            setStatus("JARVIS LIVE  •  SAY HEY JARVIS");
+            setStatus("A.R.T.I.E. LIVE  •  SAY HEY ARTIE");
         } catch (Exception error) {
             liveModeEnabled = false;
             getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit().putBoolean("live_mode_enabled", false).apply();
             setStatus("LIVE MODE COULD NOT START");
-            reply("Android could not start the microphone service. Open JARVIS while it is visible and check microphone permission.");
+            reply("Android could not start the microphone service. Open A.R.T.I.E. while it is visible and check microphone permission.");
         }
     }
 
@@ -3361,7 +3361,7 @@ public class MainActivity extends FragmentActivity {
         if (command == null || command.isEmpty()) return;
         prefs.edit().remove("pending_live_command").apply();
         currentResponseShouldSpeak = true;
-        if ("__JARVIS_WAKE__".equals(command)) reply("Yes, Sir?");
+        if ("__ARTIE_WAKE__".equals(command)) reply("Yes, Sir?");
         else sendMessage(command, true, true, true);
     }
 
@@ -3370,7 +3370,7 @@ public class MainActivity extends FragmentActivity {
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_NOTIFICATIONS);
         } else {
-            reply("JARVIS notifications are already permitted by Android.");
+            reply("A.R.T.I.E. notifications are already permitted by Android.");
         }
     }
 
@@ -3409,11 +3409,11 @@ public class MainActivity extends FragmentActivity {
         }
         RoleManager roles = getSystemService(RoleManager.class);
         if (roles == null || !roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT)) {
-            reply("This Android version does not expose the default assistant role to JARVIS.");
+            reply("This Android version does not expose the default assistant role to A.R.T.I.E..");
             return;
         }
         if (roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)) {
-            reply("JARVIS is already your default assistant, Sir.");
+            reply("A.R.T.I.E. is already your default assistant, Sir.");
             return;
         }
         try { startActivityForResult(roles.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT), REQUEST_ASSISTANT_ROLE); }
@@ -3563,8 +3563,8 @@ public class MainActivity extends FragmentActivity {
                 + "\nDOCUMENTS: selected files only"
                 + "\nFOLDER ACCESS: " + (folder.isEmpty() ? "NOT SELECTED" : "USER-SELECTED FOLDER")
                 + "\nFOLDER MODIFY: " + (folderWrite ? "GRANTED" : "NOT GRANTED")
-                + "\n\nFile access is limited to locations selected in Android's picker. Some providers may not support every create, rename, copy or move action. JARVIS cannot read another app's private files.";
-        new AlertDialog.Builder(this).setTitle("JARVIS PERMISSION CENTER").setMessage(message)
+                + "\n\nFile access is limited to locations selected in Android's picker. Some providers may not support every create, rename, copy or move action. A.R.T.I.E. cannot read another app's private files.";
+        new AlertDialog.Builder(this).setTitle("A.R.T.I.E. PERMISSION CENTER").setMessage(message)
                 .setPositiveButton("GRANT CORE", (dialog, which) -> requestCorePermissions())
                 .setNeutralButton("ANDROID APP SETTINGS", (dialog, which) -> {
                     try { startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -3644,7 +3644,7 @@ public class MainActivity extends FragmentActivity {
     private void browseSavedFolder() {
         String saved = getSharedPreferences("jarvis_settings", MODE_PRIVATE).getString("document_tree_uri", "");
         if (saved.isEmpty()) {
-            reply("No folder has been selected yet. Choose Folder first, then I can browse the files Android shares with JARVIS.");
+            reply("No folder has been selected yet. Choose Folder first, then I can browse the files Android shares with A.R.T.I.E..");
             return;
         }
         try {
@@ -3723,7 +3723,7 @@ public class MainActivity extends FragmentActivity {
         if (requestCode == REQUEST_ASSISTANT_ROLE) {
             RoleManager roles = Build.VERSION.SDK_INT >= 29 ? getSystemService(RoleManager.class) : null;
             boolean held = roles != null && roles.isRoleHeld(RoleManager.ROLE_ASSISTANT);
-            reply(held ? "JARVIS is now your Android default assistant, Sir." : "Android did not assign the default assistant role. You can try again from Controls.");
+            reply(held ? "A.R.T.I.E. is now your Android default assistant, Sir." : "Android did not assign the default assistant role. You can try again from Controls.");
             return;
         }
         if (resultCode != RESULT_OK || data == null) return;
@@ -3749,7 +3749,7 @@ public class MainActivity extends FragmentActivity {
             persistReadPermission(treeUri, data.getFlags());
             getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
                     .putString("document_tree_uri", treeUri.toString()).apply();
-            reply("Folder access saved. JARVIS can browse the files and subfolders Android has shared from that location.");
+            reply("Folder access saved. A.R.T.I.E. can browse the files and subfolders Android has shared from that location.");
             browseSavedFolder();
         }
     }
@@ -3790,7 +3790,7 @@ public class MainActivity extends FragmentActivity {
                     + ". Document access is granted separately when you choose files or folders.");
         } else if (requestCode == PERMISSION_NOTIFICATIONS) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            reply(granted ? "JARVIS notifications are enabled." : "Notifications remain disabled. Enable them in Android app settings to receive reminder alerts.");
+            reply(granted ? "A.R.T.I.E. notifications are enabled." : "Notifications remain disabled. Enable them in Android app settings to receive reminder alerts.");
         } else if (requestCode == PERMISSION_CONTACTS) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (pendingMessageContact != null) {
@@ -3853,12 +3853,12 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
-    private static class ReactorView extends View {
+    private static class ArtieCoreView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final long started = System.currentTimeMillis();
         private int mode = 0;
 
-        ReactorView(Context context) {
+        ArtieCoreView(Context context) {
             super(context);
             setLayerType(View.LAYER_TYPE_HARDWARE, null);
         }
@@ -3873,99 +3873,80 @@ public class MainActivity extends FragmentActivity {
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            float radius = Math.min(getWidth(), getHeight()) * .345f;
+            float radius = Math.min(getWidth(), getHeight()) * .32f;
             float time = (System.currentTimeMillis() - started) / 1000f;
-            float pulse = 1f + (mode == 1 ? .034f : mode == 2 ? .024f : mode == 3 ? .052f : .014f)
-                    * (float)Math.sin(time * (mode == 3 ? 8.4f : 2.4f));
+            float pulse = 1f + (mode == 3 ? .055f : mode == 2 ? .035f : .018f)
+                    * (float) Math.sin(time * (mode == 3 ? 7.5f : 2.1f));
 
             paint.setStyle(Paint.Style.FILL);
-            paint.setShader(new android.graphics.RadialGradient(cx, cy, radius * 1.95f,
-                    new int[]{Color.argb(62, 66, 190, 235), Color.argb(20, 12, 80, 130), Color.TRANSPARENT},
+            paint.setShader(new android.graphics.RadialGradient(cx, cy, radius * 2.15f,
+                    new int[]{Color.argb(72, 170, 159, 255), Color.argb(25, 91, 113, 218), Color.TRANSPARENT},
                     null, android.graphics.Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, radius * 1.95f, paint);
+            canvas.drawCircle(cx, cy, radius * 2.15f, paint);
             paint.setShader(null);
 
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), 1f));
-            paint.setColor(Color.argb(66, 112, 229, 255));
-            canvas.drawCircle(cx, cy, radius * 1.42f, paint);
-            canvas.drawCircle(cx, cy, radius * 1.17f, paint);
-            canvas.drawCircle(cx, cy, radius * .96f, paint);
-            paint.setPathEffect(new android.graphics.DashPathEffect(new float[]{3f, 8f}, (float)(time * 9f)));
-            canvas.drawCircle(cx, cy, radius * 1.31f, paint);
-            paint.setPathEffect(null);
-
+            // Two soft orbital tracks give the core its own identity, away from the old reactor motif.
             canvas.save();
-            canvas.rotate(time * (mode == 2 ? 72f : 24f), cx, cy);
-            paint.setStrokeWidth(dpStatic(getContext(), 2f));
-            paint.setColor(Color.argb(mode == 1 ? 220 : 155, 112, 229, 255));
-            RectF outer = new RectF(cx - radius * 1.24f, cy - radius * 1.24f,
-                    cx + radius * 1.24f, cy + radius * 1.24f);
-            canvas.drawArc(outer, 18f, 88f, false, paint);
-            canvas.drawArc(outer, 164f, 54f, false, paint);
-            canvas.drawArc(outer, 254f, 46f, false, paint);
+            canvas.rotate(time * 13f, cx, cy);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpStatic(getContext(), 2.1f));
+            paint.setColor(Color.argb(190, 170, 159, 255));
+            RectF orbitA = new RectF(cx - radius * 1.40f, cy - radius * .66f,
+                    cx + radius * 1.40f, cy + radius * .66f);
+            canvas.drawOval(orbitA, paint);
             canvas.restore();
 
             canvas.save();
-            canvas.rotate(-time * (mode == 2 ? 104f : 34f), cx, cy);
-            paint.setStrokeWidth(dpStatic(getContext(), 1.5f));
-            paint.setColor(Color.argb(150, 226, 184, 105));
-            RectF inner = new RectF(cx - radius * .83f, cy - radius * .83f,
-                    cx + radius * .83f, cy + radius * .83f);
-            canvas.drawArc(inner, 42f, 62f, false, paint);
-            canvas.drawArc(inner, 222f, 62f, false, paint);
-            for (int i = 0; i < 4; i++) {
-                double a = time * .42 + i * Math.PI / 2;
-                float x = cx + (float)Math.cos(a) * radius * 1.32f;
-                float y = cy + (float)Math.sin(a) * radius * 1.32f;
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(Color.rgb(119, 228, 255));
-                canvas.drawCircle(x, y, dpStatic(getContext(), 2.3f), paint);
-                paint.setStyle(Paint.Style.STROKE);
-            }
+            canvas.rotate(-time * 19f, cx, cy);
+            paint.setStrokeWidth(dpStatic(getContext(), 1.6f));
+            paint.setColor(Color.argb(175, 95, 225, 206));
+            RectF orbitB = new RectF(cx - radius * .78f, cy - radius * 1.28f,
+                    cx + radius * .78f, cy + radius * 1.28f);
+            canvas.drawOval(orbitB, paint);
             canvas.restore();
 
             paint.setStyle(Paint.Style.STROKE);
-            for (int i = 0; i < 48; i++) {
-                float angle = (float)(Math.PI * 2 * i / 48.0);
-                float innerR = radius * (i % 4 == 0 ? 1.08f : 1.13f);
-                float outerR = radius * (i % 4 == 0 ? 1.25f : 1.19f);
-                paint.setColor(i % 4 == 0 ? Color.argb(205, 127, 235, 255)
-                        : Color.argb(82, 112, 229, 255));
-                paint.setStrokeWidth(dpStatic(getContext(), i % 4 == 0 ? 2f : 1f));
-                canvas.drawLine(cx + (float)Math.cos(angle) * innerR, cy + (float)Math.sin(angle) * innerR,
-                        cx + (float)Math.cos(angle) * outerR, cy + (float)Math.sin(angle) * outerR, paint);
-            }
-
-            int core = mode == 1 ? Color.rgb(222, 176, 102)
-                    : mode == 3 ? Color.rgb(147, 235, 255) : Color.rgb(112, 229, 255);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(mode == 3 ? 60 : 38, Color.red(core), Color.green(core), Color.blue(core)));
-            canvas.drawCircle(cx, cy, radius * .79f * pulse, paint);
-            paint.setColor(Color.rgb(5, 20, 34));
-            canvas.drawCircle(cx, cy, radius * .64f, paint);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), 3f));
-            paint.setColor(Color.argb(210, Color.red(core), Color.green(core), Color.blue(core)));
-            canvas.drawCircle(cx, cy, radius * .55f * pulse, paint);
+            paint.setStrokeWidth(dpStatic(getContext(), 1.2f));
+            paint.setColor(Color.argb(105, 205, 202, 255));
+            canvas.drawCircle(cx, cy, radius * 1.03f, paint);
             paint.setStrokeWidth(dpStatic(getContext(), 1f));
-            paint.setColor(Color.argb(115, 198, 245, 255));
-            canvas.drawCircle(cx, cy, radius * .43f, paint);
+            paint.setColor(Color.argb(80, 95, 225, 206));
+            canvas.drawCircle(cx, cy, radius * .87f, paint);
 
             paint.setStyle(Paint.Style.FILL);
-            paint.setShader(new android.graphics.RadialGradient(cx - radius * .1f, cy - radius * .18f,
-                    radius * .52f, new int[]{Color.rgb(94, 214, 246), Color.rgb(20, 106, 143),
-                    Color.rgb(5, 29, 48)}, null, android.graphics.Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, radius * .34f, paint);
+            paint.setShader(new android.graphics.RadialGradient(cx - radius * .17f, cy - radius * .23f,
+                    radius * .93f,
+                    new int[]{Color.rgb(190, 183, 255), Color.rgb(93, 93, 194), Color.rgb(13, 20, 52)},
+                    new float[]{0f, .48f, 1f}, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, radius * .72f * pulse, paint);
             paint.setShader(null);
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dpStatic(getContext(), 2.4f));
+            paint.setColor(Color.argb(215, 222, 218, 255));
+            canvas.drawCircle(cx, cy, radius * .72f * pulse, paint);
+            paint.setStrokeWidth(dpStatic(getContext(), 1.2f));
+            paint.setColor(Color.argb(165, 95, 225, 206));
+            canvas.drawCircle(cx, cy, radius * .60f, paint);
+
+            paint.setStyle(Paint.Style.FILL);
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
-            paint.setTextSize(radius * .48f);
-            paint.setColor(Color.rgb(236, 250, 255));
-            paint.setShadowLayer(dpStatic(getContext(), 9), 0, 0, Color.argb(155, 49, 202, 244));
-            canvas.drawText("R", cx, cy + radius * .165f, paint);
+            paint.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+            paint.setTextSize(radius * .92f);
+            paint.setColor(Color.rgb(246, 244, 255));
+            paint.setShadowLayer(dpStatic(getContext(), 12), 0, 0, Color.argb(185, 133, 119, 255));
+            canvas.drawText("A", cx, cy + radius * .31f, paint);
             paint.clearShadowLayer();
-            postInvalidateDelayed(38);
+
+            paint.setStyle(Paint.Style.FILL);
+            for (int i = 0; i < 3; i++) {
+                double angle = time * .62 + i * Math.PI * 2 / 3;
+                float x = cx + (float) Math.cos(angle) * radius * 1.38f;
+                float y = cy + (float) Math.sin(angle) * radius * .72f;
+                paint.setColor(i == 1 ? Color.rgb(95, 225, 206) : Color.rgb(190, 183, 255));
+                canvas.drawCircle(x, y, dpStatic(getContext(), 3.2f), paint);
+            }
+            postInvalidateDelayed(48);
         }
     }
 
@@ -3986,7 +3967,7 @@ public class MainActivity extends FragmentActivity {
             super.onDraw(canvas);
             float w = getWidth(), h = getHeight();
             paint.setShader(new android.graphics.LinearGradient(0, 0, w, h,
-                    new int[]{Color.rgb(3, 10, 19), Color.rgb(6, 20, 32), Color.rgb(3, 9, 17)},
+                    new int[]{Color.rgb(6, 7, 19), Color.rgb(14, 12, 34), Color.rgb(5, 7, 18)},
                     null, android.graphics.Shader.TileMode.CLAMP));
             canvas.drawRect(0, 0, w, h, paint);
             paint.setShader(null);
@@ -4036,7 +4017,7 @@ public class MainActivity extends FragmentActivity {
             if (stage > 0 && stage < 4) {
                 float bx = left + span * (stage - 1) + span * (.5f + .5f * (float)Math.sin(t * 3.1f));
                 paint.setStyle(Paint.Style.FILL);
-                paint.setColor(Color.argb(80, 112, 229, 255));
+                paint.setColor(Color.argb(80, 170, 159, 255));
                 canvas.drawCircle(bx, y, dpStatic(getContext(), 8f), paint);
             }
             for (int i = 0; i < 4; i++) {
@@ -4054,7 +4035,7 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
-    private static final int CYAN_STATIC = Color.rgb(112, 229, 255);
+    private static final int CYAN_STATIC = Color.rgb(170, 159, 255);
 
     private static float dpStatic(Context context, float value) {
         return value * context.getResources().getDisplayMetrics().density;
@@ -4081,14 +4062,14 @@ public class MainActivity extends FragmentActivity {
             float pulse = (float) (1.0 + 0.018 * Math.sin(
                     (System.currentTimeMillis() - started) / 430.0));
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(5, 16, 28));
+            p.setColor(Color.rgb(10, 10, 28));
             p.setShadowLayer(18, 0, 0, Color.argb(100, 44, 190, 236));
             canvas.drawCircle(110, 110, 101, p);
             p.clearShadowLayer();
 
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(1.5f);
-            p.setColor(Color.argb(145, 112, 229, 255));
+            p.setColor(Color.argb(145, 170, 159, 255));
             canvas.drawCircle(110, 110, 101, p);
             p.setStrokeWidth(1.0f);
             p.setColor(Color.argb(135, Color.red(GOLD_STATIC), Color.green(GOLD_STATIC), Color.blue(GOLD_STATIC)));
@@ -4099,7 +4080,7 @@ public class MainActivity extends FragmentActivity {
             canvas.save();
             canvas.rotate((System.currentTimeMillis() - started) / 90f % 360f, 110, 110);
             p.setStrokeWidth(2.0f);
-            p.setColor(Color.argb(155, 112, 229, 255));
+            p.setColor(Color.argb(155, 170, 159, 255));
             canvas.drawArc(new RectF(16, 16, 204, 204), 18, 58, false, p);
             canvas.drawArc(new RectF(16, 16, 204, 204), 198, 58, false, p);
             canvas.restore();
@@ -4137,13 +4118,13 @@ public class MainActivity extends FragmentActivity {
             canvas.drawPath(inner, p);
 
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.argb(45, 112, 229, 255));
+            p.setColor(Color.argb(45, 170, 159, 255));
             canvas.drawCircle(110, 108, 42 * pulse, p);
             p.setColor(Color.rgb(5, 20, 32));
             canvas.drawCircle(110, 108, 29, p);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(3);
-            p.setColor(Color.rgb(112, 229, 255));
+            p.setColor(Color.rgb(170, 159, 255));
             canvas.drawCircle(110, 108, 25, p);
             p.setStrokeWidth(1);
             p.setColor(Color.argb(185, 181, 245, 255));
@@ -4155,15 +4136,15 @@ public class MainActivity extends FragmentActivity {
             p.setStyle(Paint.Style.FILL);
             p.setColor(GOLD_STATIC);
             p.setShadowLayer(7, 0, 0, Color.argb(165, 30, 182, 236));
-            canvas.drawText("R", 110, 142, p);
+            canvas.drawText("A", 110, 142, p);
             p.clearShadowLayer();
             p.setTextSize(90);
             p.setColor(Color.rgb(255, 222, 155));
-            canvas.drawText("R", 109, 141, p);
+            canvas.drawText("A", 109, 141, p);
 
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(2);
-            p.setColor(Color.rgb(112, 229, 255));
+            p.setColor(Color.rgb(170, 159, 255));
             canvas.drawLine(110, 9, 110, 21, p);
             canvas.drawLine(110, 199, 110, 211, p);
             canvas.drawLine(9, 110, 21, 110, p);
@@ -4173,7 +4154,7 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
-    private static final int GOLD_STATIC = Color.rgb(216, 169, 77);
+    private static final int GOLD_STATIC = Color.rgb(95, 225, 206);
 
     @Override
     protected void onPause() {
