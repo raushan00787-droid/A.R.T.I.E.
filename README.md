@@ -84,3 +84,12 @@ This project is the rebranded continuation of the original JARVIS app. The curre
 - Device queries include Android release/API level, Wi-Fi enabled state, and flexible shared-storage questions.
 - Webpage analysis truncates extracted text to the chat request limit and accepts bare public domain links by adding HTTPS.
 - Android Notification Access can mirror non-ongoing external app notifications into the local A.R.T.I.E. Inbox.
+
+
+## v1.18 · Local Neural Core connection
+
+- A.R.T.I.E. can pair with the Python Neural Core running in Termux on the same tablet.
+- In Settings, use **LOCAL NEURAL CORE → PAIR / TEST**. Start `python run_bridge.py` from the Neural Core folder in Termux and paste the token printed by the bridge.
+- The token is encrypted at rest with Android Keystore. The app connects only to `127.0.0.1:8767`; the network security configuration keeps cleartext traffic disabled for every other host.
+- For each chat turn, the app submits the latest user message to `/v1/context` and adds the returned local context snapshot to the Cloud AI request. The Cloud AI remains the language-generation layer.
+- If Termux is stopped, the bridge is unavailable, or pairing has not been completed, A.R.T.I.E. falls back to the existing Cloud AI chat path. It does not claim that the local Neural Core completed device actions.
