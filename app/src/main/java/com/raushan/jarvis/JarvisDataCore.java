@@ -9,6 +9,10 @@ import android.provider.DocumentsContract;
 import android.database.Cursor;
 import android.text.format.Formatter;
 
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -143,6 +147,7 @@ public final class JarvisDataCore {
         if (fileUri == null) throw new IllegalArgumentException("No file was selected.");
         String name = queryDisplayName(context, fileUri);
         String mime = context.getContentResolver().getType(fileUri);
+        if (isPdf(name, mime)) return readPdfText(context, fileUri);
         if (!isReadableText(name, mime)) {
             throw new UnsupportedOperationException("This file format cannot be extracted as text by the current JARVIS build.");
         }
@@ -200,8 +205,10 @@ public final class JarvisDataCore {
     public static Uri rename(Context context, Uri treeUri, Entry entry, String newName) throws Exception {
         requireWriteGrant(context, treeUri);
         if (entry == null || entry.directory) throw new IllegalArgumentException("Choose a file to rename.");
-        return DocumentsContract.renameDocument(context.getContentResolver(), entry.asUri(treeUri),
+        Uri renamed = DocumentsContract.renameDocument(context.getContentResolver(), entry.asUri(treeUri),
                 validateName(newName));
+        if (renamed == null) throw new UnsupportedOperationException("The selected storage provider does not support renaming this file.");
+        return renamed;
     }
 
     public static Uri copyToFolder(Context context, Uri treeUri, Entry entry,
@@ -269,6 +276,32 @@ public final class JarvisDataCore {
         }
         String last = uri.getLastPathSegment();
         return last == null ? "document" : last;
+    }
+
+    private static String readPdfText(Context context, Uri fileUri) throws Exception {
+        PDFBoxResourceLoader.init(context.getApplicationContext());
+        InputStream input = context.getContentResolver().openInputStream(fileUri);
+        if (input == null) throw new IllegalStateException("The selected PDF provider did not open the file.");
+        try (InputStream source = input; PDDocument document = PDDocument.load(source)) {
+            int pages = document.getNumberOfPages();
+            if (pages <= 0) return "This PDF contains no readable pages.";
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setStartPage(1);
+            stripper.setEndPage(Math.min(pages, 25));
+            String extracted = stripper.getText(document);
+            if (extracted == null || extracted.trim().isEmpty()) {
+                return "No selectable text was found. This may be a scanned PDF; image OCR is not enabled in this build.";
+            }
+            boolean truncated = extracted.length() > MAX_TEXT_BYTES || pages > 25;
+            if (extracted.length() > MAX_TEXT_BYTES) extracted = extracted.substring(0, MAX_TEXT_BYTES);
+            if (truncated) extracted += "\n\n[PDF preview limited to the first 25 pages and 160 KB of text.]";
+            return extracted;
+        }
+    }
+
+    private static boolean isPdf(String name, String mime) {
+        return (mime != null && "application/pdf".equalsIgnoreCase(mime))
+                || (name != null && name.toLowerCase(Locale.ROOT).endsWith(".pdf"));
     }
 
     private static boolean isReadableText(String name, String mime) {
