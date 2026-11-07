@@ -1834,8 +1834,8 @@ public class MainActivity extends FragmentActivity {
                 || value.contains("plan for") || value.contains("study plan")
                 || value.contains("roadmap") || value.contains("make me a schedule")
                 || value.contains("break this into steps") || value.contains("steps to");
-        boolean deciding = value.contains("which is better") || value.contains("which one")
-                || value.contains("which should i choose") || value.contains("compare")
+        boolean deciding = value.contains("which is better") || value.contains("which one is better")
+                || value.contains("which one should") || value.contains("which should i choose") || value.contains("compare")
                 || value.contains(" versus ") || value.contains(" vs ")
                 || value.startsWith("decide between");
 
