@@ -237,9 +237,6 @@ public class MainActivity extends FragmentActivity {
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
-        Intent initialIntent = getIntent();
-        if (initialIntent != null && Intent.ACTION_VIEW.equals(initialIntent.getAction())
-                && initialIntent.getData() != null) pendingSharedUrl = initialIntent.getData().toString();
         Intent launchIntent = getIntent();
         assistantLaunchPending = launchIntent != null
                 && (launchIntent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)
@@ -932,10 +929,13 @@ public class MainActivity extends FragmentActivity {
 
     private void refreshNeuralCoreStatus() {
         if (neuralCoreStatusView == null) return;
-        neuralCoreStatusView.setText(
-                NeuralCoreClient.hasSavedToken(this)
-                        ? "PAIRING SAVED • VERIFY CORE ONLINE"
-                        : "NOT PAIRED • CLOUD AI REMAINS DISABLED");
+        boolean paired = NeuralCoreClient.hasSavedToken(this);
+        neuralCoreStatusView.setText(paired
+                ? "PAIRING SAVED • TEST CONNECTION"
+                : "NOT PAIRED • CLOUD AI REMAINS DISABLED");
+        if (connectionView != null) {
+            connectionView.setText(paired ? "CORE TOKEN SAVED" : "CORE NOT PAIRED");
+        }
     }
 
     private void showNeuralCorePairingDialog() {
@@ -1001,7 +1001,7 @@ public class MainActivity extends FragmentActivity {
                         if (sourceButton != null) sourceButton.setEnabled(true);
                         refreshNeuralCoreStatus();
                         setStatus("NEURAL CORE ONLINE");
-                        if (connectionView != null) connectionView.setText("NEURAL CORE ONLINE");
+                        if (connectionView != null) connectionView.setText("COGNITIVE CORE ONLINE");
                         if (!useSavedToken && dialog.isShowing()) dialog.dismiss();
                         reply("Cognitive Core connected. Local context and memory are available. Cloud AI is disabled; a local language model is still needed for full conversational replies.", false);
                     });
@@ -1206,7 +1206,7 @@ public class MainActivity extends FragmentActivity {
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
 
         connectionView = text(NeuralCoreClient.hasSavedToken(this)
-                ? "CORE PAIRED" : "CORE NOT PAIRED", 7, GOLD);
+                ? "CORE TOKEN SAVED" : "CORE NOT PAIRED", 7, GOLD);
         connectionView.setGravity(Gravity.RIGHT);
         header.addView(connectionView);
         statusView = text("READY", 7, MUTED);
