@@ -4,6 +4,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -178,6 +179,8 @@ public final class JarvisInboxStore {
     private static PendingIntent reminderPendingIntent(Context context, long id, Intent intent) {
         int requestCode = (int) (id & 0x7fffffffL);
         if (requestCode == 0) requestCode = 1;
+        // PendingIntent identity includes the data URI, preventing long-ID wraparound collisions.
+        intent.setData(Uri.parse("jarvis://reminder/" + id));
         return PendingIntent.getBroadcast(context, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
