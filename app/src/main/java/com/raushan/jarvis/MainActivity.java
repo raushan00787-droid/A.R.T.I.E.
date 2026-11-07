@@ -2093,7 +2093,7 @@ public class MainActivity extends FragmentActivity {
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
         try {
-            boolean hindiSpeech = containsDevanagari(speechText) || languageMode == 2;
+            boolean hindiSpeech = shouldUseHindiVoice(speechText);
             if (hindiSpeech && hindiVoice != null) tts.setVoice(hindiVoice);
             else if (defaultSystemVoice != null) tts.setVoice(defaultSystemVoice);
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
@@ -2108,6 +2108,25 @@ public class MainActivity extends FragmentActivity {
             scheduleListeningRestart(700);
             resumeLiveModeAfterSpeech();
         }
+    }
+
+    private boolean shouldUseHindiVoice(String value) {
+        // Respect an explicit language selection before applying AUTO detection.
+        if (languageMode == 1) return false;
+        if (languageMode == 2 || containsDevanagari(value)) return true;
+        if (value == null || value.trim().isEmpty()) return false;
+
+        Matcher markers = Pattern.compile(
+                "(?i)\\b(?:hai|hain|hoon|hun|nahi|nahin|kya|kyun|kyu|mujhe|main|mai|" +
+                "aap|aapko|aapki|aapke|tum|tumhe|raha|rahi|sakti|sakta|batao|chahiye|" +
+                "kaise|haan|achha|accha|theek|abhi|kal|aaj|mera|meri|tera|teri|karna|" +
+                "karo|aisa|waisa|bilkul|suno|dekho|bolo)\\b").matcher(value);
+        int matchedWords = 0;
+        while (markers.find()) {
+            matchedWords++;
+            if (matchedWords >= 2) return true;
+        }
+        return false;
     }
 
     private boolean containsDevanagari(String value) {
