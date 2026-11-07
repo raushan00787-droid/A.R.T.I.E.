@@ -19,7 +19,8 @@ public class JarvisVoiceInteractionSessionService extends VoiceInteractionSessio
         public void onShow(android.os.Bundle args, int showFlags) {
             super.onShow(args, showFlags);
             Intent launch = new Intent(getContext(), MainActivity.class);
-            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            launch.putExtra(MainActivity.EXTRA_FROM_ASSISTANT, true);
             startAssistantActivity(launch);
         }
     }

@@ -83,6 +83,8 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.core.content.ContextCompat;
 
 public class MainActivity extends FragmentActivity {
+    public static final String EXTRA_FROM_ASSISTANT = "com.raushan.jarvis.EXTRA_FROM_ASSISTANT";
+    public static final String EXTRA_OPEN_INBOX = "com.raushan.jarvis.EXTRA_OPEN_INBOX";
     private static final String WORKER_URL = "https://quiet-scribe-ai.thequietscribe.workers.dev";
     private static final int PERMISSION_AUDIO = 10;
     private static final int PERMISSION_CAMERA = 11;
@@ -126,6 +128,15 @@ public class MainActivity extends FragmentActivity {
             "confirmation. Keep the relationship professional, trusted, and non-romantic.";
 
     private LinearLayout root;
+    private LinearLayout sectionHost, homeSection, chatSection, inboxSection, toolsSection, settingsSection;
+    private LinearLayout inboxItems;
+    private TextView inboxSummary;
+    private final ArrayList<TextView> navigationTabs = new ArrayList<>();
+    private String activeSection = "HOME";
+    private String inboxFilter = "ALL";
+    private boolean assistantLaunchPending = false;
+    private boolean assistantMicPermissionPending = false;
+    private boolean pendingInboxOpen = false;
     private LinearLayout chatList;
     private ScrollView chatScroll;
     private TextView statusView;
@@ -146,6 +157,9 @@ public class MainActivity extends FragmentActivity {
     private TextView controlsButton;
     private final ArrayList<Voice> availableVoices = new ArrayList<>();
     private String selectedVoiceName;
+    private Voice defaultSystemVoice;
+    private Voice hindiVoice;
+    private boolean hindiVoiceFemaleIdentified = false;
     private volatile boolean clapWakeEnabled = false;
     private AudioRecord clapRecorder;
     private Thread clapThread;
@@ -210,6 +224,11 @@ public class MainActivity extends FragmentActivity {
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        Intent launchIntent = getIntent();
+        assistantLaunchPending = launchIntent != null
+                && launchIntent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false);
+        pendingInboxOpen = launchIntent != null
+                && launchIntent.getBooleanExtra(EXTRA_OPEN_INBOX, false);
         Window window = getWindow();
         window.setStatusBarColor(BG);
         window.setNavigationBarColor(BG);
@@ -356,6 +375,11 @@ public class MainActivity extends FragmentActivity {
             speak("Hey Raushan, welcome again.");
         }
         consumePendingLiveCommand();
+        if (pendingInboxOpen) {
+            pendingInboxOpen = false;
+            selectSection("INBOX");
+        }
+        if (assistantLaunchPending) startAssistantVoiceSession();
     }
 
     private void lockAppNow() {
@@ -582,6 +606,7 @@ public class MainActivity extends FragmentActivity {
             root.setPadding(dp(18), dp(16) + top, dp(18), dp(18) + bottom);
             return insets;
         });
+
         appFrame = new FrameLayout(this);
         appFrame.addView(page, new FrameLayout.LayoutParams(-1, -1));
         voiceOrbPanel = column();
@@ -596,13 +621,266 @@ public class MainActivity extends FragmentActivity {
 
         buildTopBar();
         addGap(root, 12);
+        buildNavigation();
+        sectionHost = column();
+        root.addView(sectionHost, new LinearLayout.LayoutParams(-1, -2));
+
+        homeSection = column();
+        chatSection = column();
+        inboxSection = column();
+        toolsSection = column();
+        settingsSection = column();
+        sectionHost.addView(homeSection, new LinearLayout.LayoutParams(-1, -2));
+        sectionHost.addView(chatSection, new LinearLayout.LayoutParams(-1, -2));
+        sectionHost.addView(inboxSection, new LinearLayout.LayoutParams(-1, -2));
+        sectionHost.addView(toolsSection, new LinearLayout.LayoutParams(-1, -2));
+        sectionHost.addView(settingsSection, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout pageRoot = root;
+        root = homeSection;
         buildMainArea();
         addGap(root, 12);
+        buildHomeQuickAccess();
+
+        root = chatSection;
         buildConversation();
-        addGap(root, 9);
+        addGap(root, 10);
         buildComposer();
+
+        root = inboxSection;
+        buildInboxScreen();
+
+        root = toolsSection;
+        buildDeviceControls();
+
+        root = settingsSection;
+        buildSettingsScreen();
+
+        root = pageRoot;
+        selectSection("HOME");
     }
 
+    private void buildNavigation() {
+        LinearLayout nav = row();
+        nav.setPadding(dp(4), dp(4), dp(4), dp(4));
+        nav.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(33, 73, 94), 8));
+        String[] labels = new String[]{"HOME", "CHAT", "INBOX", "TOOLS", "SETTINGS"};
+        navigationTabs.clear();
+        for (String label : labels) {
+            TextView tab = text(label, 8, MUTED);
+            tab.setGravity(Gravity.CENTER);
+            tab.setLetterSpacing(0.05f);
+            tab.setPadding(dp(3), dp(13), dp(3), dp(13));
+            tab.setBackground(shape(Color.TRANSPARENT, Color.TRANSPARENT, 5));
+            tab.setTag(label);
+            tab.setClickable(true);
+            tab.setFocusable(true);
+            tab.setOnClickListener(v -> selectSection(String.valueOf(v.getTag())));
+            nav.addView(tab, new LinearLayout.LayoutParams(0, dp(42), 1));
+            navigationTabs.add(tab);
+        }
+        root.addView(nav, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void selectSection(String section) {
+        activeSection = section == null ? "HOME" : section;
+        if (homeSection != null) homeSection.setVisibility("HOME".equals(activeSection) ? View.VISIBLE : View.GONE);
+        if (chatSection != null) chatSection.setVisibility("CHAT".equals(activeSection) ? View.VISIBLE : View.GONE);
+        if (inboxSection != null) inboxSection.setVisibility("INBOX".equals(activeSection) ? View.VISIBLE : View.GONE);
+        if (toolsSection != null) toolsSection.setVisibility("TOOLS".equals(activeSection) ? View.VISIBLE : View.GONE);
+        if (settingsSection != null) settingsSection.setVisibility("SETTINGS".equals(activeSection) ? View.VISIBLE : View.GONE);
+        for (TextView tab : navigationTabs) {
+            boolean selected = activeSection.equals(String.valueOf(tab.getTag()));
+            tab.setTextColor(selected ? CYAN : MUTED);
+            tab.setBackground(shape(selected ? Color.rgb(13, 43, 59) : Color.TRANSPARENT,
+                    selected ? Color.rgb(44, 118, 145) : Color.TRANSPARENT, 5));
+        }
+        refreshNavigationBadges();
+        if ("INBOX".equals(activeSection)) renderInbox();
+    }
+
+    private void refreshNavigationBadges() {
+        int unread = JarvisInboxStore.unreadCount(this);
+        for (TextView tab : navigationTabs) {
+            if ("INBOX".equals(String.valueOf(tab.getTag()))) tab.setText(unread > 0 ? "INBOX · " + unread : "INBOX");
+        }
+    }
+
+    private void buildHomeQuickAccess() {
+        LinearLayout card = column();
+        card.setPadding(dp(15), dp(13), dp(15), dp(13));
+        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+        TextView title = text("QUICK ACCESS", 9, CYAN);
+        title.setLetterSpacing(0.16f);
+        card.addView(title);
+        TextView note = text("Your assistant, organised into focused workspaces.", 11, MUTED);
+        note.setPadding(0, dp(5), 0, dp(11));
+        card.addView(note);
+        LinearLayout first = row();
+        addHomeAction(first, "OPEN CHAT", () -> selectSection("CHAT"));
+        addHomeAction(first, "JARVIS INBOX", () -> selectSection("INBOX"));
+        card.addView(first);
+        LinearLayout second = row();
+        addHomeAction(second, "DEVICE TOOLS", () -> selectSection("TOOLS"));
+        addHomeAction(second, "VOICE SETTINGS", () -> selectSection("SETTINGS"));
+        card.addView(second);
+        root.addView(card, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void addHomeAction(LinearLayout parent, String label, Runnable action) {
+        TextView button = text(label, 9, Color.rgb(183, 219, 233));
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(7), dp(15), dp(7), dp(15));
+        button.setBackground(shape(Color.rgb(10, 29, 43), Color.rgb(39, 92, 113), 6));
+        button.setOnClickListener(v -> action.run());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
+        lp.setMargins(dp(3), dp(3), dp(3), dp(3));
+        parent.addView(button, lp);
+    }
+
+    private void buildInboxScreen() {
+        LinearLayout header = row();
+        LinearLayout intro = column();
+        TextView title = text("JARVIS INBOX", 17, WHITE);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        intro.addView(title);
+        inboxSummary = text("REMINDERS AND SYSTEM ALERTS", 8, MUTED);
+        inboxSummary.setLetterSpacing(0.08f);
+        inboxSummary.setPadding(0, dp(4), 0, 0);
+        intro.addView(inboxSummary);
+        header.addView(intro, new LinearLayout.LayoutParams(0, -2, 1));
+        header.addView(chip("MARK ALL READ", () -> {
+            JarvisInboxStore.markAllRead(this);
+            renderInbox();
+            refreshNavigationBadges();
+        }));
+        root.addView(header, new LinearLayout.LayoutParams(-1, -2));
+        addGap(root, 12);
+
+        LinearLayout filters = row();
+        filters.addView(chip("ALL", () -> setInboxFilter("ALL")), new LinearLayout.LayoutParams(0, -2, 1));
+        filters.addView(chip("REMINDERS", () -> setInboxFilter("REMINDER")), new LinearLayout.LayoutParams(0, -2, 1));
+        filters.addView(chip("ALERTS", () -> setInboxFilter("ALERT")), new LinearLayout.LayoutParams(0, -2, 1));
+        root.addView(filters, new LinearLayout.LayoutParams(-1, -2));
+        addGap(root, 10);
+        inboxItems = column();
+        root.addView(inboxItems, new LinearLayout.LayoutParams(-1, -2));
+    }
+
+    private void setInboxFilter(String filter) {
+        inboxFilter = filter == null ? "ALL" : filter;
+        renderInbox();
+    }
+
+    private void renderInbox() {
+        if (inboxItems == null || inboxSummary == null) return;
+        inboxItems.removeAllViews();
+        org.json.JSONArray items = JarvisInboxStore.getAll(this);
+        int unread = JarvisInboxStore.unreadCount(this);
+        inboxSummary.setText(items.length() + " ITEMS  ·  " + unread + " UNREAD");
+        int visible = 0;
+        for (int i = items.length() - 1; i >= 0; i--) {
+            org.json.JSONObject item = items.optJSONObject(i);
+            if (item == null) continue;
+            String type = item.optString("type", "ALERT");
+            if (!"ALL".equals(inboxFilter) && !inboxFilter.equals(type)) continue;
+            visible++;
+            addInboxCard(item);
+        }
+        if (visible == 0) {
+            TextView empty = text("You're all clear. Reminders and important JARVIS alerts will appear here.", 12, MUTED);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(dp(18), dp(44), dp(18), dp(44));
+            empty.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+            inboxItems.addView(empty, new LinearLayout.LayoutParams(-1, -2));
+        }
+        refreshNavigationBadges();
+    }
+
+    private void addInboxCard(org.json.JSONObject item) {
+        long id = item.optLong("id", 0L);
+        String type = item.optString("type", "ALERT");
+        String title = item.optString("title", "JARVIS notification");
+        String message = item.optString("message", "");
+        String status = item.optString("status", "NEW");
+        boolean read = item.optBoolean("read", false);
+        long createdAt = item.optLong("createdAt", System.currentTimeMillis());
+
+        LinearLayout card = column();
+        card.setPadding(dp(13), dp(12), dp(13), dp(11));
+        card.setBackground(shape(Color.rgb(8, 21, 33), read ? Color.rgb(34, 70, 87) : Color.rgb(48, 126, 150), 7));
+        LinearLayout top = row();
+        TextView kind = text(type, 8, "REMINDER".equals(type) ? GOLD : CYAN);
+        kind.setLetterSpacing(0.12f);
+        top.addView(kind, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView time = text(new SimpleDateFormat("dd MMM · HH:mm", Locale.getDefault()).format(new Date(createdAt)), 8, MUTED);
+        top.addView(time);
+        card.addView(top);
+        TextView titleView = text(title, 13, WHITE);
+        titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        titleView.setPadding(0, dp(7), 0, dp(3));
+        card.addView(titleView);
+        TextView body = text(message, 12, Color.rgb(184, 211, 224));
+        body.setLineSpacing(dp(2), 1f);
+        card.addView(body);
+        TextView state = text(status.toUpperCase(Locale.ROOT), 8, MUTED);
+        state.setPadding(0, dp(7), 0, dp(8));
+        card.addView(state);
+        LinearLayout actions = row();
+        if (!read) actions.addView(chip("MARK READ", () -> {
+            JarvisInboxStore.markRead(this, id);
+            renderInbox();
+        }), new LinearLayout.LayoutParams(0, -2, 1));
+        actions.addView(chip("DISMISS", () -> {
+            JarvisInboxStore.delete(this, id);
+            renderInbox();
+        }), new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(actions);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.bottomMargin = dp(9);
+        inboxItems.addView(card, lp);
+        if (!read) card.setOnClickListener(v -> {
+            JarvisInboxStore.markRead(this, id);
+            renderInbox();
+        });
+    }
+
+    private void buildSettingsScreen() {
+        LinearLayout card = column();
+        card.setPadding(dp(15), dp(14), dp(15), dp(14));
+        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+        TextView title = text("VOICE & ASSISTANT", 10, CYAN);
+        title.setLetterSpacing(0.14f);
+        card.addView(title);
+        TextView description = text("JARVIS prefers an installed Hindi voice marked as female by the active TTS engine. If no such marker is available, choose a Hindi voice in Android settings.", 11, MUTED);
+        description.setPadding(0, dp(7), 0, dp(12));
+        card.addView(description);
+        LinearLayout voiceRow = row();
+        voiceRow.addView(chip("ANDROID VOICE SETTINGS", () -> openSystemTtsSettings()), new LinearLayout.LayoutParams(0, -2, 1));
+        voiceRow.addView(chip("TEST HINDI VOICE", () -> speak("नमस्ते सर। मैं JARVIS हूँ और आपकी सहायता के लिए तैयार हूँ।")), new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(voiceRow);
+        addGap(card, 8);
+        card.addView(chip("CHANGE SPEECH LANGUAGE  ·  " + languageLabel(), () -> toggleLanguage()));
+        addGap(card, 8);
+        card.addView(chip("DEFAULT ASSISTANT SETUP", () -> requestAssistantRole()));
+        addGap(card, 8);
+        card.addView(chip("PERMISSION CENTRE", () -> showPermissionCenter()));
+        addGap(card, 8);
+        card.addView(chip("NOTIFICATION PERMISSION", () -> requestNotificationPermission()));
+        root.addView(card, new LinearLayout.LayoutParams(-1, -2));
+
+        addGap(root, 12);
+        LinearLayout privacy = column();
+        privacy.setPadding(dp(15), dp(13), dp(15), dp(13));
+        privacy.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(31, 72, 91), 8));
+        TextView privacyTitle = text("PRIVACY & CONTROL", 10, GOLD);
+        privacyTitle.setLetterSpacing(0.13f);
+        privacy.addView(privacyTitle);
+        TextView privacyText = text("SMS and WhatsApp open drafts for your review. Reminders and JARVIS alerts are stored locally on this device. Protected Android permissions and other apps' private data remain under your control.", 11, MUTED);
+        privacyText.setPadding(0, dp(7), 0, 0);
+        privacy.addView(privacyText);
+        root.addView(privacy, new LinearLayout.LayoutParams(-1, -2));
+    }
 
     private void buildVoiceOrbPanel() {
         TextView close = text("‹   BACK TO J.A.R.V.I.S.", 11, Color.rgb(151, 207, 229));
@@ -791,7 +1069,7 @@ public class MainActivity extends FragmentActivity {
         chatList = column();
         chatList.setPadding(0, dp(6), 0, dp(2));
         chatScroll.addView(chatList);
-        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(158));
+        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(340));
         chatLp.topMargin = dp(4);
         card.addView(chatScroll, chatLp);
 
@@ -866,9 +1144,9 @@ public class MainActivity extends FragmentActivity {
         systemPanel = column();
         systemPanel.setPadding(dp(11), dp(9), dp(11), dp(9));
         systemPanel.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(37, 82, 101), 5));
-        systemPanel.setVisibility(View.GONE);
+        systemPanel.setVisibility(View.VISIBLE);
 
-        TextView title = text("LOCAL SYSTEM PANEL", 8, CYAN);
+        TextView title = text("DEVICE CONTROLS", 10, CYAN);
         title.setLetterSpacing(0.16f);
         title.setPadding(dp(2), dp(2), dp(2), dp(6));
         systemPanel.addView(title);
@@ -1003,9 +1281,9 @@ public class MainActivity extends FragmentActivity {
         label.setLetterSpacing(0.14f);
         bubble.addView(label);
 
-        TextView content = text(message, 11,
+        TextView content = text(message, 13,
                 error ? Color.rgb(242, 150, 150) : Color.rgb(195, 222, 233));
-        content.setMaxWidth(dp(286));
+        content.setMaxWidth(dp(520));
         content.setPadding(0, dp(3), 0, 0);
         content.setLineSpacing(dp(2), 1.0f);
         bubble.addView(content);
@@ -1212,6 +1490,23 @@ public class MainActivity extends FragmentActivity {
 
         String messageCommand = handleMessageCommand(input);
         if (messageCommand != null) return messageCommand;
+
+        if (value.equals("inbox") || value.equals("open inbox") || value.equals("show inbox")
+                || value.equals("notifications") || value.equals("show notifications")) {
+            inboxFilter = "ALL";
+            selectSection("INBOX");
+            return "";
+        }
+        if (value.equals("show reminders") || value.equals("reminders dikhao")) {
+            inboxFilter = "REMINDER";
+            selectSection("INBOX");
+            return "";
+        }
+        if (value.equals("show alerts") || value.equals("alerts dikhao")) {
+            inboxFilter = "ALERT";
+            selectSection("INBOX");
+            return "";
+        }
 
         if (value.equals("default assistant") || value.equals("make jarvis default assistant")) {
             requestAssistantRole();
@@ -1677,15 +1972,14 @@ public class MainActivity extends FragmentActivity {
         String task = matcher.group(3).trim();
         if (amount < 1 || amount > 1000 || task.isEmpty()) return "Please choose a reminder between 1 and 1000 minutes or hours, with a task.";
         long delay = amount * (unit.startsWith("h") ? 60L : 1L) * 60L * 1000L;
-        int id = (int) (System.currentTimeMillis() & 0x7fffffff);
-        Intent alert = new Intent(this, JarvisNotificationReceiver.class).setAction(JarvisNotificationReceiver.ACTION_REMINDER);
-        alert.putExtra(JarvisNotificationReceiver.EXTRA_TITLE, "JARVIS reminder");
-        alert.putExtra(JarvisNotificationReceiver.EXTRA_TEXT, task);
-        PendingIntent pending = PendingIntent.getBroadcast(this, id, alert, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        AlarmManager alarms = (AlarmManager) getSystemService(ALARM_SERVICE);
-        if (alarms == null) return "Android's reminder service is unavailable.";
-        alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delay, pending);
-        return "Reminder set for " + amount + " " + unit + ": " + task + ". Android will notify you when it is due.";
+        long dueAt = System.currentTimeMillis() + delay;
+        long id = JarvisInboxStore.add(this, "REMINDER", "JARVIS reminder", task, dueAt, "SCHEDULED", false);
+        if (!JarvisInboxStore.scheduleReminder(this, id, "JARVIS reminder", task, dueAt)) {
+            JarvisInboxStore.delete(this, id);
+            return "Android could not schedule that reminder. Check battery and notification settings, then try again.";
+        }
+        refreshNavigationBadges();
+        return "Reminder saved in JARVIS Inbox and scheduled for " + amount + " " + unit + ": " + task + ".";
     }
 
     private String handleMessageCommand(String input) {
@@ -1786,7 +2080,9 @@ public class MainActivity extends FragmentActivity {
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
         try {
-            // Use the Android system's current default TTS voice/engine without overriding it.
+            boolean hindiSpeech = containsDevanagari(speechText) || languageMode == 2;
+            if (hindiSpeech && hindiVoice != null) tts.setVoice(hindiVoice);
+            else if (defaultSystemVoice != null) tts.setVoice(defaultSystemVoice);
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "jarvis-" + System.currentTimeMillis());
             if (result == TextToSpeech.ERROR) {
@@ -1846,20 +2142,50 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void initializeVoiceSelection() {
-        // Respect the voice and engine configured in Android's system Text-to-Speech settings.
-        // JARVIS deliberately does not force a gender, language profile or vendor-specific voice.
-        selectedVoiceName = "ANDROID SYSTEM DEFAULT";
+        defaultSystemVoice = tts.getDefaultVoice();
+        hindiVoice = null;
+        hindiVoiceFemaleIdentified = false;
+        int bestScore = Integer.MIN_VALUE;
+        try {
+            Set<Voice> voices = tts.getVoices();
+            if (voices != null) {
+                for (Voice voice : voices) {
+                    if (voice == null || voice.getLocale() == null
+                            || !"hi".equalsIgnoreCase(voice.getLocale().getLanguage())) continue;
+                    String name = voice.getName() == null ? "" : voice.getName().toLowerCase(Locale.ROOT);
+                    Set<String> features = voice.getFeatures();
+                    boolean female = name.contains("female");
+                    if (features != null) {
+                        for (String feature : features) {
+                            if (feature != null && feature.toLowerCase(Locale.ROOT).contains("female")) female = true;
+                        }
+                    }
+                    int score = 10;
+                    if ("IN".equalsIgnoreCase(voice.getLocale().getCountry())) score += 20;
+                    if (!voice.isNetworkConnectionRequired()) score += 5;
+                    if (female) score += 100;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        hindiVoice = voice;
+                        hindiVoiceFemaleIdentified = female;
+                    }
+                }
+            }
+        } catch (Exception ignored) { }
+        selectedVoiceName = hindiVoice == null ? "ANDROID SYSTEM DEFAULT" : hindiVoice.getName();
         spokenReplies = true;
         updateVoiceSelectButton();
         if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(CYAN); }
     }
 
     private String voiceDisplayName() {
+        if (hindiVoiceFemaleIdentified) return "HINDI FEMALE VOICE";
+        if (hindiVoice != null) return "HINDI SYSTEM VOICE";
         return "ANDROID SYSTEM DEFAULT";
     }
 
     private void updateVoiceSelectButton() {
-        if (voiceSelectButton != null) voiceSelectButton.setText("SYSTEM DEFAULT VOICE  ⚙");
+        if (voiceSelectButton != null) voiceSelectButton.setText("VOICE SETTINGS  ⚙");
     }
 
     private void showVoicePicker() {
@@ -2169,6 +2495,34 @@ public class MainActivity extends FragmentActivity {
         prefs.edit().remove("pending_live_command").apply();
         if ("__JARVIS_WAKE__".equals(command)) reply("Yes, Sir?");
         else sendMessage(command);
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PERMISSION_NOTIFICATIONS);
+        } else {
+            reply("JARVIS notifications are already permitted by Android.");
+        }
+    }
+
+    private void startAssistantVoiceSession() {
+        assistantLaunchPending = false;
+        selectSection("CHAT");
+        if (liveModeEnabled) stopLiveMode();
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            assistantMicPermissionPending = true;
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_AUDIO);
+            setStatus("MICROPHONE PERMISSION REQUIRED");
+            return;
+        }
+        assistantMicPermissionPending = false;
+        continuousListeningEnabled = true;
+        activityVisible = true;
+        if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
+        setStatus("ASSISTANT ACTIVE  •  LISTENING");
+        scheduleListeningRestart(500);
+        if (tts != null && !tts.isSpeaking()) speak("Yes, Sir. I am listening.");
     }
 
     private void openSystemTtsSettings() {
@@ -2533,7 +2887,8 @@ public class MainActivity extends FragmentActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_AUDIO) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startLiveMode();
+                if (assistantMicPermissionPending) startAssistantVoiceSession();
+                else startLiveMode();
             } else {
                 continuousListeningEnabled = false;
                 if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
@@ -2561,6 +2916,9 @@ public class MainActivity extends FragmentActivity {
                     + ", camera " + (cameraGranted ? "granted" : "not granted")
                     + ", contacts " + (contactsGranted ? "granted" : "not granted")
                     + ". Document access is granted separately when you choose files or folders.");
+        } else if (requestCode == PERMISSION_NOTIFICATIONS) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            reply(granted ? "JARVIS notifications are enabled." : "Notifications remain disabled. Enable them in Android app settings to receive reminder alerts.");
         } else if (requestCode == PERMISSION_CONTACTS) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (pendingMessageContact != null) {
@@ -2827,6 +3185,25 @@ public class MainActivity extends FragmentActivity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent == null) return;
+        if (intent.getBooleanExtra(EXTRA_OPEN_INBOX, false)) {
+            pendingInboxOpen = true;
+            if (ownerAuthenticated) {
+                pendingInboxOpen = false;
+                selectSection("INBOX");
+            }
+        }
+        if (intent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)) {
+            assistantLaunchPending = true;
+            if (ownerAuthenticated) startAssistantVoiceSession();
+            else if (!lockPromptStarted) authenticateOwner();
+        }
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         activityVisible = true;
@@ -2848,6 +3225,11 @@ public class MainActivity extends FragmentActivity {
         } else if (continuousListeningEnabled && ownerAuthenticated) scheduleListeningRestart(350);
         resumeClapWake();
         consumePendingLiveCommand();
+        refreshNavigationBadges();
+        if (pendingInboxOpen && ownerAuthenticated) {
+            pendingInboxOpen = false;
+            selectSection("INBOX");
+        }
     }
 
     @Override
