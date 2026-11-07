@@ -67,7 +67,7 @@ public class JarvisOverlayService extends Service {
                 : new Notification.Builder(this);
         return builder.setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("A.R.T.I.E. is ready")
-                .setContentText("Floating Orb enabled. Tap to return to A.R.T.I.E..")
+                .setContentText("Floating Orb enabled. Tap to return to A.R.T.I.E.")
                 .setContentIntent(pending)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -162,7 +162,7 @@ public class JarvisOverlayService extends Service {
         OrbView(Context context) {
             super(context);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            setContentDescription("A.R.T.I.E. floating Orb. Tap to open A.R.T.I.E..");
+            setContentDescription("A.R.T.I.E. floating Orb. Tap to open A.R.T.I.E.");
         }
 
         @Override protected void onDraw(Canvas canvas) {
