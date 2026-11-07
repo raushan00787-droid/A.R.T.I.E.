@@ -50,8 +50,8 @@ public class JarvisOverlayService extends Service {
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "JARVIS Floating Orb", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Keeps the user-enabled JARVIS floating Orb available.");
+                    CHANNEL_ID, "A.R.T.I.E. Floating Orb", NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription("Keeps the user-enabled A.R.T.I.E. floating Orb available.");
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) manager.createNotificationChannel(channel);
         }
@@ -66,8 +66,8 @@ public class JarvisOverlayService extends Service {
                 ? new Notification.Builder(this, CHANNEL_ID)
                 : new Notification.Builder(this);
         return builder.setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("J.A.R.V.I.S. is ready")
-                .setContentText("Floating Orb enabled. Tap to return to JARVIS.")
+                .setContentTitle("A.R.T.I.E. is ready")
+                .setContentText("Floating Orb enabled. Tap to return to A.R.T.I.E..")
                 .setContentIntent(pending)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -113,7 +113,7 @@ public class JarvisOverlayService extends Service {
                         }
                         return true;
                     case MotionEvent.ACTION_UP:
-                        if (!moved) openJarvis();
+                        if (!moved) openArtie();
                         return true;
                 }
                 return true;
@@ -124,7 +124,7 @@ public class JarvisOverlayService extends Service {
         }
     }
 
-    private void openJarvis() {
+    private void openArtie() {
         if (orbView != null) orbView.setVisibility(View.INVISIBLE);
         Intent launch = new Intent(this, MainActivity.class);
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -162,7 +162,7 @@ public class JarvisOverlayService extends Service {
         OrbView(Context context) {
             super(context);
             setLayerType(View.LAYER_TYPE_SOFTWARE, null);
-            setContentDescription("JARVIS floating Orb. Tap to open JARVIS.");
+            setContentDescription("A.R.T.I.E. floating Orb. Tap to open A.R.T.I.E..");
         }
 
         @Override protected void onDraw(Canvas canvas) {
