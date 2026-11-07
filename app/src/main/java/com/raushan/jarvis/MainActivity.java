@@ -90,7 +90,6 @@ import androidx.core.content.ContextCompat;
 public class MainActivity extends FragmentActivity {
     public static final String EXTRA_FROM_ASSISTANT = "com.raushan.jarvis.EXTRA_FROM_ASSISTANT";
     public static final String EXTRA_OPEN_INBOX = "com.raushan.jarvis.EXTRA_OPEN_INBOX";
-    private static final String WORKER_URL = "https://quiet-scribe-ai.thequietscribe.workers.dev";
     private static final int PERMISSION_AUDIO = 10;
     private static final int PERMISSION_CAMERA = 11;
     private static final int PERMISSION_CLAP = 12;
@@ -238,9 +237,7 @@ public class MainActivity extends FragmentActivity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         Intent launchIntent = getIntent();
-        assistantLaunchPending = launchIntent != null
-                && (launchIntent.getBooleanExtra(EXTRA_FROM_ASSISTANT, false)
-                || Intent.ACTION_ASSIST.equals(launchIntent.getAction()));
+        assistantLaunchPending = false;
         pendingInboxOpen = false;
         Window window = getWindow();
         window.setStatusBarColor(BG);
@@ -606,14 +603,7 @@ public class MainActivity extends FragmentActivity {
         appFrame = new FrameLayout(this);
         appFrame.addView(new NebulaBackgroundView(this), new FrameLayout.LayoutParams(-1, -1));
         appFrame.addView(page, new FrameLayout.LayoutParams(-1, -1));
-        voiceOrbPanel = column();
-        voiceOrbPanel.setGravity(Gravity.CENTER);
-        voiceOrbPanel.setPadding(dp(20), dp(28), dp(20), dp(24));
-        voiceOrbPanel.setBackgroundColor(Color.rgb(2, 8, 17));
-        voiceOrbPanel.setVisibility(View.GONE);
-        appFrame.addView(voiceOrbPanel, new FrameLayout.LayoutParams(-1, -1));
         setContentView(appFrame);
-        buildVoiceOrbPanel();
         applyImmersiveMode();
 
         buildTopBar();
