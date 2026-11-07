@@ -831,6 +831,12 @@ public class MainActivity extends FragmentActivity {
             JarvisInboxStore.markRead(this, id);
             renderInbox();
         }), new LinearLayout.LayoutParams(0, -2, 1));
+        actions.addView(chip("SNOOZE 10M", () -> {
+            if (!JarvisInboxStore.snooze(this, id, 10L * 60L * 1000L)) {
+                reply("I couldn't snooze that item. Please try again.");
+            }
+            renderInbox();
+        }), new LinearLayout.LayoutParams(0, -2, 1));
         actions.addView(chip("DISMISS", () -> {
             JarvisInboxStore.delete(this, id);
             renderInbox();

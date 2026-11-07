@@ -103,13 +103,33 @@ public final class JarvisInboxStore {
             JSONObject item = items.optJSONObject(i);
             if (item == null) continue;
             if (item.optLong("id", -1L) == id) {
-                if ("REMINDER".equals(item.optString("type", ""))
-                        && "SCHEDULED".equals(item.optString("status", ""))) cancelReminder(context, id);
+                String status = item.optString("status", "");
+                if ("SCHEDULED".equals(status) || "SNOOZED".equals(status)) cancelReminder(context, id);
             } else {
                 kept.put(item);
             }
         }
         write(context, kept);
+    }
+
+    public static boolean snooze(Context context, long id, long delayMillis) {
+        JSONArray items = read(context);
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.optJSONObject(i);
+            if (item == null || item.optLong("id", -1L) != id) continue;
+            long dueAt = System.currentTimeMillis() + Math.max(60_000L, delayMillis);
+            String title = item.optString("title", "JARVIS reminder");
+            String message = item.optString("message", "You have a JARVIS reminder.");
+            if (!scheduleReminder(context, id, title, message, dueAt)) return false;
+            try {
+                item.put("dueAt", dueAt);
+                item.put("status", "SNOOZED");
+                item.put("read", true);
+            } catch (Exception ignored) { return false; }
+            write(context, items);
+            return true;
+        }
+        return false;
     }
 
     public static int unreadCount(Context context) {
