@@ -47,7 +47,7 @@
 
         <service
             android:name="com.raushan.jarvis.JarvisNotificationListenerService"
-            android:label="JARVIS Notification Inbox"
+            android:label="A.R.T.I.E. Notification Inbox"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
             <intent-filter>
@@ -97,7 +97,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-enabled floating JARVIS Orb while the app is minimized" />
+                android:value="User-enabled floating A.R.T.I.E. Orb while the app is minimized" />
         </service>
 
         <activity
