@@ -29,7 +29,7 @@ public class JarvisNotificationReceiver extends BroadcastReceiver {
         } else if (ACTION_REMINDER.equals(action)) {
             title = intent.getStringExtra(EXTRA_TITLE);
             body = intent.getStringExtra(EXTRA_TEXT);
-            if (title == null || title.trim().isEmpty()) title = "JARVIS reminder";
+            if (title == null || title.trim().isEmpty()) title = "A.R.T.I.E. reminder";
             if (body == null) body = "You have a reminder.";
             if (itemId > 0L) JarvisInboxStore.markDelivered(context, itemId);
             else itemId = JarvisInboxStore.add(context, "REMINDER", title, body, 0L, "DELIVERED", true);
@@ -65,8 +65,8 @@ public class JarvisNotificationReceiver extends BroadcastReceiver {
     private void createChannel(Context context) {
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID, "JARVIS Personal Alerts", NotificationManager.IMPORTANCE_DEFAULT);
-            channel.setDescription("Reminders and important device alerts created by JARVIS.");
+                    CHANNEL_ID, "A.R.T.I.E. Personal Alerts", NotificationManager.IMPORTANCE_DEFAULT);
+            channel.setDescription("Reminders and important device alerts created by A.R.T.I.E.");
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) manager.createNotificationChannel(channel);
         }

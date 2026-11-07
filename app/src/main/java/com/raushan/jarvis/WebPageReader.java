@@ -57,7 +57,7 @@ final class WebPageReader {
                 connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
                 connection.setReadTimeout(READ_TIMEOUT_MS);
                 connection.setRequestMethod("GET");
-                connection.setRequestProperty("User-Agent", "JARVIS-Android/1.0 (user-requested webpage reader)");
+                connection.setRequestProperty("User-Agent", "ARTIE-Android/1.0 (user-requested webpage reader)");
                 connection.setRequestProperty("Accept", "text/html,application/xhtml+xml,text/plain,application/pdf;q=0.9");
                 connection.setRequestProperty("Accept-Encoding", "identity");
 

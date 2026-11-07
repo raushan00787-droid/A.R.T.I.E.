@@ -1,8 +1,8 @@
-# A.R.T.I.E. · Native Android Assistant · v1.17
+# A.R.T.I.E. · Native Android Assistant · v1.20
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
-This project is the rebranded continuation of the original JARVIS app. The current voice wake phrase ("Hey JARVIS") and GitHub Actions APK artifact name (`JARVIS-native-debug-apk`) remain unchanged for compatibility.
+This is the native Android application for A.R.T.I.E. The voice wake phrase is “Hey Artie”, and GitHub Actions publishes the debug APK as `ARTIE-v1.20-apk`.
 
 ## v1.13 integrated update
 
@@ -10,7 +10,7 @@ This project is the rebranded continuation of the original JARVIS app. The curre
 - The Android VoiceInteractionSession now opens A.R.T.I.E. with an explicit assistant-launch handoff.
 - After owner authentication, A.R.T.I.E. opens Chat and starts listening for a direct spoken command when microphone permission is granted.
 - The first launch may require owner authentication and Android's microphone permission prompt.
-- The assistant gesture and the user-started background "Hey JARVIS" Live Mode remain separate features.
+- The assistant gesture and the user-started background "Hey Artie" Live Mode remain separate features.
 
 ### A.R.T.I.E. Inbox and reminders
 - A dedicated Inbox stores reminders and important system alerts locally on the device.
@@ -45,7 +45,7 @@ This project is the rebranded continuation of the original JARVIS app. The curre
 - Local commands for flashlight, battery, Wi-Fi/Bluetooth/display settings, app launch, alarms and media controls.
 - Calls open the Android dialer for review. SMS opens a prefilled composer. WhatsApp opens a share/recipient selection flow; the user confirms sending.
 - Android Storage Access Framework file and folder pickers, voice-driven search and text/PDF reading, file creation, rename/copy/move (provider and write-grant permitting), storage usage reporting, and handoff to compatible viewers.
-- User-started foreground Live Mode with "Hey JARVIS" wake phrase and persistent Pause/Resume/Stop controls.
+- User-started foreground Live Mode with "Hey Artie" wake phrase and persistent Pause/Resume/Stop controls.
 - Floating Arc Reactor overlay and permission centre.
 
 ## Privacy and platform boundaries
@@ -58,7 +58,7 @@ This project is the rebranded continuation of the original JARVIS app. The curre
 
 ## Build
 - Android Gradle Plugin project, compile SDK 35, minimum SDK 26, target SDK 35.
-- GitHub Actions builds a debug APK on pushes to `main`. Download the `JARVIS-native-debug-apk` artifact from a successful run.
+- GitHub Actions builds a debug APK on pushes to `main`. Download the `A.R.T.I.E.-native-debug-apk` artifact from a successful run.
 - A successful hosted build still needs on-device tests for assistant launch, microphone handoff, Hindi voice, reminders after reboot, notifications, messaging and document providers.
 
 
@@ -79,7 +79,7 @@ This project is the rebranded continuation of the original JARVIS app. The curre
 
 ## v1.16 stability fixes
 - Typed messages now receive text-only replies; speech-originated commands can receive spoken replies.
-- Live speech recognition no longer forces offline-only recognition and accepts common JARVIS wake-phrase variants.
+- Live speech recognition no longer forces offline-only recognition and accepts common A.R.T.I.E. wake-phrase variants.
 - Reminder parsing accepts both task-first and time-first phrasing, including “remind me to study after 2 minutes”.
 - Device queries include Android release/API level, Wi-Fi enabled state, and flexible shared-storage questions.
 - Webpage analysis truncates extracted text to the chat request limit and accepts bare public domain links by adding HTTPS.
