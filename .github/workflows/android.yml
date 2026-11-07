@@ -26,5 +26,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ARTIE-v1.21-apk
-          path: dist/ARTIE-v1.20.apk
+          path: dist/ARTIE-v1.21.apk
           if-no-files-found: error
