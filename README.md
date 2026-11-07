@@ -1,4 +1,4 @@
-# J.A.R.V.I.S. Native Android · v1.14
+# J.A.R.V.I.S. Native Android · v1.15
 
 A native Android assistant for Raushan. The app is organised into separate Home, Chat, Inbox, Tools and Settings workspaces. Conversational AI uses the configured Cloudflare Worker; device actions and Inbox storage are handled locally.
 
@@ -58,3 +58,10 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 - Android Gradle Plugin project, compile SDK 35, minimum SDK 26, target SDK 35.
 - GitHub Actions builds a debug APK on pushes to `main`. Download the `JARVIS-native-debug-apk` artifact from a successful run.
 - A successful hosted build still needs on-device tests for assistant launch, microphone handoff, Hindi voice, reminders after reboot, notifications, messaging and document providers.
+
+
+## v1.15 integrated stability update
+- Assistant microphone state survives Activity pause/resume. Recognition is stopped while JARVIS is not visible and resumed in the foreground; the assistant mic control can end the active assistant listening session.
+- Typed links and links shared from a browser are read before AI analysis. Supported sources include public HTML, XHTML, plain text and selectable-text PDFs.
+- Fetching is bounded by redirect, download, page and text limits. Private/local destinations and unsafe redirects are blocked. Login-only, script-rendered pages and scanned PDFs may not expose readable text.
+- GitHub Actions now builds the JARVIS integration branch as well as main, so the candidate APK is checked before merge.
