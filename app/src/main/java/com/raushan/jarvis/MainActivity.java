@@ -601,8 +601,6 @@ public class MainActivity extends FragmentActivity {
         buildConversation();
         addGap(root, 9);
         buildComposer();
-        buildDeviceControls();
-        systemPanel.setVisibility(View.GONE);
     }
 
 
@@ -694,11 +692,6 @@ public class MainActivity extends FragmentActivity {
         ownerBlock.addView(access);
 
         bar.addView(ownerBlock);
-        controlsButton = text("CONTROLS  ▾", 8, CYAN);
-        controlsButton.setGravity(Gravity.CENTER);
-        controlsButton.setPadding(dp(9), dp(8), dp(3), dp(8));
-        controlsButton.setOnClickListener(v -> toggleSystemPanel());
-        bar.addView(controlsButton);
         root.addView(bar, new LinearLayout.LayoutParams(-1, dp(46)));
     }
 
