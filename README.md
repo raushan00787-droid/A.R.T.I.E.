@@ -1,25 +1,27 @@
-# J.A.R.V.I.S. Native Android · v1.16
+# A.R.T.I.E. · Native Android Assistant · v1.17
 
-A native Android assistant for Raushan. The app is organised into separate Home, Chat, Inbox, Tools and Settings workspaces. Conversational AI uses the configured Cloudflare Worker; device actions and Inbox storage are handled locally.
+**A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
+
+This project is the rebranded continuation of the existing A.R.T.I.E. app. The current voice wake phrase (\"Hey JARVIS\") and GitHub Actions APK artifact name (`JARVIS-native-debug-apk`) remain unchanged for compatibility.
 
 ## v1.13 integrated update
 
 ### Default assistant launch
-- The Android VoiceInteractionSession now opens JARVIS with an explicit assistant-launch handoff.
-- After owner authentication, JARVIS opens Chat and starts listening for a direct spoken command when microphone permission is granted.
+- The Android VoiceInteractionSession now opens A.R.T.I.E. with an explicit assistant-launch handoff.
+- After owner authentication, A.R.T.I.E. opens Chat and starts listening for a direct spoken command when microphone permission is granted.
 - The first launch may require owner authentication and Android's microphone permission prompt.
 - The assistant gesture and the user-started background "Hey JARVIS" Live Mode remain separate features.
 
-### JARVIS Inbox and reminders
+### A.R.T.I.E. Inbox and reminders
 - A dedicated Inbox stores reminders and important system alerts locally on the device.
 - Reminders are scheduled through Android's inexact while-idle alarm API and restored after reboot.
 - When a reminder becomes due, its Inbox entry changes from SCHEDULED to DELIVERED and Android posts a notification.
-- Tapping a JARVIS notification opens the Inbox. Battery-low alerts are also recorded.
+- Tapping a A.R.T.I.E. notification opens the Inbox. Battery-low alerts are also recorded.
 - The Inbox keeps up to 100 recent entries. Entries can be marked read or dismissed.
 - Android notification permission is required to display system notifications. Inbox entries are still stored locally when notifications are disabled.
 
 ### Hindi voice
-- JARVIS prefers an installed Hindi voice explicitly marked as female by the active TTS engine.
+- A.R.T.I.E. prefers an installed Hindi voice explicitly marked as female by the active TTS engine.
 - If the engine does not expose a female marker, it uses the best available installed Hindi voice. The actual voice profile depends on the Android TTS engine and installed voice data.
 - English speech returns to the Android system default voice. System TTS settings remain available from the Settings workspace.
 
@@ -31,7 +33,7 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 
 ## Data and storage core · v1.14
 - Voice commands search filenames within a folder explicitly selected by the owner.
-- JARVIS can preview UTF-8 text, Markdown, CSV, JSON, XML, HTML, logs and YAML files, and extract selectable text from PDFs (up to 25 pages / 160 KB per preview).
+- A.R.T.I.E. can preview UTF-8 text, Markdown, CSV, JSON, XML, HTML, logs and YAML files, and extract selectable text from PDFs (up to 25 pages / 160 KB per preview).
 - It can create text files and, where the selected provider grants write access, rename, copy and move files. Every modification requires an on-screen confirmation.
 - Shared storage capacity can be queried without granting broad file access.
 - Scans are bounded to 1,800 folders and 10 levels of depth. Image OCR and unrestricted device-wide file search are not included.
@@ -47,10 +49,10 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 - Floating Arc Reactor overlay and permission centre.
 
 ## Privacy and platform boundaries
-- JARVIS does not silently send SMS or WhatsApp messages. It opens a draft/share flow for review and user-controlled sending.
+- A.R.T.I.E. does not silently send SMS or WhatsApp messages. It opens a draft/share flow for review and user-controlled sending.
 - Inbox records are stored in the app's private preferences on this device.
 - File access is granted through Android's system picker. It does not request unrestricted all-files access.
-- JARVIS cannot read another app's private internal files.
+- A.R.T.I.E. cannot read another app's private internal files.
 - The custom wake-word service requires microphone permission and displays an ongoing foreground-service notification.
 - Speech recognition, TTS voice inventory, default-assistant eligibility and OEM background restrictions vary by device.
 
@@ -61,16 +63,16 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 
 
 ## v1.15 integrated stability update
-- Assistant microphone state survives Activity pause/resume. Recognition is stopped while JARVIS is not visible and resumed in the foreground; the assistant mic control can end the active assistant listening session.
+- Assistant microphone state survives Activity pause/resume. Recognition is stopped while A.R.T.I.E. is not visible and resumed in the foreground; the assistant mic control can end the active assistant listening session.
 - Typed links and links shared from a browser are read before AI analysis. Supported sources include public HTML, XHTML, plain text and selectable-text PDFs.
 - Fetching is bounded by redirect, download, page and text limits. Private/local destinations and unsafe redirects are blocked. Login-only, script-rendered pages and scanned PDFs may not expose readable text.
-- GitHub Actions now builds the JARVIS integration branch as well as main, so the candidate APK is checked before merge.
+- GitHub Actions now builds the existing integration branch as well as main, so the candidate APK is checked before merge.
 
  
 ## v1.17 autonomy and visual cockpit
 - The Home workspace now includes an Autonomy Engine status rail showing the goal-to-plan-to-execute-to-verify workflow. The AI instruction set is explicit about using only app-supported capabilities and not claiming actions that were not verified.
-- Natural contact-based WhatsApp requests are supported, including Hinglish phrasing such as “WhatsApp pe mummy ko hi bhej do”. JARVIS searches permitted contacts, asks the owner to choose when names are ambiguous, and opens the matching WhatsApp chat with the message prefilled.
-- WhatsApp sending remains owner-controlled: JARVIS does not silently press Send. Review the recipient and message in WhatsApp, then send from that app.
+- Natural contact-based WhatsApp requests are supported, including Hinglish phrasing such as “WhatsApp pe mummy ko hi bhej do”. A.R.T.I.E. searches permitted contacts, asks the owner to choose when names are ambiguous, and opens the matching WhatsApp chat with the message prefilled.
+- WhatsApp sending remains owner-controlled: A.R.T.I.E. does not silently press Send. Review the recipient and message in WhatsApp, then send from that app.
 - The cockpit has a subtle animated nebula/grid background, a more detailed rotating R reactor with listening/thinking/speaking states, animated workspace transitions, and message/card entrance motion.
 - Version 1.17 is a visual and workflow update; Android permissions and OEM background limits still apply.
 
@@ -81,4 +83,4 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 - Reminder parsing accepts both task-first and time-first phrasing, including “remind me to study after 2 minutes”.
 - Device queries include Android release/API level, Wi-Fi enabled state, and flexible shared-storage questions.
 - Webpage analysis truncates extracted text to the chat request limit and accepts bare public domain links by adding HTTPS.
-- Android Notification Access can mirror non-ongoing external app notifications into the local JARVIS Inbox.
+- Android Notification Access can mirror non-ongoing external app notifications into the local A.R.T.I.E. Inbox.
