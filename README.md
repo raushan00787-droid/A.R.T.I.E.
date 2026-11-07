@@ -66,6 +66,14 @@ A native Android assistant for Raushan. The app is organised into separate Home,
 - Fetching is bounded by redirect, download, page and text limits. Private/local destinations and unsafe redirects are blocked. Login-only, script-rendered pages and scanned PDFs may not expose readable text.
 - GitHub Actions now builds the JARVIS integration branch as well as main, so the candidate APK is checked before merge.
 
+ 
+## v1.17 autonomy and visual cockpit
+- The Home workspace now includes an Autonomy Engine status rail showing the goal-to-plan-to-execute-to-verify workflow. The AI instruction set is explicit about using only app-supported capabilities and not claiming actions that were not verified.
+- Natural contact-based WhatsApp requests are supported, including Hinglish phrasing such as “WhatsApp pe mummy ko hi bhej do”. JARVIS searches permitted contacts, asks the owner to choose when names are ambiguous, and opens the matching WhatsApp chat with the message prefilled.
+- WhatsApp sending remains owner-controlled: JARVIS does not silently press Send. Review the recipient and message in WhatsApp, then send from that app.
+- The cockpit has a subtle animated nebula/grid background, a more detailed rotating R reactor with listening/thinking/speaking states, animated workspace transitions, and message/card entrance motion.
+- Version 1.17 is a visual and workflow update; Android permissions and OEM background limits still apply.
+
 
 ## v1.16 stability fixes
 - Typed messages now receive text-only replies; speech-originated commands can receive spoken replies.
