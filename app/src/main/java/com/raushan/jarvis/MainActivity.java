@@ -948,10 +948,10 @@ public class MainActivity extends FragmentActivity {
         TextView description = text("A.R.T.I.E. uses the selected Termux voice routing: Cori through Piper for English (offline), and Roopa through Sarvam for Hindi (internet required). Android's generic system voice is not used for replies.", 11, MUTED);
         description.setPadding(0, dp(7), 0, dp(12));
         card.addView(description);
-        LinearLayout voiceRow = row();
-        voiceRow.addView(chip("ENGLISH  ·  CORI", () -> { languageMode = 1; toggleLanguage(); }), new LinearLayout.LayoutParams(0, -2, 1));
-        voiceRow.addView(chip("HINDI  ·  ROOPA", () -> { languageMode = 2; toggleLanguage(); }), new LinearLayout.LayoutParams(0, -2, 1));
-        card.addView(voiceRow);
+        TextView voiceMap = text("ENGLISH  ·  PIPER / CORI  ·  OFFLINE\nHINDI  ·  SARVAM / ROOPA  ·  INTERNET", 10, GOLD);
+        voiceMap.setLineSpacing(dp(3), 1f);
+        voiceMap.setPadding(0, 0, 0, dp(3));
+        card.addView(voiceMap);
         addGap(card, 8);
         card.addView(chip("CHANGE SPEECH LANGUAGE  ·  " + languageLabel(), () -> toggleLanguage()));
         addGap(card, 8);
