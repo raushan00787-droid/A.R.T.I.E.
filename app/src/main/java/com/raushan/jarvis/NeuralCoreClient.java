@@ -115,7 +115,6 @@ public final class NeuralCoreClient {
         if (text == null || text.trim().isEmpty()) throw new IllegalArgumentException("Speech text is empty.");
         JSONObject payload = new JSONObject();
         payload.put("text", text.trim());
-        payload.put("profile", "neutral");
         payload.put("language", language == null ? "auto" : language);
         JSONObject response = request(token, "POST", "/v1/speak", payload, 2500, 100000);
         if (!response.optBoolean("success", false)) {
