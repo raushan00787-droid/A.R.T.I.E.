@@ -161,6 +161,7 @@ public class MainActivity extends FragmentActivity {
     private TextView voiceSelectButton;
     private TextView controlsButton;
     private TextView neuralCoreStatusView;
+    private TextView cloudMemoryStatusView;
     private final ArrayList<Voice> availableVoices = new ArrayList<>();
     private String selectedVoiceName;
     private Voice defaultSystemVoice;
@@ -988,6 +989,34 @@ public class MainActivity extends FragmentActivity {
         root.addView(neural, new LinearLayout.LayoutParams(-1, -2));
 
         addGap(root, 12);
+        LinearLayout cloud = column();
+        cloud.setPadding(dp(15), dp(13), dp(15), dp(13));
+        cloud.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
+        TextView cloudTitle = text("CLOUD MEMORY", 10, CYAN);
+        cloudTitle.setLetterSpacing(0.13f);
+        cloud.addView(cloudTitle);
+        TextView cloudDescription = text(
+                "Local Neural Core memory stays primary. Approved preferences and recorded experiences are copied to your private Cloudflare memory through the Termux bridge. Cloud credentials remain in Termux, never inside this APK.",
+                11, MUTED);
+        cloudDescription.setPadding(0, dp(7), 0, dp(10));
+        cloud.addView(cloudDescription);
+        cloudMemoryStatusView = text(
+                NeuralCoreClient.hasSavedToken(this)
+                        ? "NOT CHECKED • CHECK CLOUD STATUS"
+                        : "PAIR LOCAL NEURAL CORE TO ACCESS CLOUD MEMORY",
+                10, GOLD);
+        cloud.addView(cloudMemoryStatusView);
+        addGap(cloud, 9);
+        LinearLayout cloudActions = row();
+        cloudActions.addView(chip("CHECK STATUS", () -> refreshCloudMemoryStatus()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        cloudActions.addView(chip("SYNC NOW", () -> syncCloudMemoryNow()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        cloud.addView(cloudActions);
+        root.addView(cloud, new LinearLayout.LayoutParams(-1, -2));
+        refreshCloudMemoryStatus();
+
+        addGap(root, 12);
         LinearLayout privacy = column();
         privacy.setPadding(dp(15), dp(13), dp(15), dp(13));
         privacy.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
@@ -1001,11 +1030,91 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void refreshNeuralCoreStatus() {
-        if (neuralCoreStatusView == null) return;
-        neuralCoreStatusView.setText(
-                NeuralCoreClient.hasSavedToken(this)
-                        ? "PAIRING SAVED • BRIDGE MUST BE RUNNING IN TERMUX"
-                        : "NOT PAIRED • CLOUD AI WILL CONTINUE TO WORK");
+        if (neuralCoreStatusView != null) {
+            neuralCoreStatusView.setText(
+                    NeuralCoreClient.hasSavedToken(this)
+                            ? "PAIRING SAVED • BRIDGE MUST BE RUNNING IN TERMUX"
+                            : "NOT PAIRED • CLOUD AI WILL CONTINUE TO WORK");
+        }
+        refreshCloudMemoryStatus();
+    }
+
+    private void refreshCloudMemoryStatus() {
+        if (cloudMemoryStatusView == null) return;
+        if (!NeuralCoreClient.hasSavedToken(this)) {
+            cloudMemoryStatusView.setText("PAIR LOCAL NEURAL CORE TO ACCESS CLOUD MEMORY");
+            return;
+        }
+        cloudMemoryStatusView.setText("CHECKING CLOUD MEMORY THROUGH LOCAL NEURAL CORE...");
+        try {
+            network.execute(() -> {
+                try {
+                    JSONObject result = NeuralCoreClient.cloudMemoryStatus(MainActivity.this);
+                    runOnUiThread(() -> {
+                        if (cloudMemoryStatusView == null || isFinishing() || isDestroyed()) return;
+                        if (result == null) {
+                            cloudMemoryStatusView.setText("LOCAL NEURAL CORE IS NOT PAIRED");
+                            return;
+                        }
+                        boolean configured = result.optBoolean("configured", false);
+                        boolean reachable = result.optBoolean("reachable", false);
+                        int uploads = result.optInt("pending_uploads", 0);
+                        int deletions = result.optInt("pending_deletions", 0);
+                        if (!configured) {
+                            cloudMemoryStatusView.setText("CLOUD NOT CONFIGURED • " + result.optString("message", "Check config/cloud.env"));
+                        } else if (!reachable) {
+                            cloudMemoryStatusView.setText("CLOUD OFFLINE • " + uploads + " UPLOADS / " + deletions + " DELETIONS PENDING");
+                        } else {
+                            cloudMemoryStatusView.setText("CLOUD ONLINE • " + uploads + " UPLOADS / " + deletions + " DELETIONS PENDING");
+                        }
+                    });
+                } catch (Exception error) {
+                    runOnUiThread(() -> {
+                        if (cloudMemoryStatusView != null && !isFinishing() && !isDestroyed()) {
+                            cloudMemoryStatusView.setText("CLOUD STATUS UNAVAILABLE • " + safeMessage(error));
+                        }
+                    });
+                }
+            });
+        } catch (RejectedExecutionException error) {
+            cloudMemoryStatusView.setText("CLOUD STATUS CHECK COULD NOT START");
+        }
+    }
+
+    private void syncCloudMemoryNow() {
+        if (!NeuralCoreClient.hasSavedToken(this)) {
+            if (cloudMemoryStatusView != null) cloudMemoryStatusView.setText("PAIR LOCAL NEURAL CORE FIRST");
+            return;
+        }
+        if (cloudMemoryStatusView != null) cloudMemoryStatusView.setText("SYNCING LOCAL MEMORY WITH CLOUD...");
+        try {
+            network.execute(() -> {
+                try {
+                    JSONObject result = NeuralCoreClient.syncCloudMemories(MainActivity.this);
+                    runOnUiThread(() -> {
+                        if (cloudMemoryStatusView == null || isFinishing() || isDestroyed()) return;
+                        if (result == null) {
+                            cloudMemoryStatusView.setText("LOCAL NEURAL CORE IS NOT PAIRED");
+                            return;
+                        }
+                        cloudMemoryStatusView.setText(
+                                "SYNC COMPLETE • UPLOADED " + result.optInt("synced", 0)
+                                        + " • DELETED " + result.optInt("deleted", 0)
+                                        + " • STILL PENDING " + result.optInt("remaining", 0)
+                                        + " / " + result.optInt("deletions_pending", 0));
+                        refreshCloudMemoryStatus();
+                    });
+                } catch (Exception error) {
+                    runOnUiThread(() -> {
+                        if (cloudMemoryStatusView != null && !isFinishing() && !isDestroyed()) {
+                            cloudMemoryStatusView.setText("SYNC FAILED • LOCAL MEMORY IS PRESERVED • " + safeMessage(error));
+                        }
+                    });
+                }
+            });
+        } catch (RejectedExecutionException error) {
+            if (cloudMemoryStatusView != null) cloudMemoryStatusView.setText("SYNC COULD NOT START");
+        }
     }
 
     private void showNeuralCorePairingDialog() {
@@ -1073,7 +1182,8 @@ public class MainActivity extends FragmentActivity {
                         setStatus("NEURAL CORE ONLINE");
                         if (connectionView != null) connectionView.setText("NEURAL CORE ONLINE");
                         if (!useSavedToken && dialog.isShowing()) dialog.dismiss();
-                        reply("Neural Core is connected. Its local context will now accompany AI requests.");
+                        refreshCloudMemoryStatus();
+                        reply("Neural Core is connected. Local context and configured cloud memory are now available.");
                     });
                 } catch (Exception error) {
                     runOnUiThread(() -> {
