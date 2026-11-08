@@ -85,7 +85,7 @@ public final class NeuralCoreClient {
     public static JSONObject cloudMemoryStatus(Context context) throws Exception {
         String token = loadToken(context);
         if (token.isEmpty()) return null;
-        JSONObject response = request(token, "GET", "/v1/cloud/status", null);
+        JSONObject response = request(token, "GET", "/v1/cloud/status", null, 1800, 12000);
         if (!response.optBoolean("success", false)) {
             throw new IOException("The Neural Core could not read cloud memory status.");
         }
@@ -96,7 +96,16 @@ public final class NeuralCoreClient {
 
     /** Retries pending local-to-cloud uploads and queued remote deletions. */
     public static JSONObject syncCloudMemories(Context context) throws Exception {
-        return postResult(context, "/v1/cloud/sync", new JSONObject());
+        String token = loadToken(context);
+        if (token.isEmpty()) return null;
+        JSONObject response = request(token, "POST", "/v1/cloud/sync",
+                new JSONObject(), 1800, 35000);
+        if (!response.optBoolean("success", false)) {
+            throw new IOException("The Neural Core did not accept the cloud sync request.");
+        }
+        JSONObject result = response.optJSONObject("result");
+        if (result == null) throw new IOException("The cloud sync response was empty.");
+        return result;
     }
 
     /**
@@ -235,6 +244,12 @@ public final class NeuralCoreClient {
 
     private static JSONObject request(String token, String method, String path,
                                        JSONObject payload) throws Exception {
+        return request(token, method, path, payload, 1800, 2500);
+    }
+
+    private static JSONObject request(String token, String method, String path,
+                                       JSONObject payload, int connectTimeout,
+                                       int readTimeout) throws Exception {
         if (token == null || token.trim().isEmpty()) {
             throw new IOException("Neural Core is not paired.");
         }
@@ -244,8 +259,8 @@ public final class NeuralCoreClient {
             URL url = new URL(BASE_URL + path);
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod(method);
-            connection.setConnectTimeout(1800);
-            connection.setReadTimeout(2500);
+            connection.setConnectTimeout(connectTimeout);
+            connection.setReadTimeout(readTimeout);
             connection.setUseCaches(false);
             connection.setInstanceFollowRedirects(false);
             connection.setRequestProperty("Accept", "application/json");
