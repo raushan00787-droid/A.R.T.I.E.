@@ -81,6 +81,24 @@ public final class NeuralCoreClient {
         return testToken(loadToken(context));
     }
 
+    /** Checks Cloudflare memory availability through the paired local Neural Core. */
+    public static JSONObject cloudMemoryStatus(Context context) throws Exception {
+        String token = loadToken(context);
+        if (token.isEmpty()) return null;
+        JSONObject response = request(token, "GET", "/v1/cloud/status", null);
+        if (!response.optBoolean("success", false)) {
+            throw new IOException("The Neural Core could not read cloud memory status.");
+        }
+        JSONObject result = response.optJSONObject("result");
+        if (result == null) throw new IOException("The cloud memory status response was empty.");
+        return result;
+    }
+
+    /** Retries pending local-to-cloud uploads and queued remote deletions. */
+    public static JSONObject syncCloudMemories(Context context) throws Exception {
+        return postResult(context, "/v1/cloud/sync", new JSONObject());
+    }
+
     /**
      * Adds the latest owner message to Neural Core's local context and returns
      * its memory snapshot. A null result means the app has not been paired.
