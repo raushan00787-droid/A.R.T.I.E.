@@ -1,8 +1,13 @@
-# A.R.T.I.E. · Native Android Assistant · v1.23
+# A.R.T.I.E. · Native Android Assistant · v1.24
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
-This is the native Android application for A.R.T.I.E. The Chat microphone starts direct speech recognition. Optional background Live Mode uses the “Hey Artie” wake phrase. GitHub Actions publishes the debug APK as `ARTIE-v1.23-apk`.
+This is the native Android application for A.R.T.I.E. The Chat microphone starts direct speech recognition. Optional background Live Mode uses the “Hey Artie” wake phrase. GitHub Actions publishes the debug APK as `ARTIE-v1.24-apk`.
+
+## v1.24 voice profile preference
+- English output explicitly prioritizes the installed “Heart” voice when the active Android TTS engine exposes it.
+- Hindi output explicitly prioritizes “Omega” when available. If either named voice is not exposed by the selected engine, the app falls back to a female-marked voice and then the best available voice for that language.
+- The active Android TTS engine and its installed voice inventory still determine what can actually be selected.
 
 ## v1.23 voice and workspace correction
 - Removed the Tools workspace and its Home shortcut.
