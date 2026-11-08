@@ -108,6 +108,26 @@ public final class NeuralCoreClient {
         return result;
     }
 
+    /** Sends speech to the paired Termux voice router (Cori/Piper or Roopa/Sarvam). */
+    public static JSONObject speak(Context context, String text, String language) throws Exception {
+        String token = loadToken(context);
+        if (token.isEmpty()) throw new IOException("Neural Core is not paired.");
+        if (text == null || text.trim().isEmpty()) throw new IllegalArgumentException("Speech text is empty.");
+        JSONObject payload = new JSONObject();
+        payload.put("text", text.trim());
+        payload.put("profile", "neutral");
+        payload.put("language", language == null ? "auto" : language);
+        JSONObject response = request(token, "POST", "/v1/speak", payload, 2500, 100000);
+        if (!response.optBoolean("success", false)) {
+            throw new IOException("The Termux voice router did not accept the speech request.");
+        }
+        JSONObject result = response.optJSONObject("result");
+        if (result == null || !"spoken".equalsIgnoreCase(result.optString("status"))) {
+            throw new IOException("The Termux voice router returned no playback confirmation.");
+        }
+        return result;
+    }
+
     /**
      * Adds the latest owner message to Neural Core's local context and returns
      * its memory snapshot. A null result means the app has not been paired.
