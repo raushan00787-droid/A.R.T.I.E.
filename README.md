@@ -1,8 +1,16 @@
-# A.R.T.I.E. · Native Android Assistant · v1.22
+# A.R.T.I.E. · Native Android Assistant · v1.23
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
-This is the native Android application for A.R.T.I.E. The voice wake phrase is “Hey Artie”, and GitHub Actions publishes the debug APK as `ARTIE-v1.22-apk`.
+This is the native Android application for A.R.T.I.E. The Chat microphone starts direct speech recognition. Optional background Live Mode uses the “Hey Artie” wake phrase. GitHub Actions publishes the debug APK as `ARTIE-v1.23-apk`.
+
+## v1.23 voice and workspace correction
+- Removed the Tools workspace and its Home shortcut.
+- The Chat microphone now starts direct voice recognition. It no longer waits for the “Hey Artie” wake phrase before accepting a normal command.
+- Text-to-speech replies are held until the Android speech engine is ready; the opening greeting uses the Hindi voice path instead of the English system-default voice.
+- English and Hindi voice selection now checks the installed voice inventory and gives priority to voices explicitly marked as female.
+- Cloud memory sync runs automatically when the paired Termux Neural Core bridge and internet are available. Failed or pending transfers are retried automatically; local SQLite remains the source of truth.
+- The changes have been built as version 1.23. On-device microphone and TTS verification is still required.
 
 ## v1.13 integrated update
 
@@ -23,10 +31,10 @@ This is the native Android application for A.R.T.I.E. The voice wake phrase is �
 ### Hindi voice
 - A.R.T.I.E. prefers an installed Hindi voice explicitly marked as female by the active TTS engine.
 - If the engine does not expose a female marker, it uses the best available installed Hindi voice. The actual voice profile depends on the Android TTS engine and installed voice data.
-- English speech returns to the Android system default voice. System TTS settings remain available from the Settings workspace.
+- English speech now prefers an installed voice explicitly marked as female, then falls back to the best available English voice. The actual profile still depends on the active Android TTS engine and installed voice data.
 
 ### Workspace UI
-- Dedicated Home, Chat, Inbox, Tools and Settings tabs.
+- Dedicated Home, Chat, Inbox and Settings tabs. The separate Tools workspace has been removed; unsupported actions are not presented as ready-made controls.
 - Chat has a taller conversation area and more readable message bubbles.
 - Device controls and permission settings are separated from the conversation.
 - Home has quick navigation to the main workspaces.
@@ -58,7 +66,7 @@ This is the native Android application for A.R.T.I.E. The voice wake phrase is �
 
 ## Build
 - Android Gradle Plugin project, compile SDK 35, minimum SDK 26, target SDK 35.
-- GitHub Actions builds a debug APK on pushes to `main`. Download the `ARTIE-v1.22-apk` artifact from a successful run.
+- GitHub Actions builds a debug APK on pushes to `main`. Download the `ARTIE-v1.23-apk` artifact from a successful run.
 - A successful hosted build still needs on-device tests for assistant launch, microphone handoff, Hindi voice, reminders after reboot, notifications, messaging and document providers.
 
 
