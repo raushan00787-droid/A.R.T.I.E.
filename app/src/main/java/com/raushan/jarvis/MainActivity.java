@@ -814,10 +814,6 @@ public class MainActivity extends FragmentActivity {
         addHomeAction(first, "OPEN CHAT", () -> selectSection("CHAT"));
         addHomeAction(first, "A.R.T.I.E. INBOX", () -> selectSection("INBOX"));
         card.addView(first);
-        LinearLayout second = row();
-        addHomeAction(second, "DEVICE TOOLS", () -> selectSection("TOOLS"));
-        addHomeAction(second, "VOICE SETTINGS", () -> selectSection("SETTINGS"));
-        card.addView(second);
         root.addView(card, new LinearLayout.LayoutParams(-1, -2));
     }
 
