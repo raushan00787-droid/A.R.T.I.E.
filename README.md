@@ -1,8 +1,15 @@
-# A.R.T.I.E. · Native Android Assistant · v1.24
+# A.R.T.I.E. · Native Android Assistant · v1.25
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
 This is the native Android application for A.R.T.I.E. The Chat microphone starts direct speech recognition. Optional background Live Mode uses the “Hey Artie” wake phrase. GitHub Actions publishes the debug APK as `ARTIE-v1.24-apk`.
+
+## v1.25 · Selected language and voice reliability
+
+- EN/HI selection now applies to model replies, speech-recognition locale, spoken replies, opening greeting and listening acknowledgement. AUTO continues to follow the language detected in the conversation.
+- English continues to prefer Heart and Hindi continues to prefer Omega when the active Android TTS engine exposes those voices and marks them installed. Voices marked not installed are skipped; fallback stays within the selected language.
+- The existing Home, Chat, Inbox and Settings layout is retained. The Tools workspace is not restored; chat text, navigation and conversation height receive a small readability adjustment.
+- Cloud memory remains automatic when the paired Termux Neural Core bridge and internet are available. No manual sync action is required.
 
 ## v1.24 voice profile preference
 - English output explicitly prioritizes the installed “Heart” voice when the active Android TTS engine exposes it.
@@ -15,7 +22,7 @@ This is the native Android application for A.R.T.I.E. The Chat microphone starts
 - Text-to-speech replies are held until the Android speech engine is ready; the opening greeting uses the Hindi voice path instead of the English system-default voice.
 - English and Hindi voice selection now checks the installed voice inventory and gives priority to voices explicitly marked as female.
 - Cloud memory sync runs automatically when the paired Termux Neural Core bridge and internet are available. Failed or pending transfers are retried automatically; local SQLite remains the source of truth.
-- The changes have been built as version 1.23. On-device microphone and TTS verification is still required.
+- The changes were introduced in version 1.23. On-device microphone and TTS verification is still required.
 
 ## v1.13 integrated update
 
