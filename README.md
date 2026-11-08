@@ -1,8 +1,8 @@
-# A.R.T.I.E. · Native Android Assistant · v1.21
+# A.R.T.I.E. · Native Android Assistant · v1.22
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
-This is the native Android application for A.R.T.I.E. The voice wake phrase is “Hey Artie”, and GitHub Actions publishes the debug APK as `ARTIE-v1.21-apk`.
+This is the native Android application for A.R.T.I.E. The voice wake phrase is “Hey Artie”, and GitHub Actions publishes the debug APK as `ARTIE-v1.22-apk`.
 
 ## v1.13 integrated update
 
@@ -58,7 +58,7 @@ This is the native Android application for A.R.T.I.E. The voice wake phrase is �
 
 ## Build
 - Android Gradle Plugin project, compile SDK 35, minimum SDK 26, target SDK 35.
-- GitHub Actions builds a debug APK on pushes to `main`. Download the `A.R.T.I.E.-native-debug-apk` artifact from a successful run.
+- GitHub Actions builds a debug APK on pushes to `main`. Download the `ARTIE-v1.22-apk` artifact from a successful run.
 - A successful hosted build still needs on-device tests for assistant launch, microphone handoff, Hindi voice, reminders after reboot, notifications, messaging and document providers.
 
 
@@ -96,3 +96,14 @@ This is the native Android application for A.R.T.I.E. The voice wake phrase is �
 - `forget ...` and `forget all memories` are synchronized to the paired Neural Core. Clearing all Neural Core memory also removes its episodic history and pending feedback records.
 - The Cloud AI remains the language-generation and structured-proposal layer. The local Neural Core supplies context, information-readiness analysis, plan validation, weighted decision calculations, persistent experience records and approved preference adaptation. It is not a standalone language model.
 - When Termux is stopped, the bridge is offline, or pairing is absent, A.R.T.I.E. falls back to the existing Cloud AI chat path. Local-only memory and reasoning functions require the bridge to be running.
+
+
+## v1.22 · Cloud Memory controls
+
+- The Android Settings workspace now shows Cloud Memory reachability and pending upload/deletion counts through the paired localhost Neural Core bridge.
+- **CHECK STATUS** verifies cloud memory connectivity without exposing the Cloudflare API token to Android.
+- **SYNC NOW** asks the local Python Neural Core to retry pending memory uploads and queued cloud deletions.
+- Explicitly approved preferences and recorded chat experiences sync from the local SQLite database. The local database remains the source of truth; cloud sync failures never erase local memory.
+- Explicit forget and clear operations queue remote deletion and retry it after network recovery.
+- The Cloudflare API credential stays in Termux at `config/cloud.env`; it is not bundled in the APK or shared with the Android application.
+- Requires the matching Neural Core update and its Cloudflare memory configuration in Termux. The existing Android pairing token and app data are retained across an in-place update.
