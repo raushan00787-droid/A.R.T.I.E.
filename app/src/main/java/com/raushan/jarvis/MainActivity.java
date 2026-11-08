@@ -133,7 +133,7 @@ public class MainActivity extends FragmentActivity {
             "confirmation. Keep the relationship professional, trusted, and non-romantic.";
 
     private LinearLayout root;
-    private LinearLayout sectionHost, homeSection, chatSection, inboxSection, toolsSection, settingsSection;
+    private LinearLayout sectionHost, homeSection, chatSection, inboxSection, settingsSection;
     private LinearLayout inboxItems;
     private TextView inboxSummary;
     private final ArrayList<TextView> navigationTabs = new ArrayList<>();
@@ -165,6 +165,7 @@ public class MainActivity extends FragmentActivity {
     private final ArrayList<Voice> availableVoices = new ArrayList<>();
     private String selectedVoiceName;
     private Voice defaultSystemVoice;
+    private Voice englishVoice;
     private Voice hindiVoice;
     private boolean hindiVoiceFemaleIdentified = false;
     private volatile boolean clapWakeEnabled = false;
@@ -172,6 +173,8 @@ public class MainActivity extends FragmentActivity {
     private Thread clapThread;
 
     private TextToSpeech tts;
+    private boolean ttsReady = false;
+    private String pendingSpeechText;
     private SpeechRecognizer recognizer;
     private CameraManager camera;
     private final android.os.Handler voiceHandler = new android.os.Handler(android.os.Looper.getMainLooper());
@@ -212,6 +215,11 @@ public class MainActivity extends FragmentActivity {
     private final ArrayList<Uri> selectedDocumentUris = new ArrayList<>();
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
+    private static final long CLOUD_SYNC_INTERVAL_MS = 15L * 60L * 1000L;
+    private static final long CLOUD_SYNC_RETRY_MS = 2L * 60L * 1000L;
+    private long cloudSyncNextAttemptAt = 0L;
+    private boolean cloudSyncInProgress = false;
+    private final Runnable cloudSyncRetryRunnable = () -> maybeAutoSyncCloudMemory();
     private final HandlerClock handlerClock = new HandlerClock();
     private final BroadcastReceiver liveReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -260,7 +268,8 @@ public class MainActivity extends FragmentActivity {
         registerLiveReceiver();
 
         tts = new TextToSpeech(this, result -> {
-            if (tts != null && result == TextToSpeech.SUCCESS) {
+            if (result == TextToSpeech.SUCCESS && tts != null) {
+                ttsReady = true;
                 initializeVoiceSelection();
                 tts.setSpeechRate(speechRate);
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
@@ -269,12 +278,22 @@ public class MainActivity extends FragmentActivity {
                     @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
                     @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
                 });
-                if (welcomePending && ownerAuthenticated) {
+                if (welcomePending && ownerAuthenticated && spokenReplies) {
                     welcomePending = false;
-                    speak("Hey Raushan, welcome again.");
+                    pendingSpeechText = null;
+                    speak("नमस्ते Raushan। मैं A.R.T.I.E. हूँ। मैं सुन रही हूँ।");
+                } else if (pendingSpeechText != null && spokenReplies) {
+                    String queuedSpeech = pendingSpeechText;
+                    pendingSpeechText = null;
+                    speak(queuedSpeech);
                 }
+            } else {
+                ttsReady = false;
+                runOnUiThread(() -> setStatus("SYSTEM VOICE INITIALIZATION FAILED"));
             }
         });
+
+        
 
         if (SpeechRecognizer.isRecognitionAvailable(this)) {
             try {
@@ -388,15 +407,16 @@ public class MainActivity extends FragmentActivity {
         if (appFrame != null) appFrame.setVisibility(View.VISIBLE);
         setStatus("OWNER VERIFIED");
         welcomePending = true;
-        if (tts != null && spokenReplies) {
+        if (ttsReady && spokenReplies) {
             welcomePending = false;
-            speak("Hey Raushan, welcome again.");
+            speak("नमस्ते Raushan। मैं A.R.T.I.E. हूँ। मैं सुन रही हूँ।");
         }
         consumePendingLiveCommand();
         if (pendingInboxOpen) {
             pendingInboxOpen = false;
             selectSection("INBOX");
         }
+        maybeAutoSyncCloudMemory();
         dispatchPendingSharedUrl();
         if (assistantLaunchPending) startAssistantVoiceSession();
     }
@@ -657,12 +677,10 @@ public class MainActivity extends FragmentActivity {
         homeSection = column();
         chatSection = column();
         inboxSection = column();
-        toolsSection = column();
         settingsSection = column();
         sectionHost.addView(homeSection, new LinearLayout.LayoutParams(-1, -2));
         sectionHost.addView(chatSection, new LinearLayout.LayoutParams(-1, -2));
         sectionHost.addView(inboxSection, new LinearLayout.LayoutParams(-1, -2));
-        sectionHost.addView(toolsSection, new LinearLayout.LayoutParams(-1, -2));
         sectionHost.addView(settingsSection, new LinearLayout.LayoutParams(-1, -2));
 
         LinearLayout pageRoot = root;
@@ -679,9 +697,6 @@ public class MainActivity extends FragmentActivity {
         root = inboxSection;
         buildInboxScreen();
 
-        root = toolsSection;
-        buildDeviceControls();
-
         root = settingsSection;
         buildSettingsScreen();
 
@@ -693,7 +708,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout nav = row();
         nav.setPadding(dp(4), dp(4), dp(4), dp(4));
         nav.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(33, 73, 94), 8));
-        String[] labels = new String[]{"HOME", "CHAT", "INBOX", "TOOLS", "SETTINGS"};
+        String[] labels = new String[]{"HOME", "CHAT", "INBOX", "SETTINGS"};
         navigationTabs.clear();
         for (String label : labels) {
             TextView tab = text(label, 8, MUTED);
@@ -715,12 +730,10 @@ public class MainActivity extends FragmentActivity {
         activeSection = section == null ? "HOME" : section;
         View incoming = "HOME".equals(activeSection) ? homeSection
                 : "CHAT".equals(activeSection) ? chatSection
-                : "INBOX".equals(activeSection) ? inboxSection
-                : "TOOLS".equals(activeSection) ? toolsSection : settingsSection;
+                : "INBOX".equals(activeSection) ? inboxSection : settingsSection;
         if (homeSection != null) homeSection.setVisibility(incoming == homeSection ? View.VISIBLE : View.GONE);
         if (chatSection != null) chatSection.setVisibility(incoming == chatSection ? View.VISIBLE : View.GONE);
         if (inboxSection != null) inboxSection.setVisibility(incoming == inboxSection ? View.VISIBLE : View.GONE);
-        if (toolsSection != null) toolsSection.setVisibility(incoming == toolsSection ? View.VISIBLE : View.GONE);
         if (settingsSection != null) settingsSection.setVisibility(incoming == settingsSection ? View.VISIBLE : View.GONE);
         if (incoming != null) animateSectionIn(incoming);
         for (TextView tab : navigationTabs) {
@@ -996,25 +1009,17 @@ public class MainActivity extends FragmentActivity {
         cloudTitle.setLetterSpacing(0.13f);
         cloud.addView(cloudTitle);
         TextView cloudDescription = text(
-                "Local Neural Core memory stays primary. Approved preferences and recorded experiences are copied to your private Cloudflare memory through the Termux bridge. Cloud credentials remain in Termux, never inside this APK.",
+                "Cloud backup runs automatically when the paired Neural Core bridge and internet are available. Local SQLite remains the source of truth; failed transfers stay queued and retry automatically.",
                 11, MUTED);
         cloudDescription.setPadding(0, dp(7), 0, dp(10));
         cloud.addView(cloudDescription);
         cloudMemoryStatusView = text(
                 NeuralCoreClient.hasSavedToken(this)
-                        ? "NOT CHECKED • CHECK CLOUD STATUS"
-                        : "PAIR LOCAL NEURAL CORE TO ACCESS CLOUD MEMORY",
+                        ? "AUTOMATIC SYNC ENABLED • RETRIES WHEN ONLINE"
+                        : "LOCAL MEMORY IS SAFE • PAIR NEURAL CORE ONCE FOR CLOUD BACKUP",
                 10, GOLD);
         cloud.addView(cloudMemoryStatusView);
-        addGap(cloud, 9);
-        LinearLayout cloudActions = row();
-        cloudActions.addView(chip("CHECK STATUS", () -> refreshCloudMemoryStatus()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        cloudActions.addView(chip("SYNC NOW", () -> syncCloudMemoryNow()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        cloud.addView(cloudActions);
         root.addView(cloud, new LinearLayout.LayoutParams(-1, -2));
-        refreshCloudMemoryStatus();
 
         addGap(root, 12);
         LinearLayout privacy = column();
@@ -1036,84 +1041,58 @@ public class MainActivity extends FragmentActivity {
                             ? "PAIRING SAVED • BRIDGE MUST BE RUNNING IN TERMUX"
                             : "NOT PAIRED • CLOUD AI WILL CONTINUE TO WORK");
         }
-        refreshCloudMemoryStatus();
+        updateCloudMemoryLabel();
     }
 
-    private void refreshCloudMemoryStatus() {
+    private void updateCloudMemoryLabel() {
         if (cloudMemoryStatusView == null) return;
-        if (!NeuralCoreClient.hasSavedToken(this)) {
-            cloudMemoryStatusView.setText("PAIR LOCAL NEURAL CORE TO ACCESS CLOUD MEMORY");
-            return;
-        }
-        cloudMemoryStatusView.setText("CHECKING CLOUD MEMORY THROUGH LOCAL NEURAL CORE...");
-        try {
-            network.execute(() -> {
-                try {
-                    JSONObject result = NeuralCoreClient.cloudMemoryStatus(MainActivity.this);
-                    runOnUiThread(() -> {
-                        if (cloudMemoryStatusView == null || isFinishing() || isDestroyed()) return;
-                        if (result == null) {
-                            cloudMemoryStatusView.setText("LOCAL NEURAL CORE IS NOT PAIRED");
-                            return;
-                        }
-                        boolean configured = result.optBoolean("configured", false);
-                        boolean reachable = result.optBoolean("reachable", false);
-                        int uploads = result.optInt("pending_uploads", 0);
-                        int deletions = result.optInt("pending_deletions", 0);
-                        if (!configured) {
-                            cloudMemoryStatusView.setText("CLOUD NOT CONFIGURED • " + result.optString("message", "Check config/cloud.env"));
-                        } else if (!reachable) {
-                            cloudMemoryStatusView.setText("CLOUD OFFLINE • " + uploads + " UPLOADS / " + deletions + " DELETIONS PENDING");
-                        } else {
-                            cloudMemoryStatusView.setText("CLOUD ONLINE • " + uploads + " UPLOADS / " + deletions + " DELETIONS PENDING");
-                        }
-                    });
-                } catch (Exception error) {
-                    runOnUiThread(() -> {
-                        if (cloudMemoryStatusView != null && !isFinishing() && !isDestroyed()) {
-                            cloudMemoryStatusView.setText("CLOUD STATUS UNAVAILABLE • " + safeMessage(error));
-                        }
-                    });
-                }
-            });
-        } catch (RejectedExecutionException error) {
-            cloudMemoryStatusView.setText("CLOUD STATUS CHECK COULD NOT START");
-        }
+        cloudMemoryStatusView.setText(NeuralCoreClient.hasSavedToken(this)
+                ? "AUTOMATIC SYNC ENABLED • BRIDGE + INTERNET REQUIRED"
+                : "LOCAL MEMORY ONLY • CLOUD BACKUP NOT PAIRED");
     }
 
-    private void syncCloudMemoryNow() {
-        if (!NeuralCoreClient.hasSavedToken(this)) {
-            if (cloudMemoryStatusView != null) cloudMemoryStatusView.setText("PAIR LOCAL NEURAL CORE FIRST");
+    private void maybeAutoSyncCloudMemory() {
+        if (!ownerAuthenticated || !activityVisible || cloudSyncInProgress
+                || !NeuralCoreClient.hasSavedToken(this)) return;
+        long now = System.currentTimeMillis();
+        if (now < cloudSyncNextAttemptAt) {
+            voiceHandler.removeCallbacks(cloudSyncRetryRunnable);
+            voiceHandler.postDelayed(cloudSyncRetryRunnable,
+                    Math.max(1000L, cloudSyncNextAttemptAt - now));
             return;
         }
-        if (cloudMemoryStatusView != null) cloudMemoryStatusView.setText("SYNCING LOCAL MEMORY WITH CLOUD...");
+        cloudSyncInProgress = true;
+        cloudSyncNextAttemptAt = now + CLOUD_SYNC_INTERVAL_MS;
         try {
             network.execute(() -> {
+                boolean retry = false;
                 try {
                     JSONObject result = NeuralCoreClient.syncCloudMemories(MainActivity.this);
-                    runOnUiThread(() -> {
-                        if (cloudMemoryStatusView == null || isFinishing() || isDestroyed()) return;
-                        if (result == null) {
-                            cloudMemoryStatusView.setText("LOCAL NEURAL CORE IS NOT PAIRED");
-                            return;
-                        }
-                        cloudMemoryStatusView.setText(
-                                "SYNC COMPLETE • UPLOADED " + result.optInt("synced", 0)
-                                        + " • DELETED " + result.optInt("deleted", 0)
-                                        + " • STILL PENDING " + result.optInt("remaining", 0)
-                                        + " / " + result.optInt("deletions_pending", 0));
-                        refreshCloudMemoryStatus();
-                    });
+                    retry = result == null || result.optInt("remaining", 0) > 0
+                            || result.optInt("deletions_pending", 0) > 0;
                 } catch (Exception error) {
-                    runOnUiThread(() -> {
-                        if (cloudMemoryStatusView != null && !isFinishing() && !isDestroyed()) {
-                            cloudMemoryStatusView.setText("SYNC FAILED • LOCAL MEMORY IS PRESERVED • " + safeMessage(error));
-                        }
-                    });
+                    retry = true;
                 }
+                final boolean shouldRetry = retry;
+                runOnUiThread(() -> {
+                    cloudSyncInProgress = false;
+                    cloudSyncNextAttemptAt = System.currentTimeMillis()
+                            + (shouldRetry ? CLOUD_SYNC_RETRY_MS : CLOUD_SYNC_INTERVAL_MS);
+                    if (activityVisible && ownerAuthenticated && !isFinishing() && !isDestroyed()) {
+                        voiceHandler.removeCallbacks(cloudSyncRetryRunnable);
+                        voiceHandler.postDelayed(cloudSyncRetryRunnable,
+                                Math.max(1000L, cloudSyncNextAttemptAt - System.currentTimeMillis()));
+                    }
+                    if (cloudMemoryStatusView != null) {
+                        cloudMemoryStatusView.setText(shouldRetry
+                                ? "AUTO SYNC PENDING • WILL RETRY AUTOMATICALLY"
+                                : "AUTOMATIC SYNC ACTIVE • CLOUD UP TO DATE");
+                    }
+                });
             });
         } catch (RejectedExecutionException error) {
-            if (cloudMemoryStatusView != null) cloudMemoryStatusView.setText("SYNC COULD NOT START");
+            cloudSyncInProgress = false;
+            cloudSyncNextAttemptAt = System.currentTimeMillis() + CLOUD_SYNC_RETRY_MS;
         }
     }
 
@@ -1179,10 +1158,10 @@ public class MainActivity extends FragmentActivity {
                     runOnUiThread(() -> {
                         if (sourceButton != null) sourceButton.setEnabled(true);
                         refreshNeuralCoreStatus();
+                        maybeAutoSyncCloudMemory();
                         setStatus("NEURAL CORE ONLINE");
                         if (connectionView != null) connectionView.setText("NEURAL CORE ONLINE");
                         if (!useSavedToken && dialog.isShowing()) dialog.dismiss();
-                        refreshCloudMemoryStatus();
                         reply("Neural Core is connected. Local context and configured cloud memory are now available.");
                     });
                 } catch (Exception error) {
@@ -1466,112 +1445,6 @@ public class MainActivity extends FragmentActivity {
         return control;
     }
 
-
-    private void buildDeviceControls() {
-        systemPanel = column();
-        systemPanel.setPadding(dp(11), dp(9), dp(11), dp(9));
-        systemPanel.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(37, 82, 101), 5));
-        systemPanel.setVisibility(View.VISIBLE);
-
-        TextView title = text("DEVICE CONTROLS", 10, CYAN);
-        title.setLetterSpacing(0.16f);
-        title.setPadding(dp(2), dp(2), dp(2), dp(6));
-        systemPanel.addView(title);
-
-        LinearLayout rowOne = row();
-        addControl(rowOne, "FLASHLIGHT", () -> toggleTorch());
-        addControl(rowOne, "BATTERY", () -> {
-            int level = getBatteryPct();
-            reply(level < 0 ? "I could not read the battery level." : "Battery level is " + level + " percent.");
-        });
-        addControl(rowOne, "WI-FI", () -> openSettings(android.provider.Settings.ACTION_WIFI_SETTINGS, "Wi-Fi"));
-        systemPanel.addView(rowOne);
-
-        LinearLayout rowTwo = row();
-        addControl(rowTwo, "BLUETOOTH", () -> openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS, "Bluetooth"));
-        addControl(rowTwo, "DISPLAY", () -> openSettings(android.provider.Settings.ACTION_DISPLAY_SETTINGS, "Display"));
-        addControl(rowTwo, "SETTINGS", () -> openSettings(android.provider.Settings.ACTION_SETTINGS, "system"));
-        systemPanel.addView(rowTwo);
-
-        LinearLayout rowThree = row();
-        addControl(rowThree, "STOP SPEECH", () -> stopSpeech());
-        addControl(rowThree, "CLEAR CHAT", () -> clearConversation());
-        addControl(rowThree, "CLAP WAKE", () -> toggleClapWake());
-        systemPanel.addView(rowThree);
-
-        LinearLayout rowFour = row();
-        voiceSelectButton = text("VOICE: SYSTEM DEFAULT", 8, CYAN);
-        voiceSelectButton.setGravity(Gravity.CENTER);
-        voiceSelectButton.setPadding(dp(3), dp(10), dp(3), dp(10));
-        voiceSelectButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        voiceSelectButton.setOnClickListener(v -> openSystemTtsSettings());
-        LinearLayout.LayoutParams voiceLp = new LinearLayout.LayoutParams(0, -2, 1.2f);
-        voiceLp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        rowFour.addView(voiceSelectButton, voiceLp);
-        addControl(rowFour, "TEST VOICE", () -> speak("Good evening, Sir. A.R.T.I.E. is online and ready."));
-        systemPanel.addView(rowFour);
-
-        LinearLayout rowFive = row();
-        addControl(rowFive, "VOLUME −", () -> adjustMediaVolume(false));
-        speechRateButton = text("SPEED  " + speechRate + "x", 8, CYAN);
-        speechRateButton.setGravity(Gravity.CENTER);
-        speechRateButton.setPadding(dp(3), dp(10), dp(3), dp(10));
-        speechRateButton.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        speechRateButton.setOnClickListener(v -> cycleSpeechRate());
-        LinearLayout.LayoutParams speedLp = new LinearLayout.LayoutParams(0, -2, 1);
-        speedLp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        rowFive.addView(speechRateButton, speedLp);
-        addControl(rowFive, "VOLUME +", () -> adjustMediaVolume(true));
-        systemPanel.addView(rowFive);
-
-        LinearLayout rowSix = row();
-        addControl(rowSix, "CALL / DIAL", () -> openPhoneDialer());
-        addControl(rowSix, "OPEN FILES", () -> openDocumentPicker());
-        addControl(rowSix, "CHOOSE FOLDER", () -> openFolderPicker());
-        systemPanel.addView(rowSix);
-
-        LinearLayout rowSeven = row();
-        addControl(rowSeven, "BROWSE FOLDER", () -> browseSavedFolder());
-        addControl(rowSeven, "OPEN WPS", () -> launchWpsOffice());
-        addControl(rowSeven, "PERMISSIONS", () -> showPermissionCenter());
-        systemPanel.addView(rowSeven);
-
-        LinearLayout rowEight = row();
-        addControl(rowEight, "FLOATING ORB", () -> toggleFloatingOrb());
-        addControl(rowEight, "LOCK A.R.T.I.E.", () -> lockAppNow());
-        addControl(rowEight, "FOLDER ACCESS", () -> openFolderPicker());
-        systemPanel.addView(rowEight);
-
-        LinearLayout rowNine = row();
-        addControl(rowNine, "DEFAULT ASSISTANT", () -> requestAssistantRole());
-        addControl(rowNine, "SYSTEM VOICE", () -> openSystemTtsSettings());
-        addControl(rowNine, "LIVE MODE", () -> toggleContinuousListening());
-        systemPanel.addView(rowNine);
-
-        LinearLayout.LayoutParams panelLp = new LinearLayout.LayoutParams(-1, -2);
-        panelLp.topMargin = dp(4);
-        root.addView(systemPanel, panelLp);
-    }
-
-    private void toggleSystemPanel() {
-        if (systemPanel == null) return;
-        boolean opening = systemPanel.getVisibility() != View.VISIBLE;
-        systemPanel.setVisibility(opening ? View.VISIBLE : View.GONE);
-        if (controlsButton != null) controlsButton.setText(opening ? "CONTROLS  ▴" : "CONTROLS  ▾");
-    }
-
-    private void addControl(LinearLayout parent, String label, Runnable action) {
-        TextView button = text(label, 9, Color.rgb(158, 192, 206));
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(3), dp(12), dp(3), dp(12));
-        button.setBackground(shape(Color.rgb(10, 28, 41), Color.rgb(36, 80, 100), 3));
-        button.setClickable(true);
-        button.setFocusable(true);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -2, 1);
-        lp.setMargins(dp(3), dp(3), dp(3), dp(3));
-        parent.addView(button, lp);
-        button.setOnClickListener(v -> action.run());
-    }
 
     private void updateClock() {
         if (clockView != null) {
@@ -3289,12 +3162,19 @@ public class MainActivity extends FragmentActivity {
             resumeLiveModeAfterSpeech();
             return;
         }
+        if (!ttsReady) {
+            pendingSpeechText = message;
+            setStatus("VOICE INITIALIZING");
+            return;
+        }
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
         try {
             boolean hindiSpeech = shouldUseHindiVoice(speechText);
-            if (hindiSpeech && hindiVoice != null) tts.setVoice(hindiVoice);
-            else if (defaultSystemVoice != null) tts.setVoice(defaultSystemVoice);
+            Voice responseVoice = hindiSpeech ? hindiVoice : englishVoice;
+            if (responseVoice == null) responseVoice = defaultSystemVoice;
+            if (responseVoice != null) tts.setVoice(responseVoice);
+            tts.setSpeechRate(speechRate);
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "artie-" + System.currentTimeMillis());
             if (result == TextToSpeech.ERROR) {
@@ -3349,6 +3229,21 @@ public class MainActivity extends FragmentActivity {
     }
 
 
+    private boolean isFemaleVoice(Voice voice) {
+        if (voice == null) return false;
+        String name = voice.getName() == null ? "" : voice.getName().toLowerCase(Locale.ROOT);
+        if (name.contains("female") || name.contains("woman")) return true;
+        Set<String> features = voice.getFeatures();
+        if (features != null) {
+            for (String feature : features) {
+                if (feature == null) continue;
+                String value = feature.toLowerCase(Locale.ROOT);
+                if (value.contains("female") || value.contains("woman")) return true;
+            }
+        }
+        return false;
+    }
+
     private int voicePriority(Voice voice, String requestedLanguage) {
         if (voice == null || voice.getLocale() == null) return -1;
         Locale locale = voice.getLocale();
@@ -3356,7 +3251,17 @@ public class MainActivity extends FragmentActivity {
         int score = 10;
         if ("IN".equalsIgnoreCase(locale.getCountry())) score += 20;
         if (!voice.isNetworkConnectionRequired()) score += 5;
-        if (voice.getName().equals(selectedVoiceName)) score += 3;
+        if (isFemaleVoice(voice)) score += 100;
+        if (voice.getName() != null && voice.getName().equals(selectedVoiceName)) score += 3;
+        Set<String> features = voice.getFeatures();
+        if (features != null) {
+            for (String feature : features) {
+                if (feature != null && feature.toLowerCase(Locale.ROOT).contains("notinstalled")) {
+                    score -= 50;
+                    break;
+                }
+            }
+        }
         return score;
     }
 
@@ -3374,36 +3279,17 @@ public class MainActivity extends FragmentActivity {
 
     private void initializeVoiceSelection() {
         defaultSystemVoice = tts.getDefaultVoice();
-        hindiVoice = null;
-        hindiVoiceFemaleIdentified = false;
-        int bestScore = Integer.MIN_VALUE;
+        availableVoices.clear();
         try {
             Set<Voice> voices = tts.getVoices();
-            if (voices != null) {
-                for (Voice voice : voices) {
-                    if (voice == null || voice.getLocale() == null
-                            || !"hi".equalsIgnoreCase(voice.getLocale().getLanguage())) continue;
-                    String name = voice.getName() == null ? "" : voice.getName().toLowerCase(Locale.ROOT);
-                    Set<String> features = voice.getFeatures();
-                    boolean female = name.contains("female");
-                    if (features != null) {
-                        for (String feature : features) {
-                            if (feature != null && feature.toLowerCase(Locale.ROOT).contains("female")) female = true;
-                        }
-                    }
-                    int score = 10;
-                    if ("IN".equalsIgnoreCase(voice.getLocale().getCountry())) score += 20;
-                    if (!voice.isNetworkConnectionRequired()) score += 5;
-                    if (female) score += 100;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        hindiVoice = voice;
-                        hindiVoiceFemaleIdentified = female;
-                    }
-                }
-            }
+            if (voices != null) availableVoices.addAll(voices);
         } catch (Exception ignored) { }
-        selectedVoiceName = hindiVoice == null ? "ANDROID SYSTEM DEFAULT" : hindiVoice.getName();
+        hindiVoice = findInstalledVoiceForLanguage("hi");
+        englishVoice = findInstalledVoiceForLanguage("en");
+        hindiVoiceFemaleIdentified = isFemaleVoice(hindiVoice);
+        selectedVoiceName = hindiVoice == null
+                ? (defaultSystemVoice == null ? "ANDROID SYSTEM DEFAULT" : defaultSystemVoice.getName())
+                : hindiVoice.getName();
         spokenReplies = true;
         updateVoiceSelectButton();
         if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(CYAN); }
@@ -3649,26 +3535,27 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void toggleContinuousListening() {
-        if (!liveModeEnabled && assistantListeningSessionActive) {
+        if (liveModeEnabled) {
+            stopLiveMode();
+            return;
+        }
+        if (assistantListeningSessionActive) {
             assistantListeningSessionActive = false;
             continuousListeningEnabled = false;
             if (voiceRestartRunnable != null) voiceHandler.removeCallbacks(voiceRestartRunnable);
             if (recognizer != null) { try { recognizer.cancel(); } catch (Exception ignored) { } }
             listening = false;
             if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
-            setStatus("ASSISTANT LISTENING OFF");
+            setStatus("MICROPHONE PAUSED");
             return;
         }
-        if (liveModeEnabled && liveModePaused) {
-            liveModePaused = false;
-            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit().putBoolean("live_mode_paused", false).apply();
-            try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
-            catch (Exception error) { setStatus("LIVE MODE RESUME FAILED"); }
-        } else if (liveModeEnabled) {
-            stopLiveMode();
-        } else {
-            startLiveMode();
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            assistantMicPermissionPending = true;
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, PERMISSION_AUDIO);
+            setStatus("MICROPHONE PERMISSION REQUIRED");
+            return;
         }
+        startAssistantVoiceSession();
     }
 
     private void startLiveMode() {
@@ -4134,8 +4021,8 @@ public class MainActivity extends FragmentActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_AUDIO) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (assistantMicPermissionPending) startAssistantVoiceSession();
-                else startLiveMode();
+                assistantMicPermissionPending = false;
+                startAssistantVoiceSession();
             } else {
                 continuousListeningEnabled = false;
                 if (micButton != null) { micButton.setText("○"); micButton.setTextColor(MUTED); }
@@ -4541,6 +4428,7 @@ public class MainActivity extends FragmentActivity {
         }
         listening = false;
         stopClapRecorder();
+        voiceHandler.removeCallbacks(cloudSyncRetryRunnable);
         if (floatingOrbEnabled && ownerAuthenticated) startOverlayService(JarvisOverlayService.ACTION_SHOW);
         super.onPause();
     }
@@ -4585,6 +4473,7 @@ public class MainActivity extends FragmentActivity {
             lockPromptStarted = false;
             authenticateOwner();
         }
+        if (ownerAuthenticated) maybeAutoSyncCloudMemory();
         if (liveModeEnabled && !liveModePaused && ownerAuthenticated) {
             if (tts == null || !tts.isSpeaking()) {
                 try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
