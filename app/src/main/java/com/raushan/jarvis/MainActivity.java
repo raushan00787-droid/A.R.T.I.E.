@@ -275,7 +275,7 @@ public class MainActivity extends FragmentActivity {
                 tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
                     @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
-                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(850); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
+                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("VOICE OUTPUT FAILED • CHECK TTS VOICE DATA"); scheduleListeningRestart(850); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
                     @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
                 });
                 if (welcomePending && ownerAuthenticated && spokenReplies) {
@@ -1397,7 +1397,9 @@ public class MainActivity extends FragmentActivity {
         card.addView(chatScroll, chatLp);
 
         if (conversation.length() <= 1) {
-            addMessage("A.R.T.I.E.", "Good day, Raushan. I am online.", false);
+            addMessage("A.R.T.I.E.", languageMode == 2
+                    ? "नमस्ते Raushan। मैं ऑनलाइन हूँ।"
+                    : "Good day, Raushan. I am online.", false);
         } else {
             for (int i = 1; i < conversation.length(); i++) {
                 JSONObject item = conversation.optJSONObject(i);
@@ -3529,7 +3531,9 @@ public class MainActivity extends FragmentActivity {
         spokenReplies = !spokenReplies;
         if (!spokenReplies && tts != null) tts.stop();
         if (voiceButton != null) { voiceButton.setText(spokenReplies ? "◖" : "◗"); voiceButton.setTextColor(spokenReplies ? CYAN : MUTED); }
-        if (spokenReplies) reply("System voice replies enabled.");
+        if (spokenReplies) reply(languageMode == 2
+                ? "आवाज़ से जवाब चालू हैं।"
+                : "Spoken replies enabled.");
         else { setStatus("SPOKEN REPLIES OFF"); resumeLiveModeAfterSpeech(); }
     }
 
