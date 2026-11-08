@@ -953,7 +953,7 @@ public class MainActivity extends FragmentActivity {
         TextView title = text("VOICE & ASSISTANT", 10, CYAN);
         title.setLetterSpacing(0.14f);
         card.addView(title);
-        TextView description = text("A.R.T.I.E. prefers an installed Hindi voice marked as female by the active TTS engine. If no such marker is available, choose a Hindi voice in Android settings.", 11, MUTED);
+        TextView description = text("A.R.T.I.E. prioritizes Heart for English and Omega for Hindi when exposed by the active Android TTS engine, then prefers female-marked voices. The installed engine controls which voices are available.", 11, MUTED);
         description.setPadding(0, dp(7), 0, dp(12));
         card.addView(description);
         LinearLayout voiceRow = row();
@@ -3245,6 +3245,9 @@ public class MainActivity extends FragmentActivity {
         Locale locale = voice.getLocale();
         if (!requestedLanguage.equalsIgnoreCase(locale.getLanguage())) return -1;
         int score = 10;
+        String voiceName = voice.getName() == null ? "" : voice.getName().toLowerCase(Locale.ROOT);
+        if ("en".equalsIgnoreCase(requestedLanguage) && voiceName.contains("heart")) score += 500;
+        if ("hi".equalsIgnoreCase(requestedLanguage) && voiceName.contains("omega")) score += 500;
         if ("IN".equalsIgnoreCase(locale.getCountry())) score += 20;
         if (!voice.isNetworkConnectionRequired()) score += 5;
         if (isFemaleVoice(voice)) score += 100;
