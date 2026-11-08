@@ -82,6 +82,7 @@ import java.util.function.Consumer;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.fragment.app.FragmentActivity;
@@ -215,6 +216,8 @@ public class MainActivity extends FragmentActivity {
     private final ArrayList<Uri> selectedDocumentUris = new ArrayList<>();
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
+    private final ExecutorService voiceOutput = Executors.newSingleThreadExecutor();
+    private final AtomicInteger speechQueueDepth = new AtomicInteger(0);
     private static final long CLOUD_SYNC_INTERVAL_MS = 15L * 60L * 1000L;
     private static final long CLOUD_SYNC_RETRY_MS = 2L * 60L * 1000L;
     private long cloudSyncNextAttemptAt = 0L;
@@ -267,33 +270,7 @@ public class MainActivity extends FragmentActivity {
         buildUI();
         registerLiveReceiver();
 
-        tts = new TextToSpeech(this, result -> {
-            if (result == TextToSpeech.SUCCESS && tts != null) {
-                ttsReady = true;
-                initializeVoiceSelection();
-                tts.setSpeechRate(speechRate);
-                tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                    @Override public void onStart(String id) { runOnUiThread(() -> setStatus("SPEAKING")); }
-                    @Override public void onDone(String id) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
-                    @Override public void onError(String id) { runOnUiThread(() -> { if (!busy) setStatus("VOICE OUTPUT FAILED • CHECK TTS VOICE DATA"); scheduleListeningRestart(850); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
-                    @Override public void onStop(String id, boolean interrupted) { runOnUiThread(() -> { if (!busy) setStatus("WAITING FOR COMMAND"); scheduleListeningRestart(550); resumeClapWake(); resumeLiveModeAfterSpeech(); }); }
-                });
-                if (welcomePending && ownerAuthenticated && spokenReplies) {
-                    welcomePending = false;
-                    pendingSpeechText = null;
-                    speak(welcomeGreeting());
-                } else if (pendingSpeechText != null && spokenReplies) {
-                    String queuedSpeech = pendingSpeechText;
-                    pendingSpeechText = null;
-                    speak(queuedSpeech);
-                }
-            } else {
-                ttsReady = false;
-                runOnUiThread(() -> setStatus("SYSTEM VOICE INITIALIZATION FAILED"));
-            }
-        });
-
-        
+        // Speech output is rendered by the paired Termux voice router, not Android's default TTS.
 
         if (SpeechRecognizer.isRecognitionAvailable(this)) {
             try {
@@ -419,11 +396,8 @@ public class MainActivity extends FragmentActivity {
         lockPromptStarted = false;
         if (appFrame != null) appFrame.setVisibility(View.VISIBLE);
         setStatus("OWNER VERIFIED");
-        welcomePending = true;
-        if (ttsReady && spokenReplies) {
-            welcomePending = false;
-            speak(welcomeGreeting());
-        }
+        welcomePending = false;
+        if (spokenReplies) speak(welcomeGreeting());
         consumePendingLiveCommand();
         if (pendingInboxOpen) {
             pendingInboxOpen = false;
@@ -971,12 +945,12 @@ public class MainActivity extends FragmentActivity {
         TextView title = text("VOICE & ASSISTANT", 10, CYAN);
         title.setLetterSpacing(0.14f);
         card.addView(title);
-        TextView description = text("A.R.T.I.E. prioritizes Heart for English and Omega for Hindi when exposed by the active Android TTS engine, then prefers female-marked voices. The installed engine controls which voices are available.", 11, MUTED);
+        TextView description = text("A.R.T.I.E. uses the selected Termux voice routing: Cori through Piper for English (offline), and Roopa through Sarvam for Hindi (internet required). Android's generic system voice is not used for replies.", 11, MUTED);
         description.setPadding(0, dp(7), 0, dp(12));
         card.addView(description);
         LinearLayout voiceRow = row();
-        voiceRow.addView(chip("ANDROID VOICE SETTINGS", () -> openSystemTtsSettings()), new LinearLayout.LayoutParams(0, -2, 1));
-        voiceRow.addView(chip("TEST HINDI VOICE", () -> speak("नमस्ते सर। मैं A.R.T.I.E. हूँ और आपकी सहायता के लिए तैयार हूँ।")), new LinearLayout.LayoutParams(0, -2, 1));
+        voiceRow.addView(chip("ENGLISH  ·  CORI", () -> { languageMode = 1; toggleLanguage(); }), new LinearLayout.LayoutParams(0, -2, 1));
+        voiceRow.addView(chip("HINDI  ·  ROOPA", () -> { languageMode = 2; toggleLanguage(); }), new LinearLayout.LayoutParams(0, -2, 1));
         card.addView(voiceRow);
         addGap(card, 8);
         card.addView(chip("CHANGE SPEECH LANGUAGE  ·  " + languageLabel(), () -> toggleLanguage()));
@@ -1545,7 +1519,7 @@ public class MainActivity extends FragmentActivity {
         prompt.setText("");
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null) imm.hideSoftInputFromWindow(prompt.getWindowToken(), 0);
-        sendMessage(value, true, true, false);
+        sendMessage(value, true, true, true);
     }
 
     private void sendMessage(String raw) {
@@ -2423,8 +2397,7 @@ public class MainActivity extends FragmentActivity {
             return "";
         }
         if (value.equals("system voice settings") || value.equals("change system voice")) {
-            openSystemTtsSettings();
-            return "Opening Android text-to-speech settings.";
+            return "A.R.T.I.E. uses the fixed Termux voices: Cori for English and Roopa for Hindi.";
         }
         if (value.equals("stop live mode") || value.equals("pause live mode")) {
             stopLiveMode();
@@ -2912,7 +2885,6 @@ public class MainActivity extends FragmentActivity {
         speechRate = rates[next];
         getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
                 .putFloat("speech_rate", speechRate).apply();
-        if (tts != null) tts.setSpeechRate(speechRate);
         if (speechRateButton != null) speechRateButton.setText("SPEED  " + speechRate + "x");
         reply("Speech speed set to " + speechRate + " times.");
     }
@@ -3177,51 +3149,89 @@ public class MainActivity extends FragmentActivity {
             try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_HOLD)); }
             catch (Exception ignored) { }
         }
-        if (!spokenReplies || tts == null || message == null || message.trim().isEmpty()) {
+        if (!spokenReplies || message == null || message.trim().isEmpty()) {
             scheduleListeningRestart(500);
             resumeLiveModeAfterSpeech();
             return;
         }
-        if (!ttsReady) {
-            pendingSpeechText = message;
-            setStatus("VOICE INITIALIZING");
+
+        String speechText = cleanSpeechText(message);
+        if (speechText.isEmpty()) {
+            scheduleListeningRestart(500);
+            resumeClapWake();
+            resumeLiveModeAfterSpeech();
             return;
         }
-        String speechText = cleanSpeechText(message);
-        if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
-        try {
-            boolean hindiSpeech = languageMode == 2
-                    || (languageMode == 0 && shouldUseHindiVoice(speechText));
-            String requestedLanguage = hindiSpeech ? "hi" : "en";
-            Locale requestedLocale = Locale.forLanguageTag(hindiSpeech ? "hi-IN" : "en-IN");
-            Voice responseVoice = hindiSpeech ? hindiVoice : englishVoice;
-            if (responseVoice == null && voicePriority(defaultSystemVoice, requestedLanguage) >= 0) {
-                responseVoice = defaultSystemVoice;
+
+        final String requestedLanguage = languageMode == 1 ? "en-GB"
+                : languageMode == 2 ? "hi-IN" : "auto";
+        ArrayList<String> chunks = splitSpeechText(speechText, 1000);
+        for (String chunk : chunks) {
+            speechQueueDepth.incrementAndGet();
+            try {
+                voiceOutput.execute(() -> {
+                    boolean success = false;
+                    String voiceName = "";
+                    try {
+                        JSONObject result = NeuralCoreClient.speak(
+                                MainActivity.this, chunk, requestedLanguage);
+                        success = true;
+                        voiceName = result.optString("voice", "VOICE ROUTER");
+                    } catch (Exception error) {
+                        // Credentials and raw backend responses are never surfaced in the UI.
+                    } finally {
+                        final boolean completed = success;
+                        final String selectedVoice = voiceName;
+                        final int remaining = speechQueueDepth.decrementAndGet();
+                        runOnUiThread(() -> {
+                            if (isFinishing() || isDestroyed()) return;
+                            if (!completed) {
+                                setStatus(NeuralCoreClient.hasSavedToken(MainActivity.this)
+                                        ? "VOICE ROUTER OFFLINE • CHECK TERMUX BRIDGE"
+                                        : "PAIR NEURAL CORE FOR CORI / ROOPA VOICE");
+                            } else if (remaining == 0 && !busy) {
+                                setStatus("SPOKEN • " + selectedVoice.toUpperCase(Locale.ROOT));
+                            }
+                            if (remaining == 0) {
+                                scheduleListeningRestart(550);
+                                resumeClapWake();
+                                resumeLiveModeAfterSpeech();
+                            }
+                        });
+                    }
+                });
+            } catch (RejectedExecutionException error) {
+                int remaining = speechQueueDepth.decrementAndGet();
+                if (remaining == 0) setStatus("VOICE OUTPUT QUEUE UNAVAILABLE");
             }
-            boolean voiceSelected = responseVoice != null
-                    && tts.setVoice(responseVoice) == TextToSpeech.SUCCESS;
-            if (!voiceSelected) {
-                int languageResult = tts.setLanguage(requestedLocale);
-                if (languageResult == TextToSpeech.LANG_MISSING_DATA
-                        || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    setStatus(hindiSpeech ? "HINDI VOICE DATA UNAVAILABLE"
-                            : "ENGLISH VOICE DATA UNAVAILABLE");
-                    return;
+        }
+        if (!chunks.isEmpty()) setStatus("SPEAKING • TERMUX VOICE");
+    }
+
+    private ArrayList<String> splitSpeechText(String source, int maxChars) {
+        ArrayList<String> chunks = new ArrayList<>();
+        if (source == null || source.trim().isEmpty()) return chunks;
+        int start = 0;
+        while (start < source.length()) {
+            while (start < source.length() && Character.isWhitespace(source.charAt(start))) start++;
+            if (start >= source.length()) break;
+            int end = Math.min(source.length(), start + maxChars);
+            if (end < source.length()) {
+                int sentence = Math.max(
+                        Math.max(source.lastIndexOf(". ", end), source.lastIndexOf("? ", end)),
+                        Math.max(source.lastIndexOf("! ", end), source.lastIndexOf("। ", end)));
+                if (sentence > start + (maxChars / 2)) {
+                    end = sentence + 1;
+                } else {
+                    int space = source.lastIndexOf(' ', end);
+                    if (space > start + (maxChars / 2)) end = space;
                 }
             }
-            tts.setSpeechRate(speechRate);
-            int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
-                    "artie-" + System.currentTimeMillis());
-            if (result == TextToSpeech.ERROR) {
-                setStatus("SYSTEM VOICE OUTPUT ERROR");
-                scheduleListeningRestart(700);
-                resumeLiveModeAfterSpeech();
-            } else setStatus("SPEAKING");
-        } catch (Exception error) {
-            setStatus("SYSTEM VOICE OUTPUT UNAVAILABLE");
-            scheduleListeningRestart(700);
-            resumeLiveModeAfterSpeech();
+            String chunk = source.substring(start, end).trim();
+            if (!chunk.isEmpty()) chunks.add(chunk);
+            start = end;
         }
+        return chunks;
     }
 
     private boolean shouldUseHindiVoice(String value) {
@@ -3254,7 +3264,6 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void stopSpeech() {
-        if (tts != null) tts.stop();
         if (recognizer != null && listening) {
             try { recognizer.cancel(); } catch (Exception ignored) { }
             listening = false;
@@ -3529,7 +3538,6 @@ public class MainActivity extends FragmentActivity {
 
     private void toggleVoice() {
         spokenReplies = !spokenReplies;
-        if (!spokenReplies && tts != null) tts.stop();
         if (voiceButton != null) { voiceButton.setText(spokenReplies ? "◖" : "◗"); voiceButton.setTextColor(spokenReplies ? CYAN : MUTED); }
         if (spokenReplies) reply(languageMode == 2
                 ? "आवाज़ से जवाब चालू हैं।"
@@ -3571,7 +3579,14 @@ public class MainActivity extends FragmentActivity {
                     setStatus("MICROPHONE PERMISSION REQUIRED");
                 } else {
                     setStatus(continuousListeningEnabled ? "RECONNECTING VOICE" : "MICROPHONE PAUSED");
-                    scheduleListeningRestart(error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1400 : 1000);
+                    long delay = error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1400
+                            : error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ? 700 : 1000;
+                    voiceHandler.postDelayed(() -> {
+                        if (continuousListeningEnabled && activityVisible && ownerAuthenticated) {
+                            resetSpeechRecognizer();
+                            scheduleListeningRestart(delay);
+                        }
+                    }, 250);
                 }
                 resumeClapWake();
             }
@@ -3588,6 +3603,26 @@ public class MainActivity extends FragmentActivity {
             @Override public void onPartialResults(Bundle partialResults) { }
             @Override public void onEvent(int eventType, Bundle params) { }
         };
+    }
+
+    private void resetSpeechRecognizer() {
+        if (isFinishing() || isDestroyed()) return;
+        try {
+            if (recognizer != null) {
+                recognizer.setRecognitionListener(null);
+                recognizer.destroy();
+            }
+        } catch (Exception ignored) { }
+        recognizer = null;
+        try {
+            if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                recognizer.setRecognitionListener(createRecognitionListener());
+            }
+        } catch (Exception error) {
+            recognizer = null;
+            setStatus("VOICE INPUT UNAVAILABLE");
+        }
     }
 
     private void toggleContinuousListening() {
@@ -3709,7 +3744,7 @@ public class MainActivity extends FragmentActivity {
         if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
         setStatus("ASSISTANT ACTIVE  •  LISTENING");
         scheduleListeningRestart(500);
-        if (tts != null && !tts.isSpeaking()) speak(listeningAcknowledgement());
+        speak(listeningAcknowledgement());
     }
 
     private void openSystemTtsSettings() {
@@ -3750,7 +3785,7 @@ public class MainActivity extends FragmentActivity {
 
     private void startListening() {
         if (liveModeEnabled || !ownerAuthenticated || !continuousListeningEnabled || !activityVisible || isFinishing() || isDestroyed()) return;
-        if (busy || (tts != null && tts.isSpeaking())) return;
+        if (busy || speechQueueDepth.get() > 0) return;
         if (listening) return;
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             if (!micPermissionRequested) {
@@ -4531,7 +4566,7 @@ public class MainActivity extends FragmentActivity {
         }
         if (ownerAuthenticated) maybeAutoSyncCloudMemory();
         if (liveModeEnabled && !liveModePaused && ownerAuthenticated) {
-            if (tts == null || !tts.isSpeaking()) {
+            if (speechQueueDepth.get() == 0) {
                 try { startService(new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_RESUME)); }
                 catch (Exception ignored) { }
             }
@@ -4562,10 +4597,7 @@ public class MainActivity extends FragmentActivity {
             try { recognizer.destroy(); } catch (Exception ignored) { }
             recognizer = null;
         }
-        if (tts != null) {
-            try { tts.stop(); tts.shutdown(); } catch (Exception ignored) { }
-            tts = null;
-        }
+        voiceOutput.shutdownNow();
         try {
             if (torchOn && camera != null && cameraId != null) camera.setTorchMode(cameraId, false);
         } catch (Exception ignored) { }
