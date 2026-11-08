@@ -281,7 +281,7 @@ public class MainActivity extends FragmentActivity {
                 if (welcomePending && ownerAuthenticated && spokenReplies) {
                     welcomePending = false;
                     pendingSpeechText = null;
-                    speak("नमस्ते Raushan। मैं A.R.T.I.E. हूँ। मैं सुन रही हूँ।");
+                    speak(welcomeGreeting());
                 } else if (pendingSpeechText != null && spokenReplies) {
                     String queuedSpeech = pendingSpeechText;
                     pendingSpeechText = null;
@@ -401,6 +401,19 @@ public class MainActivity extends FragmentActivity {
                 .show();
     }
 
+    private String welcomeGreeting() {
+        if (languageMode == 2) {
+            return "नमस्ते Raushan। मैं A.R.T.I.E. हूँ। मैं सुन रही हूँ।";
+        }
+        return "Hello, Raushan. I'm A.R.T.I.E. I'm ready and listening.";
+    }
+
+    private String listeningAcknowledgement() {
+        return languageMode == 2
+                ? "जी, मैं सुन रही हूँ।"
+                : "Yes, Sir. I am listening.";
+    }
+
     private void unlockOwner() {
         ownerAuthenticated = true;
         lockPromptStarted = false;
@@ -409,7 +422,7 @@ public class MainActivity extends FragmentActivity {
         welcomePending = true;
         if (ttsReady && spokenReplies) {
             welcomePending = false;
-            speak("नमस्ते Raushan। मैं A.R.T.I.E. हूँ। मैं सुन रही हूँ।");
+            speak(welcomeGreeting());
         }
         consumePendingLiveCommand();
         if (pendingInboxOpen) {
@@ -506,6 +519,11 @@ public class MainActivity extends FragmentActivity {
 
     private String buildSystemPrompt() {
         StringBuilder promptText = new StringBuilder(SYSTEM_PROMPT);
+        if (languageMode == 1) {
+            promptText.append("\n\nLanguage setting: reply in English. Keep all ordinary replies in English unless the owner changes this setting.");
+        } else if (languageMode == 2) {
+            promptText.append("\n\nLanguage setting: reply in Hindi. Keep all ordinary replies in Hindi unless the owner changes this setting.");
+        }
         JSONArray notes = getSavedMemories();
         if (notes.length() > 0) {
             promptText.append("\n\nUser-approved notes saved on this device. Use them only when relevant; do not assume anything beyond these notes:\n");
@@ -711,16 +729,16 @@ public class MainActivity extends FragmentActivity {
         String[] labels = new String[]{"HOME", "CHAT", "INBOX", "SETTINGS"};
         navigationTabs.clear();
         for (String label : labels) {
-            TextView tab = text(label, 8, MUTED);
+            TextView tab = text(label, 9, MUTED);
             tab.setGravity(Gravity.CENTER);
             tab.setLetterSpacing(0.05f);
-            tab.setPadding(dp(3), dp(13), dp(3), dp(13));
+            tab.setPadding(dp(4), dp(14), dp(4), dp(14));
             tab.setBackground(shape(Color.TRANSPARENT, Color.TRANSPARENT, 5));
             tab.setTag(label);
             tab.setClickable(true);
             tab.setFocusable(true);
             tab.setOnClickListener(v -> selectSection(String.valueOf(v.getTag())));
-            nav.addView(tab, new LinearLayout.LayoutParams(0, dp(42), 1));
+            nav.addView(tab, new LinearLayout.LayoutParams(0, dp(46), 1));
             navigationTabs.add(tab);
         }
         root.addView(nav, new LinearLayout.LayoutParams(-1, -2));
@@ -1371,7 +1389,10 @@ public class MainActivity extends FragmentActivity {
         chatList = column();
         chatList.setPadding(0, dp(6), 0, dp(2));
         chatScroll.addView(chatList);
-        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(340));
+        int screenHeightDp = (int) (getResources().getDisplayMetrics().heightPixels
+                / getResources().getDisplayMetrics().density);
+        int conversationHeight = Math.max(360, Math.min(480, Math.round(screenHeightDp * 0.48f)));
+        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(conversationHeight));
         chatLp.topMargin = dp(4);
         card.addView(chatScroll, chatLp);
 
@@ -1397,7 +1418,7 @@ public class MainActivity extends FragmentActivity {
 
         prompt = new EditText(this);
         prompt.setSingleLine(true);
-        prompt.setTextSize(13);
+        prompt.setTextSize(14);
         prompt.setTextColor(WHITE);
         prompt.setHintTextColor(MUTED);
         prompt.setHint("Talk to A.R.T.I.E. or type a command...");
@@ -1411,7 +1432,7 @@ public class MainActivity extends FragmentActivity {
             }
             return false;
         });
-        composer.addView(prompt, new LinearLayout.LayoutParams(0, dp(46), 1));
+        composer.addView(prompt, new LinearLayout.LayoutParams(0, dp(48), 1));
 
         micButton = smallControl("●", () -> toggleContinuousListening());
         micButton.setTextColor(GOLD);
@@ -1481,9 +1502,10 @@ public class MainActivity extends FragmentActivity {
 
         TextView content = text(message, 13,
                 error ? Color.rgb(242, 150, 150) : Color.rgb(195, 222, 233));
-        content.setMaxWidth(dp(520));
-        content.setPadding(0, dp(3), 0, 0);
-        content.setLineSpacing(dp(2), 1.0f);
+        content.setTextSize(14);
+        content.setMaxWidth(dp(560));
+        content.setPadding(0, dp(4), 0, 0);
+        content.setLineSpacing(dp(3), 1.0f);
         bubble.addView(content);
 
         LinearLayout.LayoutParams bubbleLp = new LinearLayout.LayoutParams(-2, -2);
@@ -3166,10 +3188,25 @@ public class MainActivity extends FragmentActivity {
         String speechText = cleanSpeechText(message);
         if (speechText.isEmpty()) { scheduleListeningRestart(500); resumeClapWake(); resumeLiveModeAfterSpeech(); return; }
         try {
-            boolean hindiSpeech = shouldUseHindiVoice(speechText);
+            boolean hindiSpeech = languageMode == 2
+                    || (languageMode == 0 && shouldUseHindiVoice(speechText));
+            String requestedLanguage = hindiSpeech ? "hi" : "en";
+            Locale requestedLocale = Locale.forLanguageTag(hindiSpeech ? "hi-IN" : "en-IN");
             Voice responseVoice = hindiSpeech ? hindiVoice : englishVoice;
-            if (responseVoice == null) responseVoice = defaultSystemVoice;
-            if (responseVoice != null) tts.setVoice(responseVoice);
+            if (responseVoice == null && voicePriority(defaultSystemVoice, requestedLanguage) >= 0) {
+                responseVoice = defaultSystemVoice;
+            }
+            boolean voiceSelected = responseVoice != null
+                    && tts.setVoice(responseVoice) == TextToSpeech.SUCCESS;
+            if (!voiceSelected) {
+                int languageResult = tts.setLanguage(requestedLocale);
+                if (languageResult == TextToSpeech.LANG_MISSING_DATA
+                        || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    setStatus(hindiSpeech ? "HINDI VOICE DATA UNAVAILABLE"
+                            : "ENGLISH VOICE DATA UNAVAILABLE");
+                    return;
+                }
+            }
             tts.setSpeechRate(speechRate);
             int result = tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null,
                     "artie-" + System.currentTimeMillis());
@@ -3240,8 +3277,21 @@ public class MainActivity extends FragmentActivity {
         return false;
     }
 
+    private boolean isVoiceInstalled(Voice voice) {
+        if (voice == null) return false;
+        Set<String> features = voice.getFeatures();
+        if (features == null) return true;
+        for (String feature : features) {
+            if (feature != null
+                    && feature.toLowerCase(Locale.ROOT).contains("notinstalled")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private int voicePriority(Voice voice, String requestedLanguage) {
-        if (voice == null || voice.getLocale() == null) return -1;
+        if (voice == null || voice.getLocale() == null || !isVoiceInstalled(voice)) return -1;
         Locale locale = voice.getLocale();
         if (!requestedLanguage.equalsIgnoreCase(locale.getLanguage())) return -1;
         int score = 10;
@@ -3488,9 +3538,12 @@ public class MainActivity extends FragmentActivity {
         getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
                 .putInt("speech_language_mode", languageMode).apply();
         if (languageButton != null) languageButton.setText(languageLabel());
-        String label = languageMode == 0 ? "Automatic language recognition selected. Mixed Hindi and English recognition depends on your installed speech service."
-                : languageMode == 1 ? "English India recognition selected."
-                : "Hindi India recognition selected.";
+        refreshSystemPrompt();
+        String label = languageMode == 0
+                ? "Automatic language recognition is on. I will follow the language you use."
+                : languageMode == 1
+                ? "English selected. I will now reply in English."
+                : "हिंदी भाषा चुनी गई है। अब मैं हिंदी में उत्तर दूँगी।";
         reply(label);
     }
 
@@ -3652,7 +3705,7 @@ public class MainActivity extends FragmentActivity {
         if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
         setStatus("ASSISTANT ACTIVE  •  LISTENING");
         scheduleListeningRestart(500);
-        if (tts != null && !tts.isSpeaking()) speak("Yes, Sir. I am listening.");
+        if (tts != null && !tts.isSpeaking()) speak(listeningAcknowledgement());
     }
 
     private void openSystemTtsSettings() {
