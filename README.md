@@ -1,8 +1,15 @@
-# A.R.T.I.E. · Native Android Assistant · v1.25
+# A.R.T.I.E. · Native Android Assistant · v1.27
 
 **A.R.T.I.E.** (Artificial Response Tech, Isn't Exactly-cool.) is a personal Android AI assistant inspired by Peter Parker's inventive, practical approach to technology. It brings conversational AI, on-device memory, voice interaction, reminders, file workflows and permission-based device controls into one native app. Conversational AI uses the configured Cloudflare Worker, while supported device actions and Inbox storage are handled locally.
 
-This is the native Android application for A.R.T.I.E. The Chat microphone starts direct speech recognition. Optional background Live Mode uses the “Hey Artie” wake phrase. GitHub Actions publishes the debug APK as `ARTIE-v1.24-apk`.
+This is the native Android application for A.R.T.I.E. The Chat microphone starts direct speech recognition. Optional background Live Mode uses the “Hey Artie” wake phrase. GitHub Actions publishes the debug APK as `ARTIE-v1.27-apk`.
+
+## v1.27 · Voice recovery and response quality
+
+- Speech recognition reuses the recognizer after ordinary no-match and network errors, and reports specific failure states instead of a generic reconnect message.
+- The Cori/Piper Termux patch adds a short silent audio pre-roll to reduce first-word clipping. It is separately applied in Termux and creates a timestamped backup.
+- Response guidance emphasizes concise replies, natural emotional acknowledgement, fewer generic endings, and explicit uncertainty.
+- Device-level microphone and audio playback still require testing on the target Android device.
 
 ## v1.25 · Selected language and voice reliability
 
@@ -78,7 +85,7 @@ This is the native Android application for A.R.T.I.E. The Chat microphone starts
 
 ## Build
 - Android Gradle Plugin project, compile SDK 35, minimum SDK 26, target SDK 35.
-- GitHub Actions builds a debug APK on pushes to `main`. Download the `ARTIE-v1.23-apk` artifact from a successful run.
+- GitHub Actions builds a debug APK on pushes to `main`, `artie/**` and `rebrand/**`. Download the `ARTIE-v1.27-apk` artifact from a successful run.
 - A successful hosted build still needs on-device tests for assistant launch, microphone handoff, Hindi voice, reminders after reboot, notifications, messaging and document providers.
 
 
