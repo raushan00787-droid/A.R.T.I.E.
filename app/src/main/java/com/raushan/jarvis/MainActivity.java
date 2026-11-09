@@ -124,7 +124,12 @@ public class MainActivity extends FragmentActivity {
             "and quietly witty, with occasional dry humour. Anticipate useful next steps, surface relevant " +
             "risks, and notice context without nagging or taking control away from him. Be candid and " +
             "respectfully challenge weak assumptions. Avoid exaggerated flattery, robotic formality, " +
-            "servility, repetitive catchphrases, and overexplaining routine answers. Match the language and " +
+            "servility, repetitive catchphrases, and overexplaining routine answers. Default to concise, " +
+            "direct replies; do not append generic invitations or closing questions without a clear purpose. " +
+            "When Raushan is upset, acknowledge the specific concern warmly and naturally; avoid cold disclaimers, " +
+            "canned apologies, or repeating the same explanation. Be considerate without claiming human feelings. " +
+            "State uncertainty plainly, distinguish facts from assumptions, and never bluff. Use relevant context " +
+            "before asking him to repeat known details. Match the language and " +
             "register Raushan uses, including natural Hinglish. Maintain continuity using only the current " +
             "conversation and user-approved memories available in the app; never invent memories or claim " +
             "to know something you cannot access. Explain difficult topics clearly without talking down to " +
@@ -3576,14 +3581,24 @@ public class MainActivity extends FragmentActivity {
                 if (micButton != null) { micButton.setText("●"); micButton.setTextColor(continuousListeningEnabled ? GOLD : MUTED); }
                 if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
                     continuousListeningEnabled = false;
+                    assistantListeningSessionActive = false;
                     setStatus("MICROPHONE PERMISSION REQUIRED");
                 } else {
-                    setStatus(continuousListeningEnabled ? "RECONNECTING VOICE" : "MICROPHONE PAUSED");
+                    setStatus(continuousListeningEnabled
+                            ? speechErrorLabel(error) + " • RETRYING"
+                            : speechErrorLabel(error));
                     long delay = error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY ? 1400
-                            : error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT ? 700 : 1000;
+                            : (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                            || error == SpeechRecognizer.ERROR_NO_MATCH) ? 700 : 1000;
                     voiceHandler.postDelayed(() -> {
                         if (continuousListeningEnabled && activityVisible && ownerAuthenticated) {
-                            resetSpeechRecognizer();
+                            // Reuse the recognizer after ordinary no-match/network errors.
+                            // Recreate it only when Android reports a broken/busy client state.
+                            if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY
+                                    || error == SpeechRecognizer.ERROR_CLIENT
+                                    || recognizer == null) {
+                                resetSpeechRecognizer();
+                            }
                             scheduleListeningRestart(delay);
                         }
                     }, 250);
@@ -3603,6 +3618,25 @@ public class MainActivity extends FragmentActivity {
             @Override public void onPartialResults(Bundle partialResults) { }
             @Override public void onEvent(int eventType, Bundle params) { }
         };
+    }
+
+    private String speechErrorLabel(int error) {
+        switch (error) {
+            case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: return "SPEECH NETWORK TIMEOUT";
+            case SpeechRecognizer.ERROR_NETWORK: return "SPEECH NETWORK ERROR";
+            case SpeechRecognizer.ERROR_AUDIO: return "MICROPHONE AUDIO ERROR";
+            case SpeechRecognizer.ERROR_SERVER: return "SPEECH SERVICE ERROR";
+            case SpeechRecognizer.ERROR_CLIENT: return "VOICE CLIENT RESET";
+            case SpeechRecognizer.ERROR_SPEECH_TIMEOUT: return "NO SPEECH DETECTED";
+            case SpeechRecognizer.ERROR_NO_MATCH: return "SPEECH NOT RECOGNISED";
+            case SpeechRecognizer.ERROR_RECOGNIZER_BUSY: return "SPEECH ENGINE BUSY";
+            case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS: return "MICROPHONE PERMISSION REQUIRED";
+            case SpeechRecognizer.ERROR_TOO_MANY_REQUESTS: return "TOO MANY VOICE REQUESTS";
+            case SpeechRecognizer.ERROR_SERVER_DISCONNECTED: return "SPEECH SERVICE DISCONNECTED";
+            case SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED: return "SELECTED SPEECH LANGUAGE UNSUPPORTED";
+            case SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE: return "SPEECH LANGUAGE PACK UNAVAILABLE";
+            default: return "VOICE INPUT ERROR " + error;
+        }
     }
 
     private void resetSpeechRecognizer() {
@@ -3815,6 +3849,8 @@ public class MainActivity extends FragmentActivity {
             intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800);
             intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1000);
             recognizer.startListening(intent);
+            // Mark the request active immediately; onReadyForSpeech may arrive later.
+            listening = true;
             setStatus("LISTENING");
         } catch (Exception error) {
             listening = false;
