@@ -106,12 +106,12 @@ public class MainActivity extends FragmentActivity {
     private static final int MAX_HISTORY_MESSAGES = 20;
     private static final int MAX_SAVED_MEMORIES = 20;
 
-    private static final int BG = Color.rgb(7, 8, 20);
-    private static final int PANEL = Color.rgb(16, 16, 35);
-    private static final int CYAN = Color.rgb(170, 159, 255);
-    private static final int MUTED = Color.rgb(143, 146, 177);
-    private static final int WHITE = Color.rgb(242, 241, 255);
-    private static final int GOLD = Color.rgb(95, 225, 206);
+    private static final int BG = Color.rgb(8, 6, 16);
+    private static final int PANEL = Color.rgb(21, 14, 34);
+    private static final int CYAN = Color.rgb(202, 170, 255);
+    private static final int MUTED = Color.rgb(163, 151, 181);
+    private static final int WHITE = Color.rgb(248, 244, 255);
+    private static final int GOLD = Color.rgb(224, 174, 255);
     private static final String SYSTEM_PROMPT =
             "You are A.R.T.I.E., Raushan's female personal AI assistant and executive aide. " +
             "Your persona is feminine; use natural feminine grammatical forms for yourself in Hindi/Hinglish " +
@@ -615,7 +615,7 @@ public class MainActivity extends FragmentActivity {
         TextView view = text(label, 10, Color.rgb(169, 200, 214));
         view.setGravity(Gravity.CENTER);
         view.setPadding(dp(12), dp(10), dp(12), dp(10));
-        view.setBackground(shape(Color.rgb(12, 30, 44), Color.rgb(43, 91, 111), 3));
+        view.setBackground(shape(Color.rgb(34, 21, 49), Color.rgb(90, 61, 119), 3));
         view.setClickable(true);
         view.setFocusable(true);
         view.setOnClickListener(v -> action.run());
@@ -630,7 +630,7 @@ public class MainActivity extends FragmentActivity {
 
         root = column();
         root.setBackgroundColor(Color.TRANSPARENT);
-        root.setPadding(dp(18), dp(18), dp(18), dp(22));
+        root.setPadding(dp(19), dp(18), dp(19), dp(24));
         page.addView(root, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         page.setOnApplyWindowInsetsListener((view, insets) -> {
@@ -643,7 +643,7 @@ public class MainActivity extends FragmentActivity {
                 top = insets.getSystemWindowInsetTop();
                 bottom = insets.getSystemWindowInsetBottom();
             }
-            root.setPadding(dp(18), dp(16) + top, dp(18), dp(18) + bottom);
+            root.setPadding(dp(19), dp(16) + top, dp(19), dp(20) + bottom);
             return insets;
         });
 
@@ -698,24 +698,26 @@ public class MainActivity extends FragmentActivity {
 
     private void buildNavigation() {
         LinearLayout nav = row();
-        nav.setPadding(dp(4), dp(4), dp(4), dp(4));
-        nav.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(33, 73, 94), 8));
+        nav.setPadding(dp(5), dp(5), dp(5), dp(5));
+        nav.setBackground(shape(Color.rgb(19, 13, 29), Color.rgb(61, 43, 82), 18));
         String[] labels = new String[]{"HOME", "CHAT", "INBOX", "SETTINGS"};
         navigationTabs.clear();
         for (String label : labels) {
             TextView tab = text(label, 9, MUTED);
             tab.setGravity(Gravity.CENTER);
-            tab.setLetterSpacing(0.05f);
-            tab.setPadding(dp(4), dp(14), dp(4), dp(14));
-            tab.setBackground(shape(Color.TRANSPARENT, Color.TRANSPARENT, 5));
+            tab.setLetterSpacing(0.045f);
+            tab.setPadding(dp(3), dp(13), dp(3), dp(13));
+            tab.setBackground(shape(Color.TRANSPARENT, Color.TRANSPARENT, 13));
             tab.setTag(label);
             tab.setClickable(true);
             tab.setFocusable(true);
             tab.setOnClickListener(v -> selectSection(String.valueOf(v.getTag())));
-            nav.addView(tab, new LinearLayout.LayoutParams(0, dp(46), 1));
+            nav.addView(tab, new LinearLayout.LayoutParams(0, dp(44), 1));
             navigationTabs.add(tab);
         }
-        root.addView(nav, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout.LayoutParams navLp = new LinearLayout.LayoutParams(-1, -2);
+        navLp.topMargin = dp(3);
+        root.addView(nav, navLp);
     }
 
     private void selectSection(String section) {
@@ -730,10 +732,11 @@ public class MainActivity extends FragmentActivity {
         if (incoming != null) animateSectionIn(incoming);
         for (TextView tab : navigationTabs) {
             boolean selected = activeSection.equals(String.valueOf(tab.getTag()));
-            tab.setTextColor(selected ? CYAN : MUTED);
-            tab.setBackground(shape(selected ? Color.rgb(13, 43, 59) : Color.TRANSPARENT,
-                    selected ? Color.rgb(44, 118, 145) : Color.TRANSPARENT, 5));
-            tab.animate().alpha(selected ? 1f : .72f).setDuration(160).start();
+            tab.setTextColor(selected ? WHITE : MUTED);
+            tab.setBackground(shape(
+                    selected ? Color.rgb(83, 48, 116) : Color.TRANSPARENT,
+                    selected ? Color.rgb(156, 105, 210) : Color.TRANSPARENT, 13));
+            tab.animate().alpha(selected ? 1f : .68f).setDuration(180).start();
         }
         refreshNavigationBadges();
         if ("INBOX".equals(activeSection)) renderInbox();
@@ -762,61 +765,73 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void buildHomeQuickAccess() {
-        LinearLayout engine = column();
-        engine.setPadding(dp(15), dp(13), dp(15), dp(12));
-        GradientDrawable engineBg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(10, 33, 49), Color.rgb(5, 15, 26), Color.rgb(8, 24, 37)});
-        engineBg.setCornerRadius(dp(9));
-        engineBg.setStroke(dp(1), Color.rgb(45, 120, 148));
-        engine.setBackground(engineBg);
+        LinearLayout workspace = column();
+        workspace.setPadding(dp(16), dp(15), dp(16), dp(15));
+        workspace.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(69, 47, 93), 22));
 
+        LinearLayout header = row();
+        TextView title = text("YOUR WORKSPACE", 10, CYAN);
+        title.setLetterSpacing(.15f);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView caption = text("FOUR WAYS IN", 7, MUTED);
+        caption.setLetterSpacing(.11f);
+        header.addView(caption);
+        workspace.addView(header);
+
+        TextView note = text("Pick up where your thoughts take you.", 11, MUTED);
+        note.setPadding(0, dp(5), 0, dp(11));
+        workspace.addView(note);
+
+        LinearLayout first = row();
+        addHomeAction(first, "CHAT  ↗", () -> selectSection("CHAT"));
+        addHomeAction(first, "INBOX  ↗", () -> selectSection("INBOX"));
+        workspace.addView(first);
+
+        LinearLayout second = row();
+        addHomeAction(second, "VOICE  ◉", () -> showVoiceOrb("READY"));
+        addHomeAction(second, "NEURAL CORE  ↗", () -> selectSection("SETTINGS"));
+        workspace.addView(second);
+
+        root.addView(workspace, new LinearLayout.LayoutParams(-1, -2));
+
+        addGap(root, 12);
+        LinearLayout engine = column();
+        engine.setPadding(dp(16), dp(14), dp(16), dp(13));
+        engine.setBackground(shape(Color.rgb(16, 11, 25), Color.rgb(67, 46, 89), 22));
         LinearLayout engineHeader = row();
         TextView engineTitle = text("AUTONOMY ENGINE", 10, CYAN);
-        engineTitle.setLetterSpacing(.15f);
+        engineTitle.setLetterSpacing(.14f);
         engineHeader.addView(engineTitle, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView ready = text("●  READY", 8, Color.rgb(137, 224, 187));
-        ready.setLetterSpacing(.08f);
+        TextView ready = text("●  READY", 8, Color.rgb(190, 224, 190));
+        ready.setLetterSpacing(.07f);
         engineHeader.addView(ready);
         engine.addView(engineHeader);
 
-        TextView engineSub = text("GOAL  →  PLAN  →  EXECUTE  →  VERIFY", 8, MUTED);
-        engineSub.setLetterSpacing(.10f);
-        engineSub.setPadding(0, dp(5), 0, dp(7));
+        TextView engineSub = text("GOAL   →   PLAN   →   EXECUTE   →   VERIFY", 8, MUTED);
+        engineSub.setLetterSpacing(.07f);
+        engineSub.setPadding(0, dp(6), 0, dp(6));
         engine.addView(engineSub);
-
         autonomyRailView = new AutonomyRailView(this);
         engine.addView(autonomyRailView, new LinearLayout.LayoutParams(-1, dp(34)));
-        autonomyStatusView = text("STANDBY  ·  AWAITING YOUR GOAL", 8, Color.rgb(164, 202, 218));
-        autonomyStatusView.setLetterSpacing(.08f);
+        autonomyStatusView = text("STANDBY  ·  AWAITING YOUR GOAL", 8, Color.rgb(193, 170, 217));
+        autonomyStatusView.setLetterSpacing(.07f);
         autonomyStatusView.setPadding(0, dp(5), 0, 0);
         engine.addView(autonomyStatusView);
         root.addView(engine, new LinearLayout.LayoutParams(-1, -2));
-
-        addGap(root, 10);
-        LinearLayout card = column();
-        card.setPadding(dp(15), dp(13), dp(15), dp(13));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
-        TextView title = text("MISSION CONTROL", 9, CYAN);
-        title.setLetterSpacing(0.16f);
-        card.addView(title);
-        TextView note = text("Your workspaces, one tap away.", 11, MUTED);
-        note.setPadding(0, dp(5), 0, dp(11));
-        card.addView(note);
-        LinearLayout first = row();
-        addHomeAction(first, "OPEN CHAT", () -> selectSection("CHAT"));
-        addHomeAction(first, "A.R.T.I.E. INBOX", () -> selectSection("INBOX"));
-        card.addView(first);
-        root.addView(card, new LinearLayout.LayoutParams(-1, -2));
     }
 
     private void addHomeAction(LinearLayout parent, String label, Runnable action) {
-        TextView button = text(label, 9, Color.rgb(183, 219, 233));
+        TextView button = text(label, 9, Color.rgb(239, 225, 255));
         button.setGravity(Gravity.CENTER);
+        button.setLetterSpacing(.025f);
         button.setPadding(dp(7), dp(15), dp(7), dp(15));
-        button.setBackground(shape(Color.rgb(10, 29, 43), Color.rgb(39, 92, 113), 6));
+        button.setMinHeight(dp(48));
+        button.setBackground(shape(Color.rgb(39, 24, 57), Color.rgb(92, 61, 126), 15));
+        button.setClickable(true);
+        button.setFocusable(true);
         button.setOnClickListener(v -> {
-            v.animate().scaleX(.97f).scaleY(.97f).setDuration(85).withEndAction(() -> {
-                v.animate().scaleX(1f).scaleY(1f).setDuration(120).start();
+            v.animate().scaleX(.975f).scaleY(.975f).setDuration(90).withEndAction(() -> {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(130).start();
                 action.run();
             }).start();
         });
@@ -878,7 +893,7 @@ public class MainActivity extends FragmentActivity {
             TextView empty = text("You're all clear. Reminders, A.R.T.I.E. alerts and notifications from apps you allow in Android Notification Access will appear here.", 12, MUTED);
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(18), dp(44), dp(18), dp(44));
-            empty.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
+            empty.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
             inboxItems.addView(empty, new LinearLayout.LayoutParams(-1, -2));
         }
         refreshNavigationBadges();
@@ -941,7 +956,7 @@ public class MainActivity extends FragmentActivity {
     private void buildSettingsScreen() {
         LinearLayout card = column();
         card.setPadding(dp(15), dp(14), dp(15), dp(14));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
+        card.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
         TextView title = text("VOICE & ASSISTANT", 10, CYAN);
         title.setLetterSpacing(0.14f);
         card.addView(title);
@@ -965,7 +980,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout neural = column();
         neural.setPadding(dp(15), dp(13), dp(15), dp(13));
-        neural.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
+        neural.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
         TextView neuralTitle = text("LOCAL NEURAL CORE", 10, CYAN);
         neuralTitle.setLetterSpacing(0.13f);
         neural.addView(neuralTitle);
@@ -992,7 +1007,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout cloud = column();
         cloud.setPadding(dp(15), dp(13), dp(15), dp(13));
-        cloud.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
+        cloud.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
         TextView cloudTitle = text("CLOUD MEMORY", 10, CYAN);
         cloudTitle.setLetterSpacing(0.13f);
         cloud.addView(cloudTitle);
@@ -1012,7 +1027,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout privacy = column();
         privacy.setPadding(dp(15), dp(13), dp(15), dp(13));
-        privacy.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 8));
+        privacy.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
         TextView privacyTitle = text("PRIVACY & CONTROL", 10, GOLD);
         privacyTitle.setLetterSpacing(0.13f);
         privacy.addView(privacyTitle);
@@ -1177,34 +1192,72 @@ public class MainActivity extends FragmentActivity {
     }
 
     private void buildVoiceOrbPanel() {
-        TextView close = text("‹   BACK TO A.R.T.I.E.", 11, Color.rgb(151, 207, 229));
-        close.setPadding(dp(8), dp(12), dp(8), dp(12));
+        voiceOrbPanel.setBackground(new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.rgb(18, 10, 29), Color.rgb(8, 6, 16), Color.rgb(20, 10, 32)}));
+        TextView close = text("‹   BACK TO A.R.T.I.E.", 10, Color.rgb(203, 174, 232));
+        close.setLetterSpacing(.04f);
+        close.setPadding(dp(8), dp(14), dp(8), dp(14));
         close.setOnClickListener(v -> hideVoiceOrb());
         voiceOrbPanel.addView(close, new LinearLayout.LayoutParams(-1, -2));
+
+        LinearLayout heading = column();
+        heading.setGravity(Gravity.CENTER);
+        TextView speaking = text("SPEAKING TO A.R.T.I.E.", 8, MUTED);
+        speaking.setLetterSpacing(.16f);
+        heading.addView(speaking);
+        TextView mode = text("PERSONAL VOICE ASSISTANT", 7, Color.rgb(190, 145, 227));
+        mode.setLetterSpacing(.12f);
+        mode.setPadding(0, dp(6), 0, 0);
+        heading.addView(mode);
+        voiceOrbPanel.addView(heading, new LinearLayout.LayoutParams(-1, -2));
+
         View topSpace = new View(this);
-        voiceOrbPanel.addView(topSpace, new LinearLayout.LayoutParams(1, 0, 1));
+        voiceOrbPanel.addView(topSpace, new LinearLayout.LayoutParams(1, 0, .65f));
         voiceOrbView = new VoiceOrbView(this);
-        LinearLayout.LayoutParams orbLp = new LinearLayout.LayoutParams(dp(330), dp(330));
+        LinearLayout.LayoutParams orbLp = new LinearLayout.LayoutParams(dp(304), dp(304));
         orbLp.gravity = Gravity.CENTER;
         voiceOrbPanel.addView(voiceOrbView, orbLp);
-        TextView name = text("A.R.T.I.E.", 21, Color.rgb(224, 246, 255));
+
+        TextView name = text("A.R.T.I.E.", 22, WHITE);
         name.setGravity(Gravity.CENTER);
-        name.setLetterSpacing(0.22f);
+        name.setLetterSpacing(0.20f);
         voiceOrbPanel.addView(name, new LinearLayout.LayoutParams(-1, -2));
-        orbStatus = text("LISTENING", 10, Color.rgb(118, 216, 250));
+        orbStatus = text("READY WHEN YOU ARE", 9, Color.rgb(201, 165, 232));
         orbStatus.setGravity(Gravity.CENTER);
-        orbStatus.setLetterSpacing(0.22f);
+        orbStatus.setLetterSpacing(0.17f);
         LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(-1, -2);
-        statusLp.topMargin = dp(12);
+        statusLp.topMargin = dp(10);
         voiceOrbPanel.addView(orbStatus, statusLp);
+
         View bottomSpace = new View(this);
-        voiceOrbPanel.addView(bottomSpace, new LinearLayout.LayoutParams(1, 0, 1));
-        TextView pause = text("■   STOP LIVE MODE", 9, Color.rgb(173, 207, 222));
-        pause.setGravity(Gravity.CENTER);
-        pause.setPadding(dp(18), dp(14), dp(18), dp(14));
-        pause.setBackground(shape(Color.rgb(8, 25, 39), Color.rgb(40, 108, 139), 24));
-        pause.setOnClickListener(v -> toggleContinuousListening());
-        voiceOrbPanel.addView(pause, new LinearLayout.LayoutParams(-2, -2));
+        voiceOrbPanel.addView(bottomSpace, new LinearLayout.LayoutParams(1, 0, .65f));
+        LinearLayout controls = row();
+        controls.setGravity(Gravity.CENTER);
+        TextView chat = text("⌨", 16, Color.rgb(224, 200, 245));
+        chat.setGravity(Gravity.CENTER);
+        chat.setBackground(shape(Color.rgb(31, 19, 46), Color.rgb(79, 53, 103), 20));
+        LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(dp(50), dp(50));
+        chatLp.rightMargin = dp(20);
+        controls.addView(chat, chatLp);
+        chat.setOnClickListener(v -> { hideVoiceOrb(); selectSection("CHAT"); });
+
+        TextView listen = text("●", 17, WHITE);
+        listen.setGravity(Gravity.CENTER);
+        listen.setBackground(shape(Color.rgb(125, 72, 169), Color.rgb(199, 145, 235), 25));
+        listen.setElevation(dp(6));
+        controls.addView(listen, new LinearLayout.LayoutParams(dp(62), dp(62)));
+        listen.setOnClickListener(v -> toggleContinuousListening());
+
+        TextView stop = text("×", 20, Color.rgb(224, 200, 245));
+        stop.setGravity(Gravity.CENTER);
+        stop.setBackground(shape(Color.rgb(31, 19, 46), Color.rgb(79, 53, 103), 20));
+        LinearLayout.LayoutParams stopLp = new LinearLayout.LayoutParams(dp(50), dp(50));
+        stopLp.leftMargin = dp(20);
+        controls.addView(stop, stopLp);
+        stop.setOnClickListener(v -> toggleContinuousListening());
+        voiceOrbPanel.addView(controls, new LinearLayout.LayoutParams(-1, -2));
+        addGap(voiceOrbPanel, 12);
     }
 
     private void showVoiceOrb(String state) {
@@ -1239,101 +1292,124 @@ public class MainActivity extends FragmentActivity {
 
     private void buildTopBar() {
         LinearLayout bar = row();
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView mark = text("A", 19, WHITE);
+        mark.setGravity(Gravity.CENTER);
+        mark.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        mark.setBackground(shape(Color.rgb(89, 48, 126), Color.rgb(176, 119, 225), 16));
+        mark.setElevation(dp(5));
+        bar.addView(mark, new LinearLayout.LayoutParams(dp(43), dp(43)));
+
         LinearLayout identity = column();
-
-        TextView brand = text("A.R.T.I.E.", 17, CYAN);
+        identity.setPadding(dp(10), 0, 0, 0);
+        TextView brand = text("A.R.T.I.E.", 17, WHITE);
         brand.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        brand.setLetterSpacing(0.12f);
+        brand.setLetterSpacing(0.10f);
         identity.addView(brand);
-
-        TextView sub = text("FEMALE AI  /  EXECUTIVE ASSISTANT", 8, MUTED);
-        sub.setLetterSpacing(0.14f);
+        TextView sub = text("YOUR INTELLIGENT COMPANION", 7, MUTED);
+        sub.setLetterSpacing(0.12f);
         identity.addView(sub);
-
         bar.addView(identity, new LinearLayout.LayoutParams(0, -2, 1));
 
         LinearLayout ownerBlock = column();
-        TextView owner = text("RAUSHAN", 9, GOLD);
+        ownerBlock.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        ownerBlock.setPadding(dp(12), dp(7), dp(12), dp(7));
+        ownerBlock.setBackground(shape(Color.rgb(24, 17, 35), Color.rgb(70, 50, 91), 14));
+        TextView owner = text("RAUSHAN", 8, Color.rgb(231, 207, 255));
         owner.setGravity(Gravity.RIGHT);
-        owner.setLetterSpacing(0.16f);
+        owner.setLetterSpacing(0.12f);
         ownerBlock.addView(owner);
-
-        TextView access = text("CREATOR ACCESS  ◈", 7, MUTED);
+        TextView access = text("OWNER ACCESS  ◈", 6, MUTED);
         access.setGravity(Gravity.RIGHT);
-        access.setLetterSpacing(0.08f);
+        access.setLetterSpacing(0.07f);
         ownerBlock.addView(access);
-
         bar.addView(ownerBlock);
-        root.addView(bar, new LinearLayout.LayoutParams(-1, dp(46)));
+        root.addView(bar, new LinearLayout.LayoutParams(-1, dp(48)));
     }
 
-
     private void buildMainArea() {
+        TextView greeting = text("Hello, Raushan.", 25, WHITE);
+        greeting.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        greeting.setLetterSpacing(-0.025f);
+        LinearLayout.LayoutParams greetingLp = new LinearLayout.LayoutParams(-1, -2);
+        greetingLp.topMargin = dp(22);
+        root.addView(greeting, greetingLp);
+
+        TextView greetingSub = text("What shall we explore today?", 12, MUTED);
+        greetingSub.setPadding(0, dp(3), 0, dp(15));
+        root.addView(greetingSub);
+
         LinearLayout hero = column();
         hero.setGravity(Gravity.CENTER_HORIZONTAL);
-        hero.setPadding(dp(12), dp(18), dp(12), dp(16));
+        hero.setPadding(dp(17), dp(17), dp(17), dp(16));
         GradientDrawable background = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                new int[]{Color.rgb(25, 20, 52), Color.rgb(5, 7, 18), Color.rgb(10, 10, 28)});
-        background.setCornerRadius(dp(9));
-        background.setStroke(dp(1), Color.rgb(86, 76, 145));
+                new int[]{Color.rgb(43, 25, 62), Color.rgb(21, 13, 32), Color.rgb(13, 9, 22)});
+        background.setCornerRadius(dp(27));
+        background.setStroke(dp(1), Color.rgb(100, 67, 132));
         hero.setBackground(background);
+        hero.setElevation(dp(2));
 
-        TextView eyebrow = text("ARTIE CORE  •  ACTIVE INTERFACE", 9, MUTED);
-        eyebrow.setLetterSpacing(0.22f);
-        eyebrow.setGravity(Gravity.CENTER);
-        hero.addView(eyebrow);
+        LinearLayout heroHeader = row();
+        TextView eyebrow = text("PERSONAL AI  ·  ACTIVE", 8, Color.rgb(202, 170, 255));
+        eyebrow.setLetterSpacing(0.13f);
+        heroHeader.addView(eyebrow, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView live = text("● ONLINE", 7, Color.rgb(193, 224, 194));
+        live.setLetterSpacing(.08f);
+        heroHeader.addView(live);
+        hero.addView(heroHeader);
 
         int screenWidthDp = (int) (getResources().getDisplayMetrics().widthPixels /
                 getResources().getDisplayMetrics().density);
-        int reactorSize = screenWidthDp >= 700 ? 340 : screenWidthDp >= 520 ? 316 : 286;
+        int reactorSize = screenWidthDp >= 700 ? 258 : screenWidthDp >= 520 ? 238 : 218;
         artieCoreView = new ArtieCoreView(this);
         LinearLayout.LayoutParams reactorLp = new LinearLayout.LayoutParams(dp(reactorSize), dp(reactorSize));
         reactorLp.gravity = Gravity.CENTER;
-        reactorLp.topMargin = dp(7);
-        reactorLp.bottomMargin = dp(4);
+        reactorLp.topMargin = dp(2);
+        reactorLp.bottomMargin = dp(0);
         artieCoreView.setClickable(true);
         artieCoreView.setFocusable(true);
-        artieCoreView.setContentDescription("Open A.R.T.I.E. voice orb");
+        artieCoreView.setContentDescription("Open A.R.T.I.E. voice interface");
         artieCoreView.setOnClickListener(v -> showVoiceOrb("READY"));
         hero.addView(artieCoreView, reactorLp);
 
-        TextView title = text("A.R.T.I.E.", 22, WHITE);
+        TextView title = text("A.R.T.I.E.", 21, WHITE);
         title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
-        title.setLetterSpacing(0.24f);
+        title.setLetterSpacing(0.20f);
         title.setGravity(Gravity.CENTER);
         hero.addView(title);
 
-        TextView sub = text("PERSONAL AI  /  COMMAND INTERFACE", 8, CYAN);
-        sub.setLetterSpacing(0.16f);
+        TextView sub = text("Your intelligent companion for everyday thinking.", 10, MUTED);
         sub.setGravity(Gravity.CENTER);
-        sub.setPadding(0, dp(3), 0, dp(13));
+        sub.setPadding(0, dp(5), 0, dp(14));
         hero.addView(sub);
 
+        LinearLayout actions = row();
+        addHomeAction(actions, "START CHATTING  ↗", () -> selectSection("CHAT"));
+        addHomeAction(actions, "OPEN VOICE  ◉", () -> showVoiceOrb("READY"));
+        hero.addView(actions);
+
         View divider = new View(this);
-        divider.setBackgroundColor(Color.rgb(31, 76, 98));
+        divider.setBackgroundColor(Color.rgb(65, 43, 85));
         LinearLayout.LayoutParams dividerLp = new LinearLayout.LayoutParams(-1, dp(1));
+        dividerLp.topMargin = dp(14);
         dividerLp.bottomMargin = dp(10);
         hero.addView(divider, dividerLp);
 
         LinearLayout readouts = row();
-        readouts.setGravity(Gravity.CENTER);
-        statusView = text("SYSTEM STANDBY", 8, CYAN);
-        statusView.setLetterSpacing(0.1f);
-        readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1));
-        clockView = text("--:--", 9, WHITE);
+        readouts.setGravity(Gravity.CENTER_VERTICAL);
+        statusView = text("SYSTEM STANDBY", 7, CYAN);
+        statusView.setLetterSpacing(0.07f);
+        readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1.1f));
+        clockView = text("--:--", 8, WHITE);
         clockView.setGravity(Gravity.CENTER);
-        readouts.addView(clockView, new LinearLayout.LayoutParams(0, -2, 0.7f));
+        readouts.addView(clockView, new LinearLayout.LayoutParams(0, -2, .6f));
         connectionView = text("AI LINK READY", 7, MUTED);
         connectionView.setGravity(Gravity.RIGHT);
-        readouts.addView(connectionView, new LinearLayout.LayoutParams(0, -2, 1));
+        readouts.addView(connectionView, new LinearLayout.LayoutParams(0, -2, 1.1f));
         hero.addView(readouts);
 
-        TextView scrollHint = text("VOICE CHANNEL READY  •  SPEAK ANYTIME", 8, MUTED);
-        scrollHint.setGravity(Gravity.CENTER);
-        scrollHint.setLetterSpacing(0.12f);
-        scrollHint.setPadding(0, dp(18), 0, dp(2));
-        hero.addView(scrollHint);
         root.addView(hero, new LinearLayout.LayoutParams(-1, -2));
     }
 
@@ -1344,36 +1420,44 @@ public class MainActivity extends FragmentActivity {
 
     private void buildConversation() {
         LinearLayout card = column();
-        card.setPadding(dp(13), dp(11), dp(13), dp(10));
-        card.setBackground(shape(Color.rgb(7, 18, 29), Color.rgb(67, 63, 108), 6));
+        card.setPadding(dp(15), dp(14), dp(15), dp(12));
+        card.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 22));
 
         LinearLayout header = row();
-        TextView title = text("LIVE CONVERSATION", 8, CYAN);
-        title.setLetterSpacing(0.16f);
-        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout titleStack = column();
+        TextView title = text("YOUR CONVERSATION", 10, CYAN);
+        title.setLetterSpacing(0.12f);
+        titleStack.addView(title);
+        TextView subtitle = text("A private space to think out loud.", 9, MUTED);
+        subtitle.setPadding(0, dp(3), 0, 0);
+        titleStack.addView(subtitle);
+        header.addView(titleStack, new LinearLayout.LayoutParams(0, -2, 1));
 
-        TextView clear = text("CLEAR", 8, GOLD);
-        clear.setPadding(dp(8), dp(5), dp(3), dp(5));
+        TextView clear = text("CLEAR", 8, Color.rgb(225, 190, 255));
+        clear.setGravity(Gravity.CENTER);
+        clear.setPadding(dp(11), dp(7), dp(11), dp(7));
+        clear.setBackground(shape(Color.rgb(38, 24, 54), Color.rgb(93, 63, 123), 12));
         clear.setOnClickListener(v -> clearConversation());
         header.addView(clear);
         card.addView(header);
 
         chatScroll = new ScrollView(this);
         chatScroll.setFillViewport(false);
+        chatScroll.setVerticalScrollBarEnabled(false);
         chatList = column();
-        chatList.setPadding(0, dp(6), 0, dp(2));
+        chatList.setPadding(0, dp(10), 0, dp(5));
         chatScroll.addView(chatList);
         int screenHeightDp = (int) (getResources().getDisplayMetrics().heightPixels
                 / getResources().getDisplayMetrics().density);
         int conversationHeight = Math.max(360, Math.min(480, Math.round(screenHeightDp * 0.48f)));
         LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(-1, dp(conversationHeight));
-        chatLp.topMargin = dp(4);
+        chatLp.topMargin = dp(7);
         card.addView(chatScroll, chatLp);
 
         if (conversation.length() <= 1) {
             addMessage("A.R.T.I.E.", languageMode == 2
                     ? "नमस्ते Raushan। मैं ऑनलाइन हूँ।"
-                    : "Good day, Raushan. I am online.", false);
+                    : "Hello, Raushan. I'm here. What is on your mind?", false);
         } else {
             for (int i = 1; i < conversation.length(); i++) {
                 JSONObject item = conversation.optJSONObject(i);
@@ -1389,17 +1473,19 @@ public class MainActivity extends FragmentActivity {
 
     private void buildComposer() {
         LinearLayout composer = row();
-        composer.setPadding(dp(7), dp(6), dp(7), dp(6));
-        composer.setBackground(shape(Color.rgb(5, 18, 29), Color.rgb(60, 135, 160), 4));
+        composer.setPadding(dp(8), dp(7), dp(8), dp(7));
+        composer.setBackground(shape(Color.rgb(24, 16, 36), Color.rgb(105, 70, 139), 19));
+        LinearLayout.LayoutParams composerLp = new LinearLayout.LayoutParams(-1, -2);
+        composerLp.topMargin = dp(10);
 
         prompt = new EditText(this);
         prompt.setSingleLine(true);
-        prompt.setTextSize(14);
+        prompt.setTextSize(13);
         prompt.setTextColor(WHITE);
-        prompt.setHintTextColor(MUTED);
-        prompt.setHint("Talk to A.R.T.I.E. or type a command...");
+        prompt.setHintTextColor(Color.rgb(151, 136, 169));
+        prompt.setHint("Message A.R.T.I.E...");
         prompt.setBackgroundColor(Color.TRANSPARENT);
-        prompt.setPadding(dp(9), dp(8), dp(5), dp(8));
+        prompt.setPadding(dp(10), dp(8), dp(4), dp(8));
         prompt.setImeOptions(EditorInfo.IME_ACTION_SEND);
         prompt.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_SEND) {
@@ -1411,7 +1497,7 @@ public class MainActivity extends FragmentActivity {
         composer.addView(prompt, new LinearLayout.LayoutParams(0, dp(48), 1));
 
         micButton = smallControl("●", () -> toggleContinuousListening());
-        micButton.setTextColor(GOLD);
+        micButton.setTextColor(Color.rgb(223, 190, 255));
         composer.addView(micButton);
         voiceButton = smallControl("◖", () -> toggleVoice());
         voiceButton.setTextColor(CYAN);
@@ -1419,16 +1505,16 @@ public class MainActivity extends FragmentActivity {
         languageButton = smallControl(languageLabel(), () -> toggleLanguage());
         composer.addView(languageButton);
         sendButton = smallControl("➤", () -> sendFromInput());
-        sendButton.setTextColor(BG);
-        sendButton.setBackground(shape(CYAN, CYAN, 3));
+        sendButton.setTextColor(WHITE);
+        sendButton.setBackground(shape(Color.rgb(111, 62, 153), Color.rgb(169, 112, 218), 14));
         composer.addView(sendButton);
-        root.addView(composer, new LinearLayout.LayoutParams(-1, -2));
+        root.addView(composer, composerLp);
     }
 
     private TextView smallControl(String label, Runnable click) {
         TextView control = text(label, 13, Color.rgb(145, 190, 207));
         control.setGravity(Gravity.CENTER);
-        control.setBackground(shape(Color.rgb(17, 45, 61), Color.rgb(48, 100, 120), 3));
+        control.setBackground(shape(Color.rgb(40, 25, 57), Color.rgb(102, 68, 135), 3));
         control.setClickable(true);
         control.setFocusable(true);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(42), dp(42));
@@ -4175,34 +4261,64 @@ public class MainActivity extends FragmentActivity {
         private String state = "LISTENING";
         VoiceOrbView(Context context) { super(context); setLayerType(View.LAYER_TYPE_SOFTWARE, null); }
         void setState(String value) { state = value == null ? "LISTENING" : value; invalidate(); }
+
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            float base = Math.min(getWidth(), getHeight()) * .29f;
+            float base = Math.min(getWidth(), getHeight()) * .285f;
             float t = (System.currentTimeMillis() - started) / 1000f;
             boolean speaking = state.contains("SPEAK");
             boolean processing = state.contains("PROCESS") || state.contains("THINK");
-            float pulse = 1f + (speaking ? .075f : processing ? .035f : .018f) * (float)Math.sin(t * (speaking ? 7f : 2.2f));
-            for (int i = 4; i >= 1; i--) {
-                float r = base * (1f + i * .23f) + (float)Math.sin(t * 1.4f + i) * 4f;
-                p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2f);
-                p.setColor(Color.argb(Math.max(8, 34 - i * 5), 90, 197, 255));
+            float pulse = 1f + (speaking ? .085f : processing ? .045f : .025f)
+                    * (float)Math.sin(t * (speaking ? 7f : 2.3f));
+
+            for (int i = 5; i >= 1; i--) {
+                float r = base * (1f + i * .20f) + (float)Math.sin(t * 1.15f + i) * 2.5f;
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(1.4f);
+                p.setColor(Color.argb(Math.max(7, 31 - i * 4), 190, 124, 255));
                 canvas.drawCircle(cx, cy, r, p);
             }
+
             p.setStyle(Paint.Style.FILL);
-            p.setShader(new android.graphics.RadialGradient(cx, cy, base * 1.8f,
-                    new int[]{Color.argb(95,91,207,255), Color.argb(30,32,139,218), Color.TRANSPARENT},
+            p.setShader(new android.graphics.RadialGradient(cx, cy, base * 2.25f,
+                    new int[]{Color.argb(112, 161, 83, 232), Color.argb(42, 91, 42, 142), Color.TRANSPARENT},
                     null, android.graphics.Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, base * 1.8f, p); p.setShader(null);
-            p.setShader(new android.graphics.RadialGradient(cx-base*.25f, cy-base*.32f, base*1.5f,
-                    new int[]{Color.rgb(245,255,255), Color.rgb(123,220,255), Color.rgb(29,128,211), Color.rgb(5,31,69)},
-                    new float[]{0f,.19f,.58f,1f}, android.graphics.Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, base * pulse, p); p.setShader(null);
-            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2f);
-            p.setColor(Color.argb(180,219,249,255)); canvas.drawCircle(cx, cy, base * pulse, p);
-            p.setStyle(Paint.Style.FILL); p.setColor(Color.argb(55,255,255,255));
-            canvas.drawOval(new RectF(cx-base*.65f, cy-base*.78f, cx+base*.18f, cy-base*.25f), p);
-            postInvalidateDelayed(32);
+            canvas.drawCircle(cx, cy, base * 2.25f, p);
+            p.setShader(null);
+
+            canvas.save();
+            canvas.rotate((float)Math.sin(t * .32f) * 8f, cx, cy);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(2.1f);
+            p.setColor(Color.argb(80, 226, 190, 255));
+            canvas.drawOval(new RectF(cx - base * 1.18f, cy - base * .43f,
+                    cx + base * 1.18f, cy + base * .43f), p);
+            canvas.restore();
+
+            p.setStyle(Paint.Style.FILL);
+            p.setShader(new android.graphics.RadialGradient(cx - base * .28f, cy - base * .35f, base * 1.55f,
+                    new int[]{Color.rgb(247, 226, 255), Color.rgb(211, 153, 255),
+                            Color.rgb(143, 75, 204), Color.rgb(43, 19, 69)},
+                    new float[]{0f, .23f, .62f, 1f}, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, base * pulse, p);
+            p.setShader(null);
+
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(1.7f);
+            p.setColor(Color.argb(195, 239, 216, 255));
+            canvas.drawCircle(cx, cy, base * pulse, p);
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.argb(70, 255, 255, 255));
+            canvas.drawOval(new RectF(cx - base * .66f, cy - base * .77f,
+                    cx + base * .10f, cy - base * .25f), p);
+
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(1.1f);
+            p.setColor(Color.argb(105, 246, 220, 255));
+            canvas.drawArc(new RectF(cx - base * .78f, cy - base * .30f,
+                    cx + base * .78f, cy + base * .62f), 12f, 156f, false, p);
+            postInvalidateDelayed(36);
         }
     }
 
@@ -4213,7 +4329,7 @@ public class MainActivity extends FragmentActivity {
 
         ArtieCoreView(Context context) {
             super(context);
-            setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
         }
 
         void setMode(int value) {
@@ -4226,78 +4342,68 @@ public class MainActivity extends FragmentActivity {
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
-            float radius = Math.min(getWidth(), getHeight()) * .32f;
+            float radius = Math.min(getWidth(), getHeight()) * .33f;
             float time = (System.currentTimeMillis() - started) / 1000f;
-            float pulse = 1f + (mode == 3 ? .055f : mode == 2 ? .035f : .018f)
-                    * (float) Math.sin(time * (mode == 3 ? 7.5f : 2.1f));
+            float pulse = 1f + (mode == 3 ? .07f : mode == 2 ? .045f : .025f)
+                    * (float)Math.sin(time * (mode == 3 ? 7.5f : 2.1f));
 
             paint.setStyle(Paint.Style.FILL);
-            paint.setShader(new android.graphics.RadialGradient(cx, cy, radius * 2.15f,
-                    new int[]{Color.argb(72, 170, 159, 255), Color.argb(25, 91, 113, 218), Color.TRANSPARENT},
+            paint.setShader(new android.graphics.RadialGradient(cx, cy, radius * 2.2f,
+                    new int[]{Color.argb(112, 158, 82, 226), Color.argb(35, 91, 42, 142), Color.TRANSPARENT},
                     null, android.graphics.Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, radius * 2.15f, paint);
+            canvas.drawCircle(cx, cy, radius * 2.2f, paint);
             paint.setShader(null);
 
-            // Two soft orbital tracks give the core its own identity, away from the old reactor motif.
             canvas.save();
-            canvas.rotate(time * 13f, cx, cy);
+            canvas.rotate(time * 8f, cx, cy);
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), 2.1f));
-            paint.setColor(Color.argb(190, 170, 159, 255));
-            RectF orbitA = new RectF(cx - radius * 1.40f, cy - radius * .66f,
-                    cx + radius * 1.40f, cy + radius * .66f);
-            canvas.drawOval(orbitA, paint);
+            paint.setStrokeWidth(dpStatic(getContext(), 1.5f));
+            paint.setColor(Color.argb(88, 224, 185, 255));
+            canvas.drawOval(new RectF(cx - radius * 1.38f, cy - radius * .50f,
+                    cx + radius * 1.38f, cy + radius * .50f), paint);
             canvas.restore();
 
             canvas.save();
-            canvas.rotate(-time * 19f, cx, cy);
-            paint.setStrokeWidth(dpStatic(getContext(), 1.6f));
-            paint.setColor(Color.argb(175, 95, 225, 206));
-            RectF orbitB = new RectF(cx - radius * .78f, cy - radius * 1.28f,
-                    cx + radius * .78f, cy + radius * 1.28f);
-            canvas.drawOval(orbitB, paint);
+            canvas.rotate(-time * 11f, cx, cy);
+            paint.setStrokeWidth(dpStatic(getContext(), 1.1f));
+            paint.setColor(Color.argb(75, 175, 115, 235));
+            canvas.drawOval(new RectF(cx - radius * .72f, cy - radius * 1.22f,
+                    cx + radius * .72f, cy + radius * 1.22f), paint);
             canvas.restore();
 
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), 1.2f));
-            paint.setColor(Color.argb(105, 205, 202, 255));
-            canvas.drawCircle(cx, cy, radius * 1.03f, paint);
-            paint.setStrokeWidth(dpStatic(getContext(), 1f));
-            paint.setColor(Color.argb(80, 95, 225, 206));
-            canvas.drawCircle(cx, cy, radius * .87f, paint);
-
             paint.setStyle(Paint.Style.FILL);
-            paint.setShader(new android.graphics.RadialGradient(cx - radius * .17f, cy - radius * .23f,
-                    radius * .93f,
-                    new int[]{Color.rgb(190, 183, 255), Color.rgb(93, 93, 194), Color.rgb(13, 20, 52)},
-                    new float[]{0f, .48f, 1f}, android.graphics.Shader.TileMode.CLAMP));
-            canvas.drawCircle(cx, cy, radius * .72f * pulse, paint);
+            paint.setShader(new android.graphics.RadialGradient(cx - radius * .24f, cy - radius * .30f,
+                    radius * 1.55f,
+                    new int[]{Color.rgb(249, 229, 255), Color.rgb(214, 160, 255),
+                            Color.rgb(147, 79, 203), Color.rgb(37, 15, 59)},
+                    new float[]{0f, .22f, .61f, 1f}, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawCircle(cx, cy, radius * .91f * pulse, paint);
             paint.setShader(null);
 
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), 2.4f));
-            paint.setColor(Color.argb(215, 222, 218, 255));
-            canvas.drawCircle(cx, cy, radius * .72f * pulse, paint);
-            paint.setStrokeWidth(dpStatic(getContext(), 1.2f));
-            paint.setColor(Color.argb(165, 95, 225, 206));
-            canvas.drawCircle(cx, cy, radius * .60f, paint);
+            paint.setStrokeWidth(dpStatic(getContext(), 1.7f));
+            paint.setColor(Color.argb(205, 241, 220, 255));
+            canvas.drawCircle(cx, cy, radius * .91f * pulse, paint);
 
             paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.argb(55, 255, 255, 255));
+            canvas.drawOval(new RectF(cx - radius * .56f, cy - radius * .66f,
+                    cx + radius * .08f, cy - radius * .25f), paint);
+
             paint.setTextAlign(Paint.Align.CENTER);
-            paint.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
-            paint.setTextSize(radius * .92f);
-            paint.setColor(Color.rgb(246, 244, 255));
-            paint.setShadowLayer(dpStatic(getContext(), 12), 0, 0, Color.argb(185, 133, 119, 255));
-            canvas.drawText("A", cx, cy + radius * .31f, paint);
+            paint.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+            paint.setTextSize(radius * .60f);
+            paint.setColor(Color.argb(210, 255, 248, 255));
+            paint.setShadowLayer(dpStatic(getContext(), 12), 0, 0, Color.argb(170, 169, 105, 226));
+            canvas.drawText("A", cx, cy + radius * .22f, paint);
             paint.clearShadowLayer();
 
-            paint.setStyle(Paint.Style.FILL);
             for (int i = 0; i < 3; i++) {
-                double angle = time * .62 + i * Math.PI * 2 / 3;
-                float x = cx + (float) Math.cos(angle) * radius * 1.38f;
-                float y = cy + (float) Math.sin(angle) * radius * .72f;
-                paint.setColor(i == 1 ? Color.rgb(95, 225, 206) : Color.rgb(190, 183, 255));
-                canvas.drawCircle(x, y, dpStatic(getContext(), 3.2f), paint);
+                double angle = time * .46 + i * Math.PI * 2 / 3;
+                float x = cx + (float)Math.cos(angle) * radius * 1.38f;
+                float y = cy + (float)Math.sin(angle) * radius * .76f;
+                paint.setColor(i == 1 ? Color.rgb(236, 194, 255) : Color.rgb(173, 116, 235));
+                canvas.drawCircle(x, y, dpStatic(getContext(), 2.7f), paint);
             }
             postInvalidateDelayed(48);
         }
@@ -4309,7 +4415,6 @@ public class MainActivity extends FragmentActivity {
         private boolean active = true;
 
         NebulaBackgroundView(Context context) { super(context); }
-
         @Override protected void onWindowVisibilityChanged(int visibility) {
             super.onWindowVisibilityChanged(visibility);
             active = visibility == View.VISIBLE;
@@ -4319,30 +4424,46 @@ public class MainActivity extends FragmentActivity {
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             float w = getWidth(), h = getHeight();
+            float t = (System.currentTimeMillis() - started) / 1000f;
             paint.setShader(new android.graphics.LinearGradient(0, 0, w, h,
-                    new int[]{Color.rgb(6, 7, 19), Color.rgb(14, 12, 34), Color.rgb(5, 7, 18)},
+                    new int[]{Color.rgb(8, 6, 16), Color.rgb(17, 10, 27), Color.rgb(7, 5, 14)},
                     null, android.graphics.Shader.TileMode.CLAMP));
             canvas.drawRect(0, 0, w, h, paint);
             paint.setShader(null);
-            float t = (System.currentTimeMillis() - started) / 1000f;
+
+            paint.setShader(new android.graphics.RadialGradient(w * .19f, h * .19f, w * .72f,
+                    new int[]{Color.argb(34, 151, 78, 205), Color.argb(8, 90, 44, 130), Color.TRANSPARENT},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, w, h, paint);
+            paint.setShader(null);
+            paint.setShader(new android.graphics.RadialGradient(w * .88f, h * .67f, w * .58f,
+                    new int[]{Color.argb(24, 114, 63, 159), Color.TRANSPARENT},
+                    null, android.graphics.Shader.TileMode.CLAMP));
+            canvas.drawRect(0, 0, w, h, paint);
+            paint.setShader(null);
 
             paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(dpStatic(getContext(), .6f));
-            paint.setColor(Color.argb(13, 99, 191, 225));
-            float grid = dpStatic(getContext(), 42);
-            float drift = (t * dpStatic(getContext(), 2.2f)) % grid;
-            for (float x = -grid + drift; x < w; x += grid) canvas.drawLine(x, 0, x, h, paint);
-            for (float y = -grid + drift; y < h; y += grid) canvas.drawLine(0, y, w, y, paint);
+            paint.setStrokeWidth(dpStatic(getContext(), .8f));
+            for (int i = 0; i < 4; i++) {
+                Path wave = new Path();
+                float y = h * (.68f + i * .065f);
+                wave.moveTo(-w * .08f, y);
+                wave.cubicTo(w * .20f, y - h * (.12f + .012f * (float)Math.sin(t * .35f + i)),
+                        w * .48f, y + h * (.08f + .01f * (float)Math.cos(t * .28f + i)),
+                        w * 1.08f, y - h * (.06f + .008f * (float)Math.sin(t * .31f + i)));
+                paint.setColor(Color.argb(9 + i * 3, 188, 127, 230));
+                canvas.drawPath(wave, paint);
+            }
 
             paint.setStyle(Paint.Style.FILL);
-            for (int i = 0; i < 26; i++) {
-                float px = ((i * 73.7f + (float)Math.sin(t * .18f + i) * 5f) % Math.max(1f, w));
-                float py = ((i * 137.3f + (float)Math.cos(t * .14f + i * .7f) * 7f) % Math.max(1f, h));
-                int alpha = 18 + (int)(22 * (.5f + .5f * (float)Math.sin(t * .8f + i)));
-                paint.setColor(Color.argb(alpha, 105, 210, 242));
-                canvas.drawCircle(px, py, dpStatic(getContext(), i % 5 == 0 ? 1.5f : .8f), paint);
+            for (int i = 0; i < 22; i++) {
+                float px = (i * 91.7f + (float)Math.sin(t * .13f + i) * 8f) % Math.max(1f, w);
+                float py = (i * 157.3f + (float)Math.cos(t * .11f + i * .7f) * 9f) % Math.max(1f, h);
+                int alpha = 12 + (int)(14 * (.5f + .5f * (float)Math.sin(t * .6f + i)));
+                paint.setColor(Color.argb(alpha, 204, 160, 245));
+                canvas.drawCircle(px, py, dpStatic(getContext(), i % 6 == 0 ? 1.3f : .7f), paint);
             }
-            if (active) postInvalidateDelayed(82);
+            if (active) postInvalidateDelayed(90);
         }
     }
 
@@ -4361,7 +4482,7 @@ public class MainActivity extends FragmentActivity {
             float y = h * .48f, span = (right - left) / 3f;
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(dpStatic(getContext(), 2f));
-            paint.setColor(Color.rgb(35, 66, 81));
+            paint.setColor(Color.rgb(60, 39, 78));
             canvas.drawLine(left, y, right, y, paint);
             paint.setColor(Color.argb(225, 94, 214, 240));
             if (stage > 0) canvas.drawLine(left, y, left + span * Math.min(3, stage - 1), y, paint);
@@ -4377,18 +4498,18 @@ public class MainActivity extends FragmentActivity {
                 float x = left + i * span;
                 boolean done = i < stage;
                 paint.setStyle(Paint.Style.FILL);
-                paint.setColor(done ? Color.rgb(96, 219, 242) : Color.rgb(20, 43, 57));
+                paint.setColor(done ? Color.rgb(203, 157, 246) : Color.rgb(44, 28, 59));
                 canvas.drawCircle(x, y, dpStatic(getContext(), done ? 5.2f : 4.2f), paint);
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(dpStatic(getContext(), 1.2f));
-                paint.setColor(done ? Color.rgb(188, 249, 255) : Color.rgb(71, 112, 132));
+                paint.setColor(done ? Color.rgb(238, 218, 255) : Color.rgb(103, 72, 129));
                 canvas.drawCircle(x, y, dpStatic(getContext(), 7.2f), paint);
             }
             postInvalidateDelayed(70);
         }
     }
 
-    private static final int CYAN_STATIC = Color.rgb(170, 159, 255);
+    private static final int CYAN_STATIC = Color.rgb(202, 170, 255);
 
     private static float dpStatic(Context context, float value) {
         return value * context.getResources().getDisplayMetrics().density;
@@ -4477,7 +4598,7 @@ public class MainActivity extends FragmentActivity {
             canvas.drawCircle(110, 108, 29, p);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(3);
-            p.setColor(Color.rgb(170, 159, 255));
+            p.setColor(Color.rgb(202, 170, 255));
             canvas.drawCircle(110, 108, 25, p);
             p.setStrokeWidth(1);
             p.setColor(Color.argb(185, 181, 245, 255));
@@ -4497,7 +4618,7 @@ public class MainActivity extends FragmentActivity {
 
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(2);
-            p.setColor(Color.rgb(170, 159, 255));
+            p.setColor(Color.rgb(202, 170, 255));
             canvas.drawLine(110, 9, 110, 21, p);
             canvas.drawLine(110, 199, 110, 211, p);
             canvas.drawLine(9, 110, 21, 110, p);
@@ -4507,7 +4628,7 @@ public class MainActivity extends FragmentActivity {
         }
     }
 
-    private static final int GOLD_STATIC = Color.rgb(95, 225, 206);
+    private static final int GOLD_STATIC = Color.rgb(224, 174, 255);
 
     @Override
     protected void onPause() {
