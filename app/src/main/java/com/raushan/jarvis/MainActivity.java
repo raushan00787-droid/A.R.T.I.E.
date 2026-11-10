@@ -108,10 +108,10 @@ public class MainActivity extends FragmentActivity {
 
     private static final int BG = Color.rgb(8, 6, 16);
     private static final int PANEL = Color.rgb(21, 14, 34);
-    private static final int CYAN = Color.rgb(202, 170, 255);
+    private static final int ACCENT = Color.rgb(202, 170, 255);
     private static final int MUTED = Color.rgb(163, 151, 181);
     private static final int WHITE = Color.rgb(248, 244, 255);
-    private static final int GOLD = Color.rgb(224, 174, 255);
+    private static final int ACCENT_SOFT = Color.rgb(224, 174, 255);
     private static final String SYSTEM_PROMPT =
             "You are A.R.T.I.E., Raushan's female personal AI assistant and executive aide. " +
             "Your persona is feminine; use natural feminine grammatical forms for yourself in Hindi/Hinglish " +
@@ -231,7 +231,7 @@ public class MainActivity extends FragmentActivity {
                 liveModePaused = intent.getBooleanExtra(JarvisLiveService.EXTRA_PAUSED, false);
                 if (micButton != null) {
                     micButton.setText(liveModeEnabled ? (liveModePaused ? "Ⅱ" : "●") : "○");
-                    micButton.setTextColor(liveModeEnabled ? GOLD : MUTED);
+                    micButton.setTextColor(liveModeEnabled ? ACCENT_SOFT : MUTED);
                 }
                 setStatus(!liveModeEnabled ? "LIVE MODE OFF" : (liveModePaused ? "LIVE MODE PAUSED" : "LIVE MODE ACTIVE"));
             } else {
@@ -612,16 +612,22 @@ public class MainActivity extends FragmentActivity {
     }
 
     private TextView chip(String label, Runnable action) {
-        TextView view = text(label, 10, Color.rgb(220, 202, 239));
+        TextView view = text(label, 9, Color.rgb(232, 215, 248));
         view.setGravity(Gravity.CENTER);
-        view.setPadding(dp(12), dp(10), dp(12), dp(10));
-        view.setBackground(shape(Color.rgb(34, 21, 49), Color.rgb(90, 61, 119), 3));
+        view.setLetterSpacing(.025f);
+        view.setPadding(dp(12), dp(11), dp(12), dp(11));
+        view.setMinHeight(dp(42));
+        view.setBackground(shape(Color.rgb(34, 21, 49), Color.rgb(90, 61, 119), 14));
         view.setClickable(true);
         view.setFocusable(true);
-        view.setOnClickListener(v -> action.run());
+        view.setOnClickListener(v -> {
+            v.animate().scaleX(.98f).scaleY(.98f).setDuration(75).withEndAction(() -> {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(100).start();
+                action.run();
+            }).start();
+        });
         return view;
     }
-
 
     private void buildUI() {
         ScrollView page = new ScrollView(this);
@@ -703,10 +709,10 @@ public class MainActivity extends FragmentActivity {
         String[] labels = new String[]{"HOME", "CHAT", "INBOX", "SETTINGS"};
         navigationTabs.clear();
         for (String label : labels) {
-            TextView tab = text(label, 9, MUTED);
+            TextView tab = text(label, 10, MUTED);
             tab.setGravity(Gravity.CENTER);
             tab.setLetterSpacing(0.045f);
-            tab.setPadding(dp(3), dp(13), dp(3), dp(13));
+            tab.setPadding(dp(3), dp(12), dp(3), dp(12));
             tab.setBackground(shape(Color.TRANSPARENT, Color.TRANSPARENT, 13));
             tab.setTag(label);
             tab.setClickable(true);
@@ -770,7 +776,7 @@ public class MainActivity extends FragmentActivity {
         workspace.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(69, 47, 93), 22));
 
         LinearLayout header = row();
-        TextView title = text("YOUR WORKSPACE", 10, CYAN);
+        TextView title = text("YOUR WORKSPACE", 10, ACCENT);
         title.setLetterSpacing(.15f);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         TextView caption = text("FOUR WAYS IN", 7, MUTED);
@@ -893,7 +899,7 @@ public class MainActivity extends FragmentActivity {
             TextView empty = text("You're all clear. Reminders, A.R.T.I.E. alerts and notifications from apps you allow in Android Notification Access will appear here.", 12, MUTED);
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(18), dp(44), dp(18), dp(44));
-            empty.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
+            empty.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
             inboxItems.addView(empty, new LinearLayout.LayoutParams(-1, -2));
         }
         refreshNavigationBadges();
@@ -912,7 +918,7 @@ public class MainActivity extends FragmentActivity {
         card.setPadding(dp(13), dp(12), dp(13), dp(11));
         card.setBackground(shape(Color.rgb(19, 13, 30), read ? Color.rgb(62, 45, 78) : Color.rgb(105, 72, 134), 15));
         LinearLayout top = row();
-        TextView kind = text(type, 8, "REMINDER".equals(type) ? GOLD : CYAN);
+        TextView kind = text(type, 8, "REMINDER".equals(type) ? ACCENT_SOFT : ACCENT);
         kind.setLetterSpacing(0.12f);
         top.addView(kind, new LinearLayout.LayoutParams(0, -2, 1));
         TextView time = text(new SimpleDateFormat("dd MMM · HH:mm", Locale.getDefault()).format(new Date(createdAt)), 8, MUTED);
@@ -956,7 +962,7 @@ public class MainActivity extends FragmentActivity {
     private void buildSettingsScreen() {
         LinearLayout card = column();
         card.setPadding(dp(15), dp(14), dp(15), dp(14));
-        card.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
+        card.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
         TextView title = text("VOICE & ASSISTANT", 10, CYAN);
         title.setLetterSpacing(0.14f);
         card.addView(title);
@@ -980,7 +986,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout neural = column();
         neural.setPadding(dp(15), dp(13), dp(15), dp(13));
-        neural.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
+        neural.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
         TextView neuralTitle = text("LOCAL NEURAL CORE", 10, CYAN);
         neuralTitle.setLetterSpacing(0.13f);
         neural.addView(neuralTitle);
@@ -1007,7 +1013,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout cloud = column();
         cloud.setPadding(dp(15), dp(13), dp(15), dp(13));
-        cloud.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
+        cloud.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
         TextView cloudTitle = text("CLOUD MEMORY", 10, CYAN);
         cloudTitle.setLetterSpacing(0.13f);
         cloud.addView(cloudTitle);
@@ -1027,7 +1033,7 @@ public class MainActivity extends FragmentActivity {
         addGap(root, 12);
         LinearLayout privacy = column();
         privacy.setPadding(dp(15), dp(13), dp(15), dp(13));
-        privacy.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 8));
+        privacy.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
         TextView privacyTitle = text("PRIVACY & CONTROL", 10, GOLD);
         privacyTitle.setLetterSpacing(0.13f);
         privacy.addView(privacyTitle);
@@ -1226,6 +1232,7 @@ public class MainActivity extends FragmentActivity {
         orbStatus = text("READY WHEN YOU ARE", 9, Color.rgb(201, 165, 232));
         orbStatus.setGravity(Gravity.CENTER);
         orbStatus.setLetterSpacing(0.17f);
+        orbStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         LinearLayout.LayoutParams statusLp = new LinearLayout.LayoutParams(-1, -2);
         statusLp.topMargin = dp(10);
         voiceOrbPanel.addView(orbStatus, statusLp);
@@ -1236,6 +1243,7 @@ public class MainActivity extends FragmentActivity {
         controls.setGravity(Gravity.CENTER);
         TextView chat = text("⌨", 16, Color.rgb(224, 200, 245));
         chat.setGravity(Gravity.CENTER);
+        chat.setContentDescription("Open chat");
         chat.setBackground(shape(Color.rgb(31, 19, 46), Color.rgb(79, 53, 103), 20));
         LinearLayout.LayoutParams chatLp = new LinearLayout.LayoutParams(dp(50), dp(50));
         chatLp.rightMargin = dp(20);
@@ -1244,6 +1252,7 @@ public class MainActivity extends FragmentActivity {
 
         TextView listen = text("●", 17, WHITE);
         listen.setGravity(Gravity.CENTER);
+        listen.setContentDescription("Start or pause voice listening");
         listen.setBackground(shape(Color.rgb(125, 72, 169), Color.rgb(199, 145, 235), 25));
         listen.setElevation(dp(6));
         controls.addView(listen, new LinearLayout.LayoutParams(dp(62), dp(62)));
@@ -1251,6 +1260,7 @@ public class MainActivity extends FragmentActivity {
 
         TextView stop = text("×", 20, Color.rgb(224, 200, 245));
         stop.setGravity(Gravity.CENTER);
+        stop.setContentDescription("Stop voice listening");
         stop.setBackground(shape(Color.rgb(31, 19, 46), Color.rgb(79, 53, 103), 20));
         LinearLayout.LayoutParams stopLp = new LinearLayout.LayoutParams(dp(50), dp(50));
         stopLp.leftMargin = dp(20);
@@ -1294,7 +1304,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout bar = row();
         bar.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView mark = text("A", 19, WHITE);
+        TextView mark = text("R", 19, WHITE);
         mark.setGravity(Gravity.CENTER);
         mark.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
         mark.setBackground(shape(Color.rgb(89, 48, 126), Color.rgb(176, 119, 225), 16));
@@ -1401,6 +1411,7 @@ public class MainActivity extends FragmentActivity {
         readouts.setGravity(Gravity.CENTER_VERTICAL);
         statusView = text("SYSTEM STANDBY", 7, CYAN);
         statusView.setLetterSpacing(0.07f);
+        statusView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1.1f));
         clockView = text("--:--", 8, WHITE);
         clockView.setGravity(Gravity.CENTER);
@@ -1435,8 +1446,10 @@ public class MainActivity extends FragmentActivity {
 
         TextView clear = text("CLEAR", 8, Color.rgb(225, 190, 255));
         clear.setGravity(Gravity.CENTER);
-        clear.setPadding(dp(11), dp(7), dp(11), dp(7));
+        clear.setPadding(dp(13), dp(10), dp(13), dp(10));
         clear.setBackground(shape(Color.rgb(38, 24, 54), Color.rgb(93, 63, 123), 12));
+        clear.setMinHeight(dp(40));
+        clear.setContentDescription("Clear conversation");
         clear.setOnClickListener(v -> clearConversation());
         header.addView(clear);
         card.addView(header);
@@ -1497,14 +1510,18 @@ public class MainActivity extends FragmentActivity {
         composer.addView(prompt, new LinearLayout.LayoutParams(0, dp(48), 1));
 
         micButton = smallControl("●", () -> toggleContinuousListening());
+        micButton.setContentDescription("Start or pause microphone listening");
         micButton.setTextColor(Color.rgb(223, 190, 255));
         composer.addView(micButton);
         voiceButton = smallControl("◖", () -> toggleVoice());
-        voiceButton.setTextColor(CYAN);
+        voiceButton.setContentDescription("Toggle spoken replies");
+        voiceButton.setTextColor(ACCENT);
         composer.addView(voiceButton);
         languageButton = smallControl(languageLabel(), () -> toggleLanguage());
+        languageButton.setContentDescription("Change assistant language");
         composer.addView(languageButton);
         sendButton = smallControl("➤", () -> sendFromInput());
+        sendButton.setContentDescription("Send message");
         sendButton.setTextColor(WHITE);
         sendButton.setBackground(shape(Color.rgb(111, 62, 153), Color.rgb(169, 112, 218), 14));
         composer.addView(sendButton);
@@ -1517,7 +1534,7 @@ public class MainActivity extends FragmentActivity {
         control.setBackground(shape(Color.rgb(40, 25, 57), Color.rgb(102, 68, 135), 14));
         control.setClickable(true);
         control.setFocusable(true);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(42), dp(42));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(44), dp(44));
         lp.leftMargin = dp(5);
         control.setLayoutParams(lp);
         control.setOnClickListener(v -> click.run());
@@ -1556,7 +1573,7 @@ public class MainActivity extends FragmentActivity {
         bubble.setPadding(dp(10), dp(7), dp(10), dp(7));
         bubble.setBackground(shape(
                 userMessage ? Color.rgb(52, 31, 74) : Color.rgb(23, 15, 34),
-                userMessage ? Color.rgb(111, 72, 145) : Color.rgb(70, 48, 91), 5));
+                userMessage ? Color.rgb(111, 72, 145) : Color.rgb(70, 48, 91), 16));
         TextView label = text(userMessage ? "RAUSHAN" : "A.R.T.I.E.",
                 7, userMessage ? GOLD : CYAN);
         label.setLetterSpacing(0.14f);
@@ -3624,7 +3641,7 @@ public class MainActivity extends FragmentActivity {
 
     private void toggleVoice() {
         spokenReplies = !spokenReplies;
-        if (voiceButton != null) { voiceButton.setText(spokenReplies ? "◖" : "◗"); voiceButton.setTextColor(spokenReplies ? CYAN : MUTED); }
+        if (voiceButton != null) { voiceButton.setText(spokenReplies ? "◖" : "◗"); voiceButton.setTextColor(spokenReplies ? ACCENT : MUTED); }
         if (spokenReplies) reply(languageMode == 2
                 ? "आवाज़ से जवाब चालू हैं।"
                 : "Spoken replies enabled.");
@@ -3651,7 +3668,7 @@ public class MainActivity extends FragmentActivity {
                 listening = true;
                 // Voice input stays in the chat; the Orb is opened only by tapping the Reactor.
                 setStatus("LISTENING");
-                if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
+                if (micButton != null) { micButton.setText("●"); micButton.setTextColor(ACCENT_SOFT); }
             }
             @Override public void onBeginningOfSpeech() { setStatus("LISTENING"); }
             @Override public void onRmsChanged(float rmsdB) { }
@@ -4395,7 +4412,7 @@ public class MainActivity extends FragmentActivity {
             paint.setTextSize(radius * .60f);
             paint.setColor(Color.argb(210, 255, 248, 255));
             paint.setShadowLayer(dpStatic(getContext(), 12), 0, 0, Color.argb(170, 169, 105, 226));
-            canvas.drawText("A", cx, cy + radius * .22f, paint);
+            canvas.drawText("R", cx, cy + radius * .22f, paint);
             paint.clearShadowLayer();
 
             for (int i = 0; i < 3; i++) {
@@ -4536,7 +4553,7 @@ public class MainActivity extends FragmentActivity {
             float pulse = (float) (1.0 + 0.018 * Math.sin(
                     (System.currentTimeMillis() - started) / 430.0));
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(10, 10, 28));
+            p.setColor(Color.rgb(20, 12, 31));
             p.setShadowLayer(18, 0, 0, Color.argb(100, 44, 190, 236));
             canvas.drawCircle(110, 110, 101, p);
             p.clearShadowLayer();
@@ -4568,7 +4585,7 @@ public class MainActivity extends FragmentActivity {
             outer.lineTo(92, 54); outer.close();
 
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(94, 27, 37));
+            p.setColor(Color.rgb(58, 26, 78));
             p.setShadowLayer(11, 0, 0, Color.argb(105, 38, 178, 228));
             canvas.drawPath(outer, p);
             p.clearShadowLayer();
@@ -4584,17 +4601,17 @@ public class MainActivity extends FragmentActivity {
             inner.lineTo(77, 106); inner.lineTo(67, 82); inner.lineTo(87, 86);
             inner.close();
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.rgb(13, 29, 42));
+            p.setColor(Color.rgb(37, 20, 55));
             canvas.drawPath(inner, p);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(2.5f);
-            p.setColor(Color.rgb(232, 184, 104));
+            p.setColor(Color.rgb(224, 174, 255));
             canvas.drawPath(inner, p);
 
             p.setStyle(Paint.Style.FILL);
             p.setColor(Color.argb(45, 170, 159, 255));
             canvas.drawCircle(110, 108, 42 * pulse, p);
-            p.setColor(Color.rgb(5, 20, 32));
+            p.setColor(Color.rgb(24, 14, 35));
             canvas.drawCircle(110, 108, 29, p);
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(3);
@@ -4610,11 +4627,11 @@ public class MainActivity extends FragmentActivity {
             p.setStyle(Paint.Style.FILL);
             p.setColor(GOLD_STATIC);
             p.setShadowLayer(7, 0, 0, Color.argb(165, 30, 182, 236));
-            canvas.drawText("A", 110, 142, p);
+            canvas.drawText("R", 110, 142, p);
             p.clearShadowLayer();
             p.setTextSize(90);
-            p.setColor(Color.rgb(255, 222, 155));
-            canvas.drawText("A", 109, 141, p);
+            p.setColor(Color.rgb(248, 228, 255));
+            canvas.drawText("R", 109, 141, p);
 
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeWidth(2);
