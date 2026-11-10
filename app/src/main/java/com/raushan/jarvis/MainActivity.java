@@ -156,6 +156,7 @@ public class MainActivity extends FragmentActivity {
     private ArtieCoreView artieCoreView;
     private FrameLayout appFrame;
     private LinearLayout voiceOrbPanel;
+    private LinearLayout welcomePanel;
     private VoiceOrbView voiceOrbView;
     private TextView orbStatus;
     private SignatureView signatureView;
@@ -395,6 +396,20 @@ public class MainActivity extends FragmentActivity {
         ownerAuthenticated = true;
         lockPromptStarted = false;
         if (appFrame != null) appFrame.setVisibility(View.VISIBLE);
+
+        SharedPreferences preferences = getSharedPreferences("jarvis_settings", MODE_PRIVATE);
+        boolean hasPendingDestination = assistantLaunchPending || pendingInboxOpen || pendingSharedUrl != null;
+        boolean shouldShowWelcome = !preferences.getBoolean("welcome_v127_seen", false)
+                && !hasPendingDestination;
+        if (shouldShowWelcome) {
+            showWelcomePanel();
+            return;
+        }
+        completeOwnerUnlock();
+    }
+
+    private void completeOwnerUnlock() {
+        hideWelcomePanel();
         setStatus("OWNER VERIFIED");
         welcomePending = false;
         if (spokenReplies) speak(welcomeGreeting());
@@ -700,6 +715,126 @@ public class MainActivity extends FragmentActivity {
 
         root = pageRoot;
         selectSection("HOME");
+        buildWelcomePanel();
+    }
+
+    private void buildWelcomePanel() {
+        welcomePanel = column();
+        welcomePanel.setGravity(Gravity.CENTER);
+        welcomePanel.setPadding(dp(28), dp(28), dp(28), dp(30));
+        GradientDrawable backdrop = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{Color.rgb(31, 16, 47), Color.rgb(9, 6, 17), Color.rgb(24, 11, 38)});
+        backdrop.setCornerRadius(0f);
+        welcomePanel.setBackground(backdrop);
+        welcomePanel.setVisibility(View.GONE);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        LinearLayout content = column();
+        content.setGravity(Gravity.CENTER);
+        content.setPadding(dp(4), dp(20), dp(4), dp(20));
+        scroll.addView(content, new ScrollView.LayoutParams(-1, -1));
+        welcomePanel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        TextView monogram = text("R", 24, WHITE);
+        monogram.setGravity(Gravity.CENTER);
+        monogram.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        monogram.setBackground(shape(Color.rgb(91, 48, 129), Color.rgb(183, 125, 229), 28));
+        monogram.setElevation(dp(8));
+        content.addView(monogram, new LinearLayout.LayoutParams(dp(66), dp(66)));
+
+        TextView brand = text("A.R.T.I.E.", 11, ACCENT);
+        brand.setGravity(Gravity.CENTER);
+        brand.setLetterSpacing(.24f);
+        LinearLayout.LayoutParams brandLp = new LinearLayout.LayoutParams(-1, -2);
+        brandLp.topMargin = dp(17);
+        content.addView(brand, brandLp);
+
+        TextView title = text("Welcome to A.R.T.I.E.", 27, WHITE);
+        title.setGravity(Gravity.CENTER);
+        title.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+        title.setLetterSpacing(-.025f);
+        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(-1, -2);
+        titleLp.topMargin = dp(9);
+        content.addView(title, titleLp);
+
+        TextView subtitle = text("Your intelligent companion for everyday thinking.", 13, Color.rgb(197, 179, 215));
+        subtitle.setGravity(Gravity.CENTER);
+        subtitle.setLineSpacing(dp(4), 1f);
+        LinearLayout.LayoutParams subtitleLp = new LinearLayout.LayoutParams(-1, -2);
+        subtitleLp.topMargin = dp(9);
+        content.addView(subtitle, subtitleLp);
+
+        ArtieCoreView welcomeCore = new ArtieCoreView(this);
+        LinearLayout.LayoutParams coreLp = new LinearLayout.LayoutParams(dp(190), dp(190));
+        coreLp.gravity = Gravity.CENTER;
+        coreLp.topMargin = dp(10);
+        coreLp.bottomMargin = dp(6);
+        content.addView(welcomeCore, coreLp);
+
+        TextView description = text(
+                "Think, write, explore and solve problems with a companion built around your own workflow.",
+                11, MUTED);
+        description.setGravity(Gravity.CENTER);
+        description.setLineSpacing(dp(4), 1f);
+        description.setMaxWidth(dp(330));
+        LinearLayout.LayoutParams descriptionLp = new LinearLayout.LayoutParams(-1, -2);
+        descriptionLp.topMargin = dp(3);
+        content.addView(description, descriptionLp);
+
+        TextView featureLine = text("CHAT   ·   VOICE   ·   MEMORY   ·   DEVICE TOOLS", 8, Color.rgb(205, 170, 232));
+        featureLine.setGravity(Gravity.CENTER);
+        featureLine.setLetterSpacing(.075f);
+        LinearLayout.LayoutParams featureLp = new LinearLayout.LayoutParams(-1, -2);
+        featureLp.topMargin = dp(18);
+        content.addView(featureLine, featureLp);
+
+        TextView privacy = text("YOUR DEVICE. YOUR CONTROL.", 7, MUTED);
+        privacy.setGravity(Gravity.CENTER);
+        privacy.setLetterSpacing(.16f);
+        LinearLayout.LayoutParams privacyLp = new LinearLayout.LayoutParams(-1, -2);
+        privacyLp.topMargin = dp(12);
+        content.addView(privacy, privacyLp);
+
+        TextView start = text("GET STARTED     ››", 11, WHITE);
+        start.setGravity(Gravity.CENTER);
+        start.setLetterSpacing(.10f);
+        start.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        start.setPadding(dp(18), dp(16), dp(18), dp(16));
+        GradientDrawable cta = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{Color.rgb(104, 55, 147), Color.rgb(151, 83, 192)});
+        cta.setCornerRadius(dp(18));
+        cta.setStroke(dp(1), Color.rgb(190, 135, 231));
+        start.setBackground(cta);
+        start.setElevation(dp(5));
+        start.setClickable(true);
+        start.setFocusable(true);
+        start.setContentDescription("Get started with A.R.T.I.E.");
+        LinearLayout.LayoutParams startLp = new LinearLayout.LayoutParams(-1, -2);
+        startLp.topMargin = dp(22);
+        content.addView(start, startLp);
+        start.setOnClickListener(v -> {
+            getSharedPreferences("jarvis_settings", MODE_PRIVATE).edit()
+                    .putBoolean("welcome_v127_seen", true).apply();
+            v.animate().scaleX(.985f).scaleY(.985f).setDuration(80).withEndAction(() -> {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(110).start();
+                completeOwnerUnlock();
+            }).start();
+        });
+
+        FrameLayout.LayoutParams overlayLp = new FrameLayout.LayoutParams(-1, -1);
+        appFrame.addView(welcomePanel, overlayLp);
+    }
+
+    private void showWelcomePanel() {
+        if (welcomePanel != null) welcomePanel.setVisibility(View.VISIBLE);
+    }
+
+    private void hideWelcomePanel() {
+        if (welcomePanel != null) welcomePanel.setVisibility(View.GONE);
     }
 
     private void buildNavigation() {
