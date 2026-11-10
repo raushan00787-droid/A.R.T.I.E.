@@ -22,9 +22,9 @@ jobs:
       - name: Rename APK for A.R.T.I.E.
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/ARTIE-v1.26.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/ARTIE-v1.27.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: ARTIE-v1.26-apk
-          path: dist/ARTIE-v1.26.apk
+          name: ARTIE-v1.27-apk
+          path: dist/ARTIE-v1.27.apk
           if-no-files-found: error
