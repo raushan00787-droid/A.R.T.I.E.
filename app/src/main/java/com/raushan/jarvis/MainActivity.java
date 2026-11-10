@@ -603,7 +603,7 @@ public class MainActivity extends FragmentActivity {
 
     private void addLine(LinearLayout parent) {
         View line = new View(this);
-        line.setBackgroundColor(Color.rgb(33, 67, 83));
+        line.setBackgroundColor(Color.rgb(67, 44, 89));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(1));
         lp.topMargin = dp(12);
@@ -612,7 +612,7 @@ public class MainActivity extends FragmentActivity {
     }
 
     private TextView chip(String label, Runnable action) {
-        TextView view = text(label, 10, Color.rgb(169, 200, 214));
+        TextView view = text(label, 10, Color.rgb(220, 202, 239));
         view.setGravity(Gravity.CENTER);
         view.setPadding(dp(12), dp(10), dp(12), dp(10));
         view.setBackground(shape(Color.rgb(34, 21, 49), Color.rgb(90, 61, 119), 3));
@@ -653,7 +653,7 @@ public class MainActivity extends FragmentActivity {
         voiceOrbPanel = column();
         voiceOrbPanel.setGravity(Gravity.CENTER);
         voiceOrbPanel.setPadding(dp(20), dp(28), dp(20), dp(24));
-        voiceOrbPanel.setBackgroundColor(Color.rgb(2, 8, 17));
+        voiceOrbPanel.setBackgroundColor(Color.rgb(8, 6, 16));
         voiceOrbPanel.setVisibility(View.GONE);
         appFrame.addView(voiceOrbPanel, new FrameLayout.LayoutParams(-1, -1));
         setContentView(appFrame);
@@ -910,7 +910,7 @@ public class MainActivity extends FragmentActivity {
 
         LinearLayout card = column();
         card.setPadding(dp(13), dp(12), dp(13), dp(11));
-        card.setBackground(shape(Color.rgb(8, 21, 33), read ? Color.rgb(34, 70, 87) : Color.rgb(48, 126, 150), 7));
+        card.setBackground(shape(Color.rgb(19, 13, 30), read ? Color.rgb(62, 45, 78) : Color.rgb(105, 72, 134), 15));
         LinearLayout top = row();
         TextView kind = text(type, 8, "REMINDER".equals(type) ? GOLD : CYAN);
         kind.setLetterSpacing(0.12f);
@@ -922,7 +922,7 @@ public class MainActivity extends FragmentActivity {
         titleView.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         titleView.setPadding(0, dp(7), 0, dp(3));
         card.addView(titleView);
-        TextView body = text(message, 12, Color.rgb(184, 211, 224));
+        TextView body = text(message, 12, Color.rgb(229, 216, 243));
         body.setLineSpacing(dp(2), 1f);
         card.addView(body);
         TextView state = text(status.toUpperCase(Locale.ROOT), 8, MUTED);
@@ -1512,9 +1512,9 @@ public class MainActivity extends FragmentActivity {
     }
 
     private TextView smallControl(String label, Runnable click) {
-        TextView control = text(label, 13, Color.rgb(145, 190, 207));
+        TextView control = text(label, 13, Color.rgb(220, 202, 239));
         control.setGravity(Gravity.CENTER);
-        control.setBackground(shape(Color.rgb(40, 25, 57), Color.rgb(102, 68, 135), 3));
+        control.setBackground(shape(Color.rgb(40, 25, 57), Color.rgb(102, 68, 135), 14));
         control.setClickable(true);
         control.setFocusable(true);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(42), dp(42));
@@ -1555,15 +1555,15 @@ public class MainActivity extends FragmentActivity {
         LinearLayout bubble = column();
         bubble.setPadding(dp(10), dp(7), dp(10), dp(7));
         bubble.setBackground(shape(
-                userMessage ? Color.rgb(13, 39, 54) : Color.rgb(10, 24, 36),
-                userMessage ? Color.rgb(44, 111, 137) : Color.rgb(35, 75, 93), 5));
+                userMessage ? Color.rgb(52, 31, 74) : Color.rgb(23, 15, 34),
+                userMessage ? Color.rgb(111, 72, 145) : Color.rgb(70, 48, 91), 5));
         TextView label = text(userMessage ? "RAUSHAN" : "A.R.T.I.E.",
                 7, userMessage ? GOLD : CYAN);
         label.setLetterSpacing(0.14f);
         bubble.addView(label);
 
         TextView content = text(message, 13,
-                error ? Color.rgb(242, 150, 150) : Color.rgb(195, 222, 233));
+                error ? Color.rgb(242, 150, 150) : Color.rgb(236, 226, 247));
         content.setTextSize(14);
         content.setMaxWidth(dp(560));
         content.setPadding(0, dp(4), 0, 0);
@@ -4484,7 +4484,7 @@ public class MainActivity extends FragmentActivity {
             paint.setStrokeWidth(dpStatic(getContext(), 2f));
             paint.setColor(Color.rgb(60, 39, 78));
             canvas.drawLine(left, y, right, y, paint);
-            paint.setColor(Color.argb(225, 94, 214, 240));
+            paint.setColor(Color.argb(225, 183, 119, 229));
             if (stage > 0) canvas.drawLine(left, y, left + span * Math.min(3, stage - 1), y, paint);
 
             float t = (System.currentTimeMillis() - started) / 1000f;
