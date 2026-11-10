@@ -805,7 +805,7 @@ public class MainActivity extends FragmentActivity {
         engine.setPadding(dp(16), dp(14), dp(16), dp(13));
         engine.setBackground(shape(Color.rgb(16, 11, 25), Color.rgb(67, 46, 89), 22));
         LinearLayout engineHeader = row();
-        TextView engineTitle = text("AUTONOMY ENGINE", 10, CYAN);
+        TextView engineTitle = text("AUTONOMY ENGINE", 10, ACCENT);
         engineTitle.setLetterSpacing(.14f);
         engineHeader.addView(engineTitle, new LinearLayout.LayoutParams(0, -2, 1));
         TextView ready = text("●  READY", 8, Color.rgb(190, 224, 190));
@@ -963,13 +963,13 @@ public class MainActivity extends FragmentActivity {
         LinearLayout card = column();
         card.setPadding(dp(15), dp(14), dp(15), dp(14));
         card.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
-        TextView title = text("VOICE & ASSISTANT", 10, CYAN);
+        TextView title = text("VOICE & ASSISTANT", 10, ACCENT);
         title.setLetterSpacing(0.14f);
         card.addView(title);
         TextView description = text("A.R.T.I.E. uses the selected Termux voice routing: Cori through Piper for English (offline), and Roopa through Sarvam for Hindi (internet required). Android's generic system voice is not used for replies.", 11, MUTED);
         description.setPadding(0, dp(7), 0, dp(12));
         card.addView(description);
-        TextView voiceMap = text("ENGLISH  ·  PIPER / CORI  ·  OFFLINE\nHINDI  ·  SARVAM / ROOPA  ·  INTERNET", 10, GOLD);
+        TextView voiceMap = text("ENGLISH  ·  PIPER / CORI  ·  OFFLINE\nHINDI  ·  SARVAM / ROOPA  ·  INTERNET", 10, ACCENT_SOFT);
         voiceMap.setLineSpacing(dp(3), 1f);
         voiceMap.setPadding(0, 0, 0, dp(3));
         card.addView(voiceMap);
@@ -987,7 +987,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout neural = column();
         neural.setPadding(dp(15), dp(13), dp(15), dp(13));
         neural.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
-        TextView neuralTitle = text("LOCAL NEURAL CORE", 10, CYAN);
+        TextView neuralTitle = text("LOCAL NEURAL CORE", 10, ACCENT);
         neuralTitle.setLetterSpacing(0.13f);
         neural.addView(neuralTitle);
         TextView neuralDescription = text(
@@ -999,7 +999,7 @@ public class MainActivity extends FragmentActivity {
                 NeuralCoreClient.hasSavedToken(this)
                         ? "PAIRING SAVED • START THE TERMUX BRIDGE TO CONNECT"
                         : "NOT PAIRED • START THE TERMUX BRIDGE FIRST",
-                10, GOLD);
+                10, ACCENT_SOFT);
         neural.addView(neuralCoreStatusView);
         addGap(neural, 9);
         LinearLayout neuralActions = row();
@@ -1014,7 +1014,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout cloud = column();
         cloud.setPadding(dp(15), dp(13), dp(15), dp(13));
         cloud.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
-        TextView cloudTitle = text("CLOUD MEMORY", 10, CYAN);
+        TextView cloudTitle = text("CLOUD MEMORY", 10, ACCENT);
         cloudTitle.setLetterSpacing(0.13f);
         cloud.addView(cloudTitle);
         TextView cloudDescription = text(
@@ -1026,7 +1026,7 @@ public class MainActivity extends FragmentActivity {
                 NeuralCoreClient.hasSavedToken(this)
                         ? "AUTOMATIC SYNC ENABLED • RETRIES WHEN ONLINE"
                         : "LOCAL MEMORY IS SAFE • PAIR NEURAL CORE ONCE FOR CLOUD BACKUP",
-                10, GOLD);
+                10, ACCENT_SOFT);
         cloud.addView(cloudMemoryStatusView);
         root.addView(cloud, new LinearLayout.LayoutParams(-1, -2));
 
@@ -1034,7 +1034,7 @@ public class MainActivity extends FragmentActivity {
         LinearLayout privacy = column();
         privacy.setPadding(dp(15), dp(13), dp(15), dp(13));
         privacy.setBackground(shape(Color.rgb(19, 13, 30), Color.rgb(75, 51, 99), 18));
-        TextView privacyTitle = text("PRIVACY & CONTROL", 10, GOLD);
+        TextView privacyTitle = text("PRIVACY & CONTROL", 10, ACCENT_SOFT);
         privacyTitle.setLetterSpacing(0.13f);
         privacy.addView(privacyTitle);
         TextView privacyText = text("SMS and WhatsApp open drafts for your review. Reminders and A.R.T.I.E. alerts are stored locally on this device. Protected Android permissions and other apps' private data remain under your control.", 11, MUTED);
@@ -1409,7 +1409,7 @@ public class MainActivity extends FragmentActivity {
 
         LinearLayout readouts = row();
         readouts.setGravity(Gravity.CENTER_VERTICAL);
-        statusView = text("SYSTEM STANDBY", 7, CYAN);
+        statusView = text("SYSTEM STANDBY", 7, ACCENT);
         statusView.setLetterSpacing(0.07f);
         statusView.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         readouts.addView(statusView, new LinearLayout.LayoutParams(0, -2, 1.1f));
@@ -1436,7 +1436,7 @@ public class MainActivity extends FragmentActivity {
 
         LinearLayout header = row();
         LinearLayout titleStack = column();
-        TextView title = text("YOUR CONVERSATION", 10, CYAN);
+        TextView title = text("YOUR CONVERSATION", 10, ACCENT);
         title.setLetterSpacing(0.12f);
         titleStack.addView(title);
         TextView subtitle = text("A private space to think out loud.", 9, MUTED);
@@ -1575,7 +1575,7 @@ public class MainActivity extends FragmentActivity {
                 userMessage ? Color.rgb(52, 31, 74) : Color.rgb(23, 15, 34),
                 userMessage ? Color.rgb(111, 72, 145) : Color.rgb(70, 48, 91), 16));
         TextView label = text(userMessage ? "RAUSHAN" : "A.R.T.I.E.",
-                7, userMessage ? GOLD : CYAN);
+                7, userMessage ? ACCENT_SOFT : ACCENT);
         label.setLetterSpacing(0.14f);
         bubble.addView(label);
 
@@ -3455,7 +3455,7 @@ public class MainActivity extends FragmentActivity {
                 : hindiVoice.getName();
         spokenReplies = true;
         updateVoiceSelectButton();
-        if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(CYAN); }
+        if (voiceButton != null) { voiceButton.setText("◖"); voiceButton.setTextColor(ACCENT); }
     }
 
     private String voiceDisplayName() {
@@ -3676,7 +3676,7 @@ public class MainActivity extends FragmentActivity {
             @Override public void onEndOfSpeech() { setStatus("PROCESSING VOICE"); }
             @Override public void onError(int error) {
                 listening = false;
-                if (micButton != null) { micButton.setText("●"); micButton.setTextColor(continuousListeningEnabled ? GOLD : MUTED); }
+                if (micButton != null) { micButton.setText("●"); micButton.setTextColor(continuousListeningEnabled ? ACCENT_SOFT : MUTED); }
                 if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
                     continuousListeningEnabled = false;
                     setStatus("MICROPHONE PERMISSION REQUIRED");
@@ -3770,7 +3770,7 @@ public class MainActivity extends FragmentActivity {
         Intent service = new Intent(this, JarvisLiveService.class).setAction(JarvisLiveService.ACTION_START);
         try {
             if (Build.VERSION.SDK_INT >= 26) startForegroundService(service); else startService(service);
-            if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
+            if (micButton != null) { micButton.setText("●"); micButton.setTextColor(ACCENT_SOFT); }
             setStatus("A.R.T.I.E. LIVE  •  SAY HEY ARTIE");
         } catch (Exception error) {
             liveModeEnabled = false;
@@ -3844,7 +3844,7 @@ public class MainActivity extends FragmentActivity {
         assistantListeningSessionActive = true;
         continuousListeningEnabled = true;
         activityVisible = true;
-        if (micButton != null) { micButton.setText("●"); micButton.setTextColor(GOLD); }
+        if (micButton != null) { micButton.setText("●"); micButton.setTextColor(ACCENT_SOFT); }
         setStatus("ASSISTANT ACTIVE  •  LISTENING");
         scheduleListeningRestart(500);
         speak(listeningAcknowledgement());
